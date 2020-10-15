@@ -9,9 +9,12 @@
 -module(mqttserver_process).
 -author("stephb").
 
-%% API
--export([process/3]).
+-include("../include/mqtt_definitions.hrl").
+-include("../include/internal.hrl").
 
-process(_Data,_State,_ParentPid)->
+%% API
+-export([process/2]).
+
+process(_Data,_State)->
 	{ <<>>, {} }.
 

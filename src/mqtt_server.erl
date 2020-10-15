@@ -12,6 +12,7 @@
 -behaviour(gen_server).
 
 -include("../include/mqtt_definitions.hrl").
+-include("../include/internal.hrl").
 
 %% API
 -export([start_link/0,creation_info/0,increase_session/2,decrease_session/2]).
@@ -26,7 +27,6 @@
 -define(SERVER, ?MODULE).
 
 -record(mqtt_server_state, { server_port, num_servers, server_pids, main_listen_socket, session_count = maps:new() }).
--record(mqtt_processor_state, { listener_pid, parent_pid, peer_ip}).
 
 %%%===================================================================
 %%% API

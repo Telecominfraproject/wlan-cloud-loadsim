@@ -15,6 +15,9 @@
 
 -define(MQTT_PROTOCOL_VERSION,5).
 
+-define(MQTT_APP,mqttsim).
+-define(MQTT_DEFAULT_SERVER_PORT,1883).
+
 -define(MQTT_CONNECT,1).
 -define(MQTT_CONNACK,2).
 -define(MQTT_PUBLISH,3).

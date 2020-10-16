@@ -6,6 +6,7 @@
 
 start(_Type, _Args) ->
 	lager:start(),
+	application:ensure_all_started(ssl),
 	mqttsim_sup:start_link().
 
 stop(_State) ->
@@ -13,4 +14,5 @@ stop(_State) ->
 
 start() ->
 	lager:start(),
+	application:ensure_all_started(ssl),
 	application:ensure_all_started(mqttsim).

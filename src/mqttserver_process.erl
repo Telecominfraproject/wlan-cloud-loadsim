@@ -15,6 +15,7 @@
 %% API
 -export([process/2]).
 
-process(_Data,_State)->
-	{ <<>>, {} }.
+process(Data,State)->
+	io:format("Data >>> ~p~n",[Data]),
+	{ <<"Hello from MQTT">>, State }.
 

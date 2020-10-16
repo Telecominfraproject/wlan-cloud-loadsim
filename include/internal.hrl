@@ -9,4 +9,4 @@
 -author("stephb").
 
 
--record(mqtt_processor_state, { listener_pid, parent_pid, peer_ip, connection_state }).
+-record(mqtt_processor_state, { listener_pid, parent_pid, peer_ip, connection_state , secure}).

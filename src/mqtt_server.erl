@@ -66,13 +66,13 @@ init([]) ->
 	NumServers = application:get_env(?MQTT_APP,num_servers,10),
 	Secure = application:get_env(?MQTT_APP,secure,false),
 	CertFile = application:get_env(?MQTT_APP,certfile,""),
-	CaCert = application:get_env(?MQTT_APP,cacertfile,""),
+	_CaCert = application:get_env(?MQTT_APP,cacertfile,""),
 	KeyFile = application:get_env(?MQTT_APP,keyfile,""),
 	{ ok , ListenSocket } = case Secure of
 				false ->
 			gen_tcp:listen(ServerPort,[{active,false},{reuseaddr,true}]);
 			true ->
-				ssl:listen(ServerPort,[{active,false},{reuseaddr,true},{password,"mypassword"},{certfile,CertFile},{keyfile,KeyFile},{cacertfile,CaCert}])
+				ssl:listen(ServerPort,[{log_level,debug},{session_tickets,stateless},{versions,['tlsv1.2','tlsv1.3']},{active,false},{reuseaddr,true},{certfile,CertFile},{keyfile,KeyFile}])
 	                        end,
 	Pids = case Secure of
 					 false -> start_listeners(NumListeners,ListenSocket,self());
@@ -178,11 +178,20 @@ mqttserver_worker_secure(ListenSock,ParentPid)->
 	lager:info("Server ~p starting to listen.",[self()]),
 	case ssl:transport_accept(ListenSock) of
 		{ok,Socket} ->
-			mqtt_server:increase_session(ParentPid,ListenSock),
-			Pid = spawn(?MODULE,mqttserver_processor_secure_init,[Socket,#mqtt_processor_state{listener_pid = self(), parent_pid = ParentPid, peer_ip = ssl:peername(Socket)}]),
-			ssl:controlling_process(Socket,Pid),
+			?DBG,
+			case ssl:handshake(Socket) of 
+				{ ok, SslSocket } ->
+					mqtt_server:increase_session(ParentPid,ListenSock),
+					Pid = spawn(?MODULE,mqttserver_processor_secure_init,[SslSocket,#mqtt_processor_state{listener_pid = self(), parent_pid = ParentPid, peer_ip = ssl:peername(SslSocket)}]),
+					ssl:controlling_process(SslSocket,Pid);
+				Error ->
+					io:format("SSL Handshake failed: ~p~n",[Error]),
+				       ?DBG,	
+					lager:info("SSL handshake failed. ~p",[Error])
+			end,
 			mqttserver_worker_secure(ListenSock,ParentPid);
 		Error ->
+			io:format("Transport failed: ~p~n",[Error]),
 
 			lager:info("accept failed - server shutting down: ~p~n",[Error]),
 			ok
@@ -209,12 +218,15 @@ mqttserver_processor(Socket,State)->
 	end.
 
 mqttserver_processor_secure_init(Socket,State)->
+	?DBG,
 	ssl:setopts(Socket,[{active,true}]),
 	mqttserver_processor_secure(Socket,State).
 
 mqttserver_processor_secure(Socket,State)->
+	?DBG,
 	receive
 		{ssl,Socket,Data} ->
+			?DBG,
 			{ Answer,NewState} = mqttserver_process:process(Data,State), % Not implemented in this example
 			ssl:send(Socket,Answer),
 			mqttserver_processor_secure(Socket,NewState);

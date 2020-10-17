@@ -16,6 +16,6 @@
 -export([process/2]).
 
 process(Data,State)->
-	io:format("Data >>> ~p~n",[Data]),
+	io:format("Data (~p bytes)>>> ~p~n",[length(Data),Data]),
 	{ <<"Hello from MQTT">>, State }.
 

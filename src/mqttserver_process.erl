@@ -21,7 +21,7 @@ process(#mqtt_processor_state{ bytes_left = <<>> }=State) ->
 	{ ok , State };
 process(#mqtt_processor_state{ bytes_left = <<_Command:4,_Flags:4,1:1,V:15,Rest/binary>>}=State) ->
 ?DBG,
-	RemainingLength = mqttlib:dec_varint(<<1:1,V:15>>),
+	{ RemainingLength , <<>> } = mqttlib:dec_varint(<<1:1,V:15>>),
 	?DBG,
 	io:format("Bytes left=~p  Remaining=~p~n",[size(State#mqtt_processor_state.bytes_left),RemainingLength]),
 	case size(Rest) >= RemainingLength of

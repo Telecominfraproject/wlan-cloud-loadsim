@@ -319,7 +319,15 @@ encode( Header ) when is_record(Header,mqtt_connect_variable_header) ->
 
 %% complete
 encode( Header ) when is_record(Header,mqtt_connack_variable_header) ->
-	Blob = << 0:7, (Header#mqtt_connack_variable_header.connect_acknowledge_flag):1, (Header#mqtt_connack_variable_header.connect_reason_code):8,(set_properties_section(Header#mqtt_connack_variable_header.properties))/binary >>,
+	Blob = case Header#mqtt_connack_variable_header.properties == [] of
+					 true ->
+						 << 0:7, (Header#mqtt_connack_variable_header.connect_acknowledge_flag):1,
+							 (Header#mqtt_connack_variable_header.connect_reason_code):8>>;
+					 false ->
+						 << 0:7, (Header#mqtt_connack_variable_header.connect_acknowledge_flag):1,
+							 (Header#mqtt_connack_variable_header.connect_reason_code):8,
+							 (set_properties_section(Header#mqtt_connack_variable_header.properties))/binary >>
+	       end,
 	{?MQTT_CONNACK, 0, Blob};
 
 %% complete

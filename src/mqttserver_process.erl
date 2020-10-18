@@ -51,6 +51,14 @@ answer_msg( Msg, State ) when is_record(Msg,mqtt_connect_variable_header) ->
 	(State#mqtt_processor_state.module):send(State#mqtt_processor_state.socket,Blob),
 	{ok,State};
 
+answer_msg( Msg, State ) when is_record(Msg,mqtt_pingreq_variable_header) ->
+	VariableHeader = #mqtt_pingresp_variable_header{ time = erlang:timestamp() },
+	Response = #mqtt_msg{ packet_type = ?MQTT_PINGRESP , variable_header = VariableHeader },
+	Blob = message:encode(Response),
+	io:format("Sending PINGRESP response: ~p~n",[Blob]),
+	(State#mqtt_processor_state.module):send(State#mqtt_processor_state.socket,Blob),
+	{ok,State};
+
 answer_msg( Msg, State ) ->
 	io:format("MSG->~p~n",[Msg]),
 	{ ok, State }.

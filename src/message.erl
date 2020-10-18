@@ -28,8 +28,13 @@ get_properties_section(<<>>)->
 	{[],<<>>};
 get_properties_section(Data) ->
 	{ PropertiesLength , Rest } = mqttlib:dec_varint(Data),
-	<<PropertiesData:PropertiesLength/binary,Rest2/binary>> = Rest,
-	{ mqttlib:dec_properties( PropertiesData ), Rest2 }.
+	case PropertiesLength > 0 of
+		true->
+			<<PropertiesData:PropertiesLength/binary,Rest2/binary>> = Rest,
+			{ mqttlib:dec_properties( PropertiesData ), Rest2 };
+		false->
+			{[],<<>>}
+	end.
 
 set_properties_section(Properties)->
 	mqttlib:enc_properties(Properties).

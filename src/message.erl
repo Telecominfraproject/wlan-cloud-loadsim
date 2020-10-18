@@ -24,6 +24,8 @@ decode(<<PacketType:4,Flags:4,Rest/binary>>)->
 			{ error , malformed_packet }
 	end.
 
+get_properties_section(<<>>)->
+	{[],<<>>};
 get_properties_section(Data) ->
 	{ PropertiesLength , Rest } = mqttlib:dec_varint(Data),
 	<<PropertiesData:PropertiesLength/binary,Rest2/binary>> = Rest,

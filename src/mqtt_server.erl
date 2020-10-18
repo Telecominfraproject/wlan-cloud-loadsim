@@ -183,7 +183,8 @@ mqttserver_worker(ListenSock,ParentPid)->
 				secure = false,
 				bytes_left = <<>>,
 				module = gen_tcp,
-				socket = Socket
+				socket = Socket,
+				version = undefined
 			}]),
 			gen_tcp:controlling_process(Socket,Pid),
 			mqttserver_worker(ListenSock,ParentPid);
@@ -205,7 +206,8 @@ mqttserver_worker_secure(ListenSock,ParentPid)->
 						secure = true,
 						bytes_left = <<>>,
 						module = ssl,
-						socket = SslSocket
+						socket = SslSocket,
+						version = undefined
 						}]),
 					ssl:controlling_process(SslSocket,Pid);
 				Error ->

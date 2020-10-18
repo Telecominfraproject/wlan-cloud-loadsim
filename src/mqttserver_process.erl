@@ -87,6 +87,10 @@ answer_msg( Msg, State ) when is_record(Msg,mqtt_pingreq_variable_header_v5) ->
 	io:format("Sending PINGRESP response(~p): ~p~n",[Result,Blob]),
 	{ok,State};
 
+answer_msg(Msg,State) when is_record(Msg,mqtt_publish_variable_header_v4) ->
+	io:format("PUBLISH: ~p~n",[binary_to_list(Msg#mqtt_publish_variable_header_v4.payload)]),
+	{ok,State};
+
 answer_msg( Msg, State ) ->
 	io:format("MSG->~p~n",[Msg]),
 	{ ok, State }.

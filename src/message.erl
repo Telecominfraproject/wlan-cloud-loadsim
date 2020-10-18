@@ -147,6 +147,7 @@ decode_packet(#mqtt_msg{ packet_type = ?MQTT_PUBLISH }=Msg,Data)->
 																	false -> <<V:16,C1/binary>>=Rest2,
 																		{ V, C1 }
 	                              end,
+	io:format("TopicName=~p~nPI=~p~nR3=~p~n",[TopicName,PacketIdentifier,Rest3]),
 	{ Properties , Payload } = get_properties_section( Rest3 ),
 
 	VariableHeader = #mqtt_publish_variable_header{

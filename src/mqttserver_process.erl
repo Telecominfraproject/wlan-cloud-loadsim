@@ -21,7 +21,7 @@ process(#mqtt_processor_state{ bytes_left = <<_Command:4,_Flags:4,1:1,V:15,Rest/
 	RemainingLength = mqttlib:dec_varint(<<1:1,V:15>>),
 	case size(Rest) >= RemainingLength of
 		true ->
-			<< CurrentPacket:RemainingLength/binary, LeftData/binary >> = State#mqtt_processor_state.bytes_left,
+			<< CurrentPacket:(RemainingLength+3)/binary, LeftData/binary >> = State#mqtt_processor_state.bytes_left,
 			{ ok, Msg } = message:decode( CurrentPacket ),
 			{ ok , NewState } = answer_msg(Msg,State#mqtt_processor_state{bytes_left = LeftData}),
 			process(NewState);
@@ -31,7 +31,7 @@ process(#mqtt_processor_state{ bytes_left = <<_Command:4,_Flags:4,1:1,V:15,Rest/
 process(#mqtt_processor_state{ bytes_left = <<_Command:4,_Flags:4,RemainingLength:8,Rest/binary>>}=State) ->
 	case size(Rest) >= RemainingLength of
 		true ->
-			<< CurrentPacket:RemainingLength/binary, LeftData/binary >> = State#mqtt_processor_state.bytes_left,
+			<< CurrentPacket:(RemainingLength+2)/binary, LeftData/binary >> = State#mqtt_processor_state.bytes_left,
 			{ ok, Msg } = message:decode( CurrentPacket ),
 			{ ok , NewState } = answer_msg(Msg,State#mqtt_processor_state{bytes_left = LeftData}),
 			process(NewState);

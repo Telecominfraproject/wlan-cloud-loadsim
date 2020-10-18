@@ -174,95 +174,191 @@
 											
 	}).
 
--record( mqtt_connack_variable_header, {
-																					connect_acknowledge_flag = 0 :: integer(),
-																					connect_reason_code = 0 :: integer(),
-																					properties = [] :: list() }).
+-record( mqtt_connack_variable_header_v4, { connect_acknowledge_flag = 0 :: integer(),
+																					connect_reason_code = 0 :: integer()} ).
+-record( mqtt_connack_variable_header_v5, {
+	connect_acknowledge_flag = 0 :: integer(),
+	connect_reason_code = 0 :: integer(),
+	properties = [] :: list() }).
 
--record( mqtt_publish_variable_header, {
+-record( mqtt_publish_variable_header_v4, {
 																					dup_flag = 0 :: integer(),
 																					qos_level_flag = 0 :: integer(),
 																					retain_flag = 0 :: integer(),
 																					topic_name = "" :: string(),
 																					packet_identifier = 0 :: integer(),
-																					properties = [] :: list(),
 																					payload = <<>> :: binary()}).
--record( mqtt_puback_variable_header, {
+
+-record( mqtt_publish_variable_header_v5, {
+	dup_flag = 0 :: integer(),
+	qos_level_flag = 0 :: integer(),
+	retain_flag = 0 :: integer(),
+	topic_name = "" :: string(),
+	packet_identifier = 0 :: integer(),
+	properties = [] :: list(),
+	payload = <<>> :: binary()}).
+
+-record( mqtt_puback_variable_header_v4, {
+	packet_identifier = 0 :: integer(),
+	reason_code =0 :: integer()
+}).
+
+-record( mqtt_puback_variable_header_v5, {
 	packet_identifier = 0 :: integer(),
 	reason_code =0 :: integer(),
 	properties = [] :: list()
 }).
 
--record( mqtt_pubrec_variable_header, {
+-record( mqtt_pubrec_variable_header_v4, {
+	packet_identifier = 0 :: integer(),
+	reason_code= 0 :: integer()
+}).
+
+-record( mqtt_pubrec_variable_header_v5, {
 	packet_identifier = 0 :: integer(),
 	reason_code= 0 :: integer(),
 	properties = [] :: list()
 }).
 
--record( mqtt_pubrel_variable_header, {
+-record( mqtt_pubrel_variable_header_v4, {
+	packet_identifier = 0 :: integer(),
+	reason_code= 0 :: integer()
+}).
+
+-record( mqtt_pubrel_variable_header_v5, {
 	packet_identifier = 0 :: integer(),
 	reason_code= 0 :: integer(),
 	properties = [] :: list()
 }).
 
--record( mqtt_pubcomp_variable_header, {
+-record( mqtt_pubcomp_variable_header_v4, {
+	packet_identifier = 0 :: integer(),
+	reason_code= 0 :: integer()
+}).
+
+-record( mqtt_pubcomp_variable_header_v5, {
 	packet_identifier = 0 :: integer(),
 	reason_code= 0 :: integer(),
 	properties = [] :: list()
 }).
 
--record( mqtt_subscribe_variable_header, {
+-record( mqtt_subscribe_variable_header_v4, {
+	packet_identifier = 0 :: integer(),
+	reason_code= 0 :: integer(),
+	topic_filter_list = [] :: [ { string() , integer() }]
+}).
+
+-record( mqtt_subscribe_variable_header_v5, {
 	packet_identifier = 0 :: integer(),
 	reason_code= 0 :: integer(),
 	properties = [] :: list(),
 	topic_filter_list = [] :: [ { string() , integer() }]
 }).
 
--record( mqtt_suback_variable_header, {
+-record( mqtt_suback_variable_header_v4, {
+	packet_identifier = 0 :: integer(),
+	reason_codes = [] :: [ integer() ]
+}).
+
+-record( mqtt_suback_variable_header_v5, {
 	packet_identifier = 0 :: integer(),
 	properties = [] :: list(),
 	reason_codes = [] :: [ integer() ]
 }).
 
--record( mqtt_unsubscribe_variable_header, {
+-record( mqtt_unsubscribe_variable_header_v4, {
+	packet_identifier = 0 :: integer(),
+	topic_list = [] :: [ string() ]
+}).
+
+-record( mqtt_unsubscribe_variable_header_v5, {
 	packet_identifier = 0 :: integer(),
 	properties = [] :: list(),
 	topic_list = [] :: [ string() ]
 }).
 
--record( mqtt_unsuback_variable_header, {
+-record( mqtt_unsuback_variable_header_v4, {
+	packet_identifier = 0 :: integer()
+}).
+
+-record( mqtt_unsuback_variable_header_v5, {
 	packet_identifier = 0 :: integer(),
 	properties = [] :: list(),
 	reason_codes = [] :: [ integer() ]
 }).
 
--record( mqtt_pingreq_variable_header, { time }).
--record( mqtt_pingresp_variable_header, { time }).
+-record( mqtt_pingreq_variable_header_v4, { time }).
+-record( mqtt_pingreq_variable_header_v5, { time }).
 
--record( mqtt_disconnect_variable_header, { reason_code = 0 :: integer(), properties = [] :: list()}).
--record( mqtt_auth_variable_header, { reason_code = 0 :: integer(), properties = [] :: list()}).
+-record( mqtt_pingresp_variable_header_v4, { time }).
+-record( mqtt_pingresp_variable_header_v5, { time }).
+
+-record( mqtt_disconnect_variable_header_v4, { reason_code = 0 :: integer(), properties = [] :: list()}).
+-record( mqtt_disconnect_variable_header_v5, { reason_code = 0 :: integer(), properties = [] :: list()}).
+
+-record( mqtt_auth_variable_header_v4, { reason_code = 0 :: integer(), properties = [] :: list()}).
+-record( mqtt_auth_variable_header_v5, { reason_code = 0 :: integer(), properties = [] :: list()}).
 
 -type mqtt_msg() :: #mqtt_msg{}.
 -type mqtt_connect_variable_header() :: #mqtt_connect_variable_header{}.
--type mqtt_connack_variable_header() :: #mqtt_connack_variable_header{}.
--type mqtt_publish_variable_header() :: #mqtt_publish_variable_header{}.
--type mqtt_puback_variable_header() :: #mqtt_puback_variable_header{}.
--type mqtt_pubrec_variable_header() :: #mqtt_pubrec_variable_header{}.
--type mqtt_pubrel_variable_header() :: #mqtt_pubrel_variable_header{}.
--type mqtt_pubcomp_variable_header() :: #mqtt_pubcomp_variable_header{}.
--type mqtt_subscribe_variable_header() :: #mqtt_subscribe_variable_header{}.
--type mqtt_suback_variable_header() :: #mqtt_suback_variable_header{}.
--type mqtt_unsubscribe_variable_header() :: #mqtt_unsubscribe_variable_header{}.
--type mqtt_unsuback_variable_header() :: #mqtt_unsuback_variable_header{}.
--type mqtt_disconnect_variable_header() :: #mqtt_disconnect_variable_header{}.
--type mqtt_auth_variable_header() :: #mqtt_auth_variable_header{}.
--type mqtt_pingreq_variable_header() :: #mqtt_pingreq_variable_header{}.
--type mqtt_pingresp_variable_header() :: #mqtt_pingresp_variable_header{}.
+
+-type mqtt_connack_variable_header_v4() :: #mqtt_connack_variable_header_v4{}.
+-type mqtt_connack_variable_header_v5() :: #mqtt_connack_variable_header_v5{}.
+
+-type mqtt_publish_variable_header_v4() :: #mqtt_publish_variable_header_v4{}.
+-type mqtt_publish_variable_header_v5() :: #mqtt_publish_variable_header_v5{}.
+
+-type mqtt_puback_variable_header_v4() :: #mqtt_puback_variable_header_v4{}.
+-type mqtt_puback_variable_header_v5() :: #mqtt_puback_variable_header_v5{}.
+
+-type mqtt_pubrec_variable_header_v4() :: #mqtt_pubrec_variable_header_v4{}.
+-type mqtt_pubrec_variable_header_v5() :: #mqtt_pubrec_variable_header_v5{}.
+
+-type mqtt_pubrel_variable_header_v4() :: #mqtt_pubrel_variable_header_v4{}.
+-type mqtt_pubrel_variable_header_v5() :: #mqtt_pubrel_variable_header_v5{}.
+
+-type mqtt_pubcomp_variable_header_v4() :: #mqtt_pubcomp_variable_header_v4{}.
+-type mqtt_pubcomp_variable_header_v5() :: #mqtt_pubcomp_variable_header_v5{}.
+
+-type mqtt_subscribe_variable_header_v4() :: #mqtt_subscribe_variable_header_v4{}.
+-type mqtt_subscribe_variable_header_v5() :: #mqtt_subscribe_variable_header_v5{}.
+
+-type mqtt_suback_variable_header_v4() :: #mqtt_suback_variable_header_v4{}.
+-type mqtt_suback_variable_header_v5() :: #mqtt_suback_variable_header_v5{}.
+
+-type mqtt_unsubscribe_variable_header_v4() :: #mqtt_unsubscribe_variable_header_v4{}.
+-type mqtt_unsubscribe_variable_header_v5() :: #mqtt_unsubscribe_variable_header_v5{}.
+
+-type mqtt_unsuback_variable_header_v4() :: #mqtt_unsuback_variable_header_v4{}.
+-type mqtt_unsuback_variable_header_v5() :: #mqtt_unsuback_variable_header_v5{}.
+
+-type mqtt_disconnect_variable_header_v4() :: #mqtt_disconnect_variable_header_v4{}.
+-type mqtt_disconnect_variable_header_v5() :: #mqtt_disconnect_variable_header_v5{}.
+
+-type mqtt_auth_variable_header_v4() :: #mqtt_auth_variable_header_v4{}.
+-type mqtt_auth_variable_header_v5() :: #mqtt_auth_variable_header_v5{}.
+
+-type mqtt_pingreq_variable_header_v4() :: #mqtt_pingreq_variable_header_v4{}.
+-type mqtt_pingreq_variable_header_v5() :: #mqtt_pingreq_variable_header_v5{}.
+
+-type mqtt_pingresp_variable_header_v4() :: #mqtt_pingresp_variable_header_v4{}.
+-type mqtt_pingresp_variable_header_v5() :: #mqtt_pingresp_variable_header_v5{}.
 
 
--export_type([mqtt_msg/0,mqtt_connect_variable_header/0,mqtt_connack_variable_header/0,mqtt_publish_variable_header/0,
-	mqtt_puback_variable_header/0,mqtt_pubrec_variable_header/0,mqtt_pubrel_variable_header/0,mqtt_pubcomp_variable_header/0,
-	mqtt_subscribe_variable_header/0,mqtt_suback_variable_header/0,mqtt_unsubscribe_variable_header/0,mqtt_unsuback_variable_header/0,
-	mqtt_disconnect_variable_header/0,mqtt_auth_variable_header/0,mqtt_pingreq_variable_header/0,mqtt_pingresp_variable_header/0]).
+-export_type([mqtt_msg/0,mqtt_connect_variable_header/0,
+	mqtt_connack_variable_header_v4/0,mqtt_connack_variable_header_v5/0,
+	mqtt_publish_variable_header_v4/0,mqtt_publish_variable_header_v5/0,
+	mqtt_puback_variable_header_v4/0,mqtt_puback_variable_header_v5/0,
+	mqtt_pubrec_variable_header_v4/0,mqtt_pubrec_variable_header_v5/0,
+	mqtt_pubrel_variable_header_v4/0,mqtt_pubrel_variable_header_v5/0,
+	mqtt_pubcomp_variable_header_v4/0,mqtt_pubcomp_variable_header_v5/0,
+	mqtt_subscribe_variable_header_v4/0,mqtt_subscribe_variable_header_v5/0,
+	mqtt_suback_variable_header_v4/0,mqtt_suback_variable_header_v5/0,
+	mqtt_unsubscribe_variable_header_v4/0,mqtt_unsubscribe_variable_header_v5/0,
+	mqtt_unsuback_variable_header_v4/0,mqtt_unsuback_variable_header_v5/0,
+	mqtt_disconnect_variable_header_v4/0,mqtt_disconnect_variable_header_v5/0,
+	mqtt_auth_variable_header_v4/0,mqtt_auth_variable_header_v5/0,
+	mqtt_pingreq_variable_header_v4/0,mqtt_pingreq_variable_header_v5/0,
+	mqtt_pingresp_variable_header_v4/0,mqtt_pingresp_variable_header_v5/0]).
 
 -endif.

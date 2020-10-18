@@ -18,5 +18,6 @@
 	bytes_left,       %% bytes left in stream from previous packets
 	module,            %% where should I get the functions: ssl or gen_tcp
 	socket,
-	remaining_length
+	remaining_length,
+	version
 }).

@@ -45,7 +45,7 @@ connection_packet_encoding_decoding_test() ->
 
 connack_packet_encoding_decoding_test()->
 	?DBGFUNC,
-	PacketVariableHeader = #mqtt_connack_variable_header{
+	PacketVariableHeader = #mqtt_connack_variable_header_v5{
 		properties = [],
 		connect_acknowledge_flag = 1,
 		connect_reason_code = ?MQTT_RC_SUCCESS
@@ -57,7 +57,7 @@ connack_packet_encoding_decoding_test()->
 
 publish_packet_encoding_decoding_test()->
 	?DBGFUNC,
-	PacketVariableHeader = #mqtt_publish_variable_header{
+	PacketVariableHeader = #mqtt_publish_variable_header_v5{
 		topic_name = "topic/b/c",
 		packet_identifier = 12345,
 		properties = [
@@ -82,7 +82,7 @@ publish_packet_encoding_decoding_test()->
 
 publish_puback_encoding_decoding_test()->
 	?DBGFUNC,
-	PacketVariableHeader = #mqtt_puback_variable_header{
+	PacketVariableHeader = #mqtt_puback_variable_header_v5{
 		packet_identifier = 12345,
 		reason_code = ?MQTT_RC_SUCCESS,
 		properties = [
@@ -103,7 +103,7 @@ publish_puback_encoding_decoding_test()->
 
 publish_pubrec_encoding_decoding_test()->
 	?DBGFUNC,
-	PacketVariableHeader = #mqtt_pubrec_variable_header{
+	PacketVariableHeader = #mqtt_pubrec_variable_header_v5{
 		packet_identifier = 12345,
 		reason_code = ?MQTT_RC_SUCCESS,
 		properties = [
@@ -124,7 +124,7 @@ publish_pubrec_encoding_decoding_test()->
 
 publish_pubrel_encoding_decoding_test()->
 	?DBGFUNC,
-	PacketVariableHeader = #mqtt_pubrel_variable_header{
+	PacketVariableHeader = #mqtt_pubrel_variable_header_v5{
 		packet_identifier = 12345,
 		reason_code = ?MQTT_RC_SUCCESS,
 		properties = [
@@ -145,7 +145,7 @@ publish_pubrel_encoding_decoding_test()->
 
 publish_pubcomp_encoding_decoding_test()->
 	?DBGFUNC,
-	PacketVariableHeader = #mqtt_pubcomp_variable_header{
+	PacketVariableHeader = #mqtt_pubcomp_variable_header_v5{
 		packet_identifier = 12345,
 		reason_code = ?MQTT_RC_SUCCESS,
 		properties = [
@@ -166,7 +166,7 @@ publish_pubcomp_encoding_decoding_test()->
 
 publish_subscribe_encoding_decoding_test()->
 	?DBGFUNC,
-	PacketVariableHeader = #mqtt_subscribe_variable_header{
+	PacketVariableHeader = #mqtt_subscribe_variable_header_v5{
 		packet_identifier = 12345,
 		properties = [
 			{ payload_format_indicator, 0 },
@@ -189,7 +189,7 @@ publish_subscribe_encoding_decoding_test()->
 
 publish_suback_encoding_decoding_test()->
 	?DBGFUNC,
-	PacketVariableHeader = #mqtt_suback_variable_header{
+	PacketVariableHeader = #mqtt_suback_variable_header_v5{
 		packet_identifier = 12345,
 		properties = [
 			{ payload_format_indicator, 0 },
@@ -210,7 +210,7 @@ publish_suback_encoding_decoding_test()->
 
 publish_unsubscribe_encoding_decoding_test()->
 	?DBGFUNC,
-	PacketVariableHeader = #mqtt_unsubscribe_variable_header{
+	PacketVariableHeader = #mqtt_unsubscribe_variable_header_v5{
 		packet_identifier = 12345,
 		properties = [
 			{ payload_format_indicator, 0 },
@@ -231,7 +231,7 @@ publish_unsubscribe_encoding_decoding_test()->
 
 publish_unsuback_encoding_decoding_test()->
 	?DBGFUNC,
-	PacketVariableHeader = #mqtt_unsuback_variable_header{
+	PacketVariableHeader = #mqtt_unsuback_variable_header_v5{
 		packet_identifier = 12345,
 		properties = [
 			{ payload_format_indicator, 0 },
@@ -255,11 +255,11 @@ publish_pingreq_encoding_decoding_test()->
 	%% So this looks funny because it has to
 	?DBGFUNC,
 	Time = erlang:timestamp(),
-	PacketVariableHeader = #mqtt_pingreq_variable_header{ time = Time },
+	PacketVariableHeader = #mqtt_pingreq_variable_header_v5{ time = Time },
 	Msg = #mqtt_msg{ packet_type = ?MQTT_PINGREQ , variable_header = PacketVariableHeader },
 	Blob = message:encode(Msg),
 	{ ok, Decoded } = message:decode(Blob),
-	D2 = Decoded#mqtt_msg{ variable_header = #mqtt_pingreq_variable_header{ time = Time }},
+	D2 = Decoded#mqtt_msg{ variable_header = #mqtt_pingreq_variable_header_v5{ time = Time }},
 	?assert( D2#mqtt_msg.variable_header == PacketVariableHeader ).
 
 publish_pingresp_encoding_decoding_test()->
@@ -267,16 +267,16 @@ publish_pingresp_encoding_decoding_test()->
 	%% So this looks funny because it has to
 	?DBGFUNC,
 	Time = erlang:timestamp(),
-	PacketVariableHeader = #mqtt_pingresp_variable_header{ time = Time },
+	PacketVariableHeader = #mqtt_pingresp_variable_header_v5{ time = Time },
 	Msg = #mqtt_msg{ packet_type = ?MQTT_PINGRESP , variable_header = PacketVariableHeader },
 	Blob = message:encode(Msg),
 	{ ok, Decoded } = message:decode(Blob),
-	D2 = Decoded#mqtt_msg{ variable_header = #mqtt_pingresp_variable_header{ time = Time }},
+	D2 = Decoded#mqtt_msg{ variable_header = #mqtt_pingresp_variable_header_v5{ time = Time }},
 	?assert( D2#mqtt_msg.variable_header == PacketVariableHeader ).
 
 publish_disconnect_encoding_decoding_test()->
 	?DBGFUNC,
-	PacketVariableHeader = #mqtt_disconnect_variable_header{
+	PacketVariableHeader = #mqtt_disconnect_variable_header_v5{
 			reason_code = ?MQTT_RC_SUCCESS,
 			properties = [
 				{ payload_format_indicator, 0 },
@@ -296,7 +296,7 @@ publish_disconnect_encoding_decoding_test()->
 
 publish_auth_encoding_decoding_test()->
 	?DBGFUNC,
-	PacketVariableHeader = #mqtt_auth_variable_header{
+	PacketVariableHeader = #mqtt_auth_variable_header_v5{
 		reason_code = ?MQTT_RC_SUCCESS,
 		properties = [
 			{ payload_format_indicator, 0 },

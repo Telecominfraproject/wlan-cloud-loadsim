@@ -80,7 +80,7 @@ set_string_list([H|T],Blob)->
 %% Rules: payload required
 %% packet identifier = NO
 decode_packet(#mqtt_msg{ packet_type = ?MQTT_CONNECT } = Msg,
-		<< 0:8 , 4:8 , $M:8, $Q:8 , $T:8, $T:8 , ?MQTT_PROTOCOL_VERSION:8,
+		<< 0:8 , 4:8 , $M:8, $Q:8 , $T:8, $T:8 , ProtocolLevel:8,
 			UserNameFlag:1,
 			PasswordFlag:1,
 			WillRetain:1,
@@ -106,6 +106,7 @@ decode_packet(#mqtt_msg{ packet_type = ?MQTT_CONNECT } = Msg,
 												1 -> mqttlib:dec_binary(L5)
 	                    end,
 	VariableHeader = #mqtt_connect_variable_header{
+		protocol_version = ProtocolLevel,
 		username_flag = UserNameFlag,
 		password_flag = PasswordFlag,
 		will_retain_flag = WillRetain,
@@ -316,7 +317,7 @@ encode( Header ) when is_record(Header,mqtt_connect_variable_header) ->
 		(mqttlib:enc_binary(Header#mqtt_connect_variable_header.will_payload))/binary,
 		UserNamePayload/binary,
 		UserPasswordPayload/binary>>,
-	Blob = <<0:8,4:8,$M,$Q,$T,$T,?MQTT_PROTOCOL_VERSION,Flags/binary,(Header#mqtt_connect_variable_header.keep_alive):16,PropData/binary,Payload/binary>>,
+	Blob = <<0:8,4:8,$M,$Q,$T,$T,(Header#mqtt_connect_variable_header.protocol_version):8,Flags/binary,(Header#mqtt_connect_variable_header.keep_alive):16,PropData/binary,Payload/binary>>,
 	{?MQTT_CONNECT, 0, Blob};
 
 %% complete

@@ -22,7 +22,7 @@
 	code_change/3]).
 
 %% internal exports for spawn
--export([mqttserver_worker/2,mqttserver_worker_secure/2,mqttserver_processor_init/2,mqttserver_processor_secure_init/2]).
+-export([mqttserver_worker/2,mqttserver_worker_secure/2,mqttserver_processor_init/2]).
 
 -define(SERVER, ?MODULE).
 -define(DBG, io:format("~s: ~p~n",[?FUNCTION_NAME,?LINE])).
@@ -177,7 +177,14 @@ mqttserver_worker(ListenSock,ParentPid)->
 	case gen_tcp:accept(ListenSock) of
 		{ok,Socket} ->
 			mqtt_server:increase_session(ParentPid,ListenSock),
-			Pid = spawn(?MODULE,mqttserver_processor_init,[Socket,#mqtt_processor_state{listener_pid = self(), parent_pid = ParentPid, peer_ip = inet:peername(Socket)}]),
+			Pid = spawn(?MODULE,mqttserver_processor_secure_init,[Socket,#mqtt_processor_state{listener_pid = self(),
+				parent_pid = ParentPid,
+				peer_ip = inet:peername(Socket),
+				secure = false,
+				bytes_left = <<>>,
+				module = gen_tcp,
+				socket = Socket
+			}]),
 			gen_tcp:controlling_process(Socket,Pid),
 			mqttserver_worker(ListenSock,ParentPid);
 		Error ->
@@ -192,7 +199,14 @@ mqttserver_worker_secure(ListenSock,ParentPid)->
 			case ssl:handshake(Socket) of
 				{ ok, SslSocket } ->
 					mqtt_server:increase_session(ParentPid,ListenSock),
-					Pid = spawn(?MODULE,mqttserver_processor_secure_init,[SslSocket,#mqtt_processor_state{listener_pid = self(), parent_pid = ParentPid, peer_ip = ssl:peername(SslSocket)}]),
+					Pid = spawn(?MODULE,mqttserver_processor_init,[SslSocket,#mqtt_processor_state{listener_pid = self(),
+						parent_pid = ParentPid,
+						peer_ip = ssl:peername(SslSocket),
+						secure = true,
+						bytes_left = <<>>,
+						module = ssl,
+						socket = SslSocket
+						}]),
 					ssl:controlling_process(SslSocket,Pid);
 				Error ->
 					io:format("SSL Handshake failed: ~p~n",[Error]),
@@ -206,16 +220,24 @@ mqttserver_worker_secure(ListenSock,ParentPid)->
 			ok
 	end.
 
-mqttserver_processor_init(Socket,State)->
+mqttserver_processor_init(Socket,#mqtt_processor_state{ secure = false }=State)->
 	inet:setopts(Socket,[{active,true}]),
+	mqttserver_processor(Socket,State);
+mqttserver_processor_init(Socket,#mqtt_processor_state{ secure = true }=State)->
+	ssl:setopts(Socket,[{active,true}]),
 	mqttserver_processor(Socket,State).
 
-mqttserver_processor(Socket,State)->
+mqttserver_processor(Socket,#mqtt_processor_state{ secure = false }=State)->
 	receive
 		{tcp,Socket,Data} ->
-			{ Answer, NewState } = mqttserver_process:process(Data,State), % Not implemented in this example
-			gen_tcp:send(Socket,Answer),
-			mqttserver_processor(Socket,NewState);
+			FullData = <<(State#mqtt_processor_state.bytes_left)/binary,Data/binary>>,
+			case mqttserver_process:process(State#mqtt_processor_state{ bytes_left = FullData }) of
+				{ ok, NewState } ->
+					mqttserver_processor(Socket,NewState);
+				Error ->
+					io:format("~p Error=~p~n",[?FUNCTION_NAME,Error]),
+					gen_tcp:close(Socket)
+			end;
 		{tcp_closed,Socket} ->
 			mqtt_server:increase_session(State#mqtt_processor_state.parent_pid,State#mqtt_processor_state.listener_pid),
 			lager:info("Socket ~w closed [~w]~n",[Socket,self()]),
@@ -223,27 +245,25 @@ mqttserver_processor(Socket,State)->
 		Anything ->
 			io:format("Anything(not secure): ~p~n",[Anything]),
 			mqttserver_processor(Socket,State)
-	end.
-
-mqttserver_processor_secure_init(Socket,State)->
-	?DBG,
-	ssl:setopts(Socket,[{active,true}]),
-	mqttserver_processor_secure(Socket,State).
-
-mqttserver_processor_secure(Socket,State)->
-	?DBG,
+	end;
+mqttserver_processor(Socket,#mqtt_processor_state{ secure = true }=State)->
 	receive
 		{ssl,Socket,Data} ->
-			{ Answer,NewState} = mqttserver_process:process(Data,State), % Not implemented in this example
-			ssl:send(Socket,Answer),
-			mqttserver_processor_secure(Socket,NewState);
+			FullData = <<(State#mqtt_processor_state.bytes_left)/binary,Data/binary>>,
+			case mqttserver_process:process(State#mqtt_processor_state{ bytes_left = FullData }) of
+				{ ok, NewState } ->
+					mqttserver_processor(Socket,NewState);
+				Error ->
+					io:format("~p Error=~p~n",[?FUNCTION_NAME,Error]),
+					ssl:close(Socket)
+			end;
 		{ssl_closed,Socket} ->
 			mqtt_server:increase_session(State#mqtt_processor_state.parent_pid,State#mqtt_processor_state.listener_pid),
 			lager:info("Socket ~w closed [~w]~n",[Socket,self()]),
 			ok;
 		Anything ->
 			io:format("Anything ->~p~n",[Anything]),
-			mqttserver_processor_secure(Socket,State)
+			mqttserver_processor(Socket,State)
 	end.
 
 

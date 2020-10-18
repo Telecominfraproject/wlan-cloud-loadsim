@@ -164,8 +164,8 @@
 																will_properties = [] :: list(),
 																will_payload = <<>> :: binary(),
 																username = "" :: string(),
-																password = <<>> :: binary(),
-																properties = [] :: [{atom(),term()}]
+																password = <<>> :: binary()
+											
 	}).
 
 -record( mqtt_connack_variable_header, {

@@ -12,35 +12,48 @@
 -include("../include/mqtt_definitions.hrl").
 -include("../include/internal.hrl").
 
+-define(DBG,io:format("F=~p L=~p~n",[?FUNCTION_NAME,?LINE])).
+
 %% API
 -export([process/1]).
 
 process(#mqtt_processor_state{ bytes_left = <<>> }=State) ->
 	{ ok , State };
 process(#mqtt_processor_state{ bytes_left = <<_Command:4,_Flags:4,1:1,V:15,Rest/binary>>}=State) ->
+?DBG,
 	RemainingLength = mqttlib:dec_varint(<<1:1,V:15>>),
+	?DBG,
+	io:format("Bytes left=~p  Remaining=~p~n",[size(State#mqtt_processor_state.bytes_left),RemainingLength]),
 	case size(Rest) >= RemainingLength of
 		true ->
+			?DBG,
 			PacketLength=RemainingLength+3,
 			<< CurrentPacket:PacketLength/binary, LeftData/binary >> = State#mqtt_processor_state.bytes_left,
 			{ ok, Msg } = message:decode( CurrentPacket , State#mqtt_processor_state.version ),
 			{ ok , NewState } = answer_msg(Msg#mqtt_msg.variable_header,State#mqtt_processor_state{bytes_left = LeftData}),
+			?DBG,
 			process(NewState);
 		false ->
+			?DBG,
 			{ ok, State }
 	end;
 process(#mqtt_processor_state{ bytes_left = <<_Command:4,_Flags:4,RemainingLength:8,Rest/binary>>}=State) ->
+	?DBG,
+	io:format("Bytes left=~p  Remaining=~p~n",[size(State#mqtt_processor_state.bytes_left),RemainingLength]),
 	case size(Rest) >= RemainingLength of
 		true ->
+			?DBG,
 			PacketLength = RemainingLength+2,
 			<< CurrentPacket:PacketLength/binary, LeftData/binary >> = State#mqtt_processor_state.bytes_left,
 			{ ok, Msg } = message:decode( CurrentPacket, State#mqtt_processor_state.version ),
 			{ ok , NewState } = answer_msg(Msg#mqtt_msg.variable_header,State#mqtt_processor_state{bytes_left = LeftData}),
 			process(NewState);
 		false ->
+			?DBG,
 			{ ok, State }
 	end;
 process(State) ->
+	?DBG,
 	{ok,State}.
 
 answer_msg( #mqtt_connect_variable_header{ protocol_version = ?MQTT_PROTOCOL_VERSION_3_11 }=Msg, State ) when is_record(Msg,mqtt_connect_variable_header) ->

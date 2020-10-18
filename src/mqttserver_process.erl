@@ -24,7 +24,7 @@ process(#mqtt_processor_state{ bytes_left = <<_Command:4,_Flags:4,1:1,V:15,Rest/
 			PacketLength=RemainingLength+3,
 			<< CurrentPacket:PacketLength/binary, LeftData/binary >> = State#mqtt_processor_state.bytes_left,
 			{ ok, Msg } = message:decode( CurrentPacket ),
-			{ ok , NewState } = answer_msg(Msg,State#mqtt_processor_state{bytes_left = LeftData}),
+			{ ok , NewState } = answer_msg(Msg#mqtt_msg.variable_header,State#mqtt_processor_state{bytes_left = LeftData}),
 			process(NewState);
 		false ->
 			{ ok, State }
@@ -35,7 +35,7 @@ process(#mqtt_processor_state{ bytes_left = <<_Command:4,_Flags:4,RemainingLengt
 			PacketLength = RemainingLength+2,
 			<< CurrentPacket:PacketLength/binary, LeftData/binary >> = State#mqtt_processor_state.bytes_left,
 			{ ok, Msg } = message:decode( CurrentPacket ),
-			{ ok , NewState } = answer_msg(Msg,State#mqtt_processor_state{bytes_left = LeftData}),
+			{ ok , NewState } = answer_msg(Msg#mqtt_msg.variable_header,State#mqtt_processor_state{bytes_left = LeftData}),
 			process(NewState);
 		false ->
 			{ ok, State }
@@ -47,6 +47,7 @@ answer_msg( Msg, State ) when is_record(Msg,mqtt_connect_variable_header) ->
 	VariableHeader = #mqtt_connack_variable_header{ connect_acknowledge_flag = 0,connect_reason_code = ?MQTT_RC_CONNECTION_ACCEPTED, properties = [] },
 	Response = #mqtt_msg{ packet_type = ?MQTT_CONNACK , variable_header = VariableHeader },
 	Blob = message:encode(Response),
+	io:format("Sending CONNECT response: ~p~n",[Blob]),
 	(State#mqtt_processor_state.module):send(State#mqtt_processor_state.socket,Blob),
 	{ok,State};
 

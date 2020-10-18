@@ -230,6 +230,7 @@ mqttserver_processor_init(Socket,#mqtt_processor_state{ secure = true }=State)->
 mqttserver_processor(Socket,#mqtt_processor_state{ secure = false }=State)->
 	receive
 		{tcp,Socket,Data} ->
+			io:format("Received ~p bytes.~n",[size(Data)]),
 			FullData = <<(State#mqtt_processor_state.bytes_left)/binary,Data/binary>>,
 			case mqttserver_process:process(State#mqtt_processor_state{ bytes_left = FullData }) of
 				{ ok, NewState } ->
@@ -249,6 +250,7 @@ mqttserver_processor(Socket,#mqtt_processor_state{ secure = false }=State)->
 mqttserver_processor(Socket,#mqtt_processor_state{ secure = true }=State)->
 	receive
 		{ssl,Socket,Data} ->
+			io:format("Received ~p bytes.~n",[size(Data)]),
 			FullData = <<(State#mqtt_processor_state.bytes_left)/binary,Data/binary>>,
 			case mqttserver_process:process(State#mqtt_processor_state{ bytes_left = FullData }) of
 				{ ok, NewState } ->

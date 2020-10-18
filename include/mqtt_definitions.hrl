@@ -119,6 +119,12 @@
 -define(MQTT_SUBSCRIBE_LEVEL_1,0).  %% Send retained messages at subscribe only if the subscription does not currently exist
 -define(MQTT_SUBSCRIBE_LEVEL_2,0).  %% Do not send retained messages at the time of the subscribe
 
+-define(MQTT_RC_CONNECTION_ACCEPTED,0).
+-define(MQTT_RC_CONNECTION_REFUSED_UNACCEPTABLE_PROTOCOL_VERSION,1).
+-define(MQTT_RC_CONNECTION_REFUSED_IDENTIFIER_REJECTED,2).
+-define(MQTT_RC_CONNECTION_REFUSED_SERVER_UNAVAILABLE,3).
+-define(MQTT_RC_CONNECTION_REFUSED_BAD_USER_NAME_OR_PASSWORD,4).
+-define(MQTT_RC_CONNECTION_REFUSED_NOT_AUTHORIZED,5).
 
 %%
 %% Connect flags

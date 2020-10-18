@@ -13,7 +13,8 @@
 
 %% As defined in https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901001
 
--define(MQTT_PROTOCOL_VERSION,5).
+-define(MQTT_PROTOCOL_VERSION_5,5).
+-define(MQTT_PROTOCOL_VERSION_3_11,4).
 
 -define(MQTT_APP,mqttsim).
 -define(MQTT_DEFAULT_SERVER_PORT,1883).
@@ -149,7 +150,7 @@
 											variable_header}).
 
 -record( mqtt_connect_variable_header, { protocol_name = <<0,4,$M:8,$Q:8,$T:8,$T:8>> :: binary(),
-																protocol_version = ?MQTT_PROTOCOL_VERSION :: integer(),
+																protocol_version = 0 :: integer(),
 																username_flag = 0 :: integer(),
 																password_flag = 0 :: integer(),
 																will_retain_flag = 0 :: integer(),

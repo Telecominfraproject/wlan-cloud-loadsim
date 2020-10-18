@@ -70,11 +70,15 @@ init([]) ->
 	KeyFile = application:get_env(?MQTT_APP,keyfile,""),
 	{ ok , ListenSocket } = case Secure of
 														false ->
-															gen_tcp:listen(ServerPort,[{active,false},{reuseaddr,true}]);
+															gen_tcp:listen(ServerPort,[
+																		   {active,false},
+																		   {reuseaddr,true},
+																		   {mode,binary} ]);
 														true ->
 															ssl:listen(ServerPort,[
 																%% {log_level,debug},
 													      {session_tickets,stateless},
+													      {mode,binary},
 																{versions,['tlsv1.2','tlsv1.3']},
 																{active,false},
 																{reuseaddr,true},

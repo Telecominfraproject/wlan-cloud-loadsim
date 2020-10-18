@@ -88,8 +88,7 @@ decode_packet(#mqtt_msg{ packet_type = ?MQTT_CONNECT } = Msg,
 			WillFlag:1,
 			CleanStart:1,0:1,
 			KeepAlive:16,Rest/binary>> )->
-	{ Properties , Rest2 } = get_properties_section(Rest),
-	{ ClientIdentifier , L1 } = mqttlib:dec_string(Rest2),
+	{ ClientIdentifier , L1 } = mqttlib:dec_string(Rest),
 	{ WillTopic, WillPayload, WillProperties, L4 } = case WillFlag of
 												 0 -> { "" , <<>>, [], L1};
 												 1 -> { WProperties , R2 } = get_properties_section(L1),
@@ -119,8 +118,7 @@ decode_packet(#mqtt_msg{ packet_type = ?MQTT_CONNECT } = Msg,
 		will_properties = WillProperties,
 		will_topic = WillTopic,
 		username = UserName,
-		password = Password,
-		properties = Properties},
+		password = Password},
 	{ok,Msg#mqtt_msg{ variable_header = VariableHeader }};
 
 %% Rules: payload none,
@@ -302,7 +300,6 @@ encode( Header ) when is_record(Header,mqtt_connect_variable_header) ->
 		(Header#mqtt_connect_variable_header.will_flag):1,
 		(Header#mqtt_connect_variable_header.clean_start_flag):1,
 		0:1>>,
-	PropData=set_properties_section(Header#mqtt_connect_variable_header.properties),
 	UserNamePayload = case Header#mqtt_connect_variable_header.username_flag == 1 of
 		                  true -> mqttlib:enc_string(Header#mqtt_connect_variable_header.username);
 		                  false -> <<>>
@@ -317,7 +314,7 @@ encode( Header ) when is_record(Header,mqtt_connect_variable_header) ->
 		(mqttlib:enc_binary(Header#mqtt_connect_variable_header.will_payload))/binary,
 		UserNamePayload/binary,
 		UserPasswordPayload/binary>>,
-	Blob = <<0:8,4:8,$M,$Q,$T,$T,(Header#mqtt_connect_variable_header.protocol_version):8,Flags/binary,(Header#mqtt_connect_variable_header.keep_alive):16,PropData/binary,Payload/binary>>,
+	Blob = <<0:8,4:8,$M,$Q,$T,$T,(Header#mqtt_connect_variable_header.protocol_version):8,Flags/binary,(Header#mqtt_connect_variable_header.keep_alive):16,Payload/binary>>,
 	{?MQTT_CONNECT, 0, Blob};
 
 %% complete

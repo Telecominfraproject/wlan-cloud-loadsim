@@ -152,7 +152,7 @@ decode_packet(#mqtt_msg{ packet_type = ?MQTT_PUBLISH }=Msg,Data, ?MQTT_PROTOCOL_
 																	false -> <<V:16,C1/binary>>=Rest2,
 																		{ V, C1 }
 	                              end,
-	io:format("TopicName=~p~nPI=~p~nR3=~p~n",[TopicName,PacketIdentifier,Payload]),
+	%% io:format("TopicName=~p~nPI=~p~nR3=~p~n",[TopicName,PacketIdentifier,Payload]),
 
 	VariableHeader = #mqtt_publish_variable_header_v4{
 		dup_flag = DUPFlag ,

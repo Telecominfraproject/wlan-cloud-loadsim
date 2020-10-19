@@ -32,7 +32,6 @@ process(#mqtt_processor_state{ bytes_left = <<_Command:4,_Flags:4,1:1,V:15,Rest/
 			<< CurrentPacket:PacketLength/binary, LeftData/binary >> = State#mqtt_processor_state.bytes_left,
 			{ ok, Msg } = message:decode( CurrentPacket , State#mqtt_processor_state.version ),
 			{ ok , NewState } = answer_msg(Msg#mqtt_msg.variable_header,State#mqtt_processor_state{bytes_left = LeftData}),
-			?DBG,
 			process(NewState);
 		false ->
 			io:format("Need more data.~n"),

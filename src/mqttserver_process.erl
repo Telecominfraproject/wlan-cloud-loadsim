@@ -78,6 +78,7 @@ answer_msg( #mqtt_connect_variable_header{ protocol_version = ?MQTT_PROTOCOL_VER
 
 answer_msg( #mqtt_publish_variable_header_v4{ qos_level_flag = 0} = Msg, State ) when is_record(Msg,mqtt_publish_variable_header_v4) ->
 	io:format("Publish - no QoS.~n"),
+	display_published_payload(Msg#mqtt_publish_variable_header_v4.payload),
 	Stats1 = State#mqtt_processor_state.stats,
 	Stats2 = ?INCREMENT_STATS1(Stats1,msg_publish),
 	{ ok , State#mqtt_processor_state{stats = Stats2}};
@@ -215,6 +216,11 @@ pub1() ->
 
 pub2()->
 	zlib:uncompress(pub1()).
+
+display_published_payload(Payload)->
+	P = zlib:uncompress(Payload),
+	R = opensync_stats:decode_msg(P,'Report'),
+	io:format("Published data: ~p~n",[R]).
 
 grant_all_topics(List)->
 	grant_all_topics(List,[]).

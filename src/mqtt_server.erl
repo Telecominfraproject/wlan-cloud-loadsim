@@ -120,16 +120,20 @@ handle_call(_Request, _From, State = #mqtt_server_state{}) ->
 	{noreply, NewState :: #mqtt_server_state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), NewState :: #mqtt_server_state{}}).
 handle_cast({set_stats,ListenerPid,ChildPid,Stats}, State) ->
+	io:format("Setting stats: ~p~n",[Stats]),
 	NewStats = maps:put( {ListenerPid,ChildPid},Stats,State#mqtt_server_state.stats),
 	{noreply, State#mqtt_server_state{stats = NewStats}};
 handle_cast({delete_stats,ListenerPid,ChildPid}, State) ->
+	io:format("Deleting stats.~n"),
 	NewStats = maps:remove( {ListenerPid,ChildPid},State#mqtt_server_state.stats),
 	{noreply, State#mqtt_server_state{stats = NewStats}};
 handle_cast({decrease,Pid}, State) ->
+	io:format("Removing session~n"),
 	Counter = maps:get(Pid,State#mqtt_server_state.session_count,0),
 	M2 = maps:put(Pid,Counter+1,State#mqtt_server_state.session_count),
 	{noreply, State#mqtt_server_state{session_count = M2}};
 handle_cast({increase,Pid}, State) ->
+	io:format("Adding session~n"),
 	Counter = maps:get(Pid,State#mqtt_server_state.session_count,1),
 	M2 = maps:put(Pid,Counter-1,State#mqtt_server_state.session_count),
 	{noreply, State#mqtt_server_state{session_count = M2}}.

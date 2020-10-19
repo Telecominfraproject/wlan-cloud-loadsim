@@ -221,8 +221,7 @@
 }).
 
 -record( mqtt_pubrel_variable_header_v4, {
-	packet_identifier = 0 :: integer(),
-	reason_code= 0 :: integer()
+	packet_identifier = 0 :: integer()
 }).
 
 -record( mqtt_pubrel_variable_header_v5, {
@@ -232,8 +231,7 @@
 }).
 
 -record( mqtt_pubcomp_variable_header_v4, {
-	packet_identifier = 0 :: integer(),
-	reason_code= 0 :: integer()
+	packet_identifier = 0 :: integer()
 }).
 
 -record( mqtt_pubcomp_variable_header_v5, {

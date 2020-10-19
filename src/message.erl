@@ -218,8 +218,8 @@ decode_packet(#mqtt_msg{ packet_type = ?MQTT_PUBREC }=Msg,<<PacketIdentifier:16,
 
 %% Rules: payload none
 %% packet identifier = YES
-decode_packet(#mqtt_msg{ packet_type = ?MQTT_PUBREL , flags = 2 }=Msg,<<PacketIdentifier:16,ReasonCode:8>>, ?MQTT_PROTOCOL_VERSION_3_11)->
-	VariableHeader = #mqtt_pubrel_variable_header_v4{ packet_identifier = PacketIdentifier, reason_code = ReasonCode },
+decode_packet(#mqtt_msg{ packet_type = ?MQTT_PUBREL , flags = 2 }=Msg,<<PacketIdentifier:16>>, ?MQTT_PROTOCOL_VERSION_3_11)->
+	VariableHeader = #mqtt_pubrel_variable_header_v4{ packet_identifier = PacketIdentifier },
 	{ok,Msg#mqtt_msg{ variable_header = VariableHeader}};
 
 decode_packet(#mqtt_msg{ packet_type = ?MQTT_PUBREL , flags = 2 }=Msg,<<PacketIdentifier:16,ReasonCode:8,Rest/binary>>, ?MQTT_PROTOCOL_VERSION_5)->
@@ -234,8 +234,8 @@ decode_packet(#mqtt_msg{ packet_type = ?MQTT_PUBREL , flags = 2 }=Msg,<<PacketId
 
 %% Rules: payload none
 %% packet identifier = YES
-decode_packet(#mqtt_msg{ packet_type = ?MQTT_PUBCOMP }=Msg,<<PacketIdentifier:16,ReasonCode:8>>, ?MQTT_PROTOCOL_VERSION_3_11)->
-	VariableHeader = #mqtt_pubcomp_variable_header_v4{ packet_identifier = PacketIdentifier, reason_code = ReasonCode},
+decode_packet(#mqtt_msg{ packet_type = ?MQTT_PUBCOMP }=Msg,<<PacketIdentifier:16>>, ?MQTT_PROTOCOL_VERSION_3_11)->
+	VariableHeader = #mqtt_pubcomp_variable_header_v4{ packet_identifier = PacketIdentifier },
 	{ok,Msg#mqtt_msg{ variable_header = VariableHeader}};
 
 decode_packet(#mqtt_msg{ packet_type = ?MQTT_PUBCOMP }=Msg,<<PacketIdentifier:16,ReasonCode:8,Rest/binary>>, ?MQTT_PROTOCOL_VERSION_5)->
@@ -469,8 +469,7 @@ encode( Header ) when is_record(Header,mqtt_pubrec_variable_header_v5) ->
 
 % complete
 encode( Header ) when is_record(Header,mqtt_pubrel_variable_header_v4) ->
-	Blob = << (Header#mqtt_pubrel_variable_header_v4.packet_identifier):16,
-		(Header#mqtt_pubrel_variable_header_v4.reason_code):8>>,
+	Blob = << (Header#mqtt_pubrel_variable_header_v4.packet_identifier):16>>,
 	{ ?MQTT_PUBREL, 2, Blob};
 
 encode( Header ) when is_record(Header,mqtt_pubrel_variable_header_v5) ->
@@ -481,8 +480,7 @@ encode( Header ) when is_record(Header,mqtt_pubrel_variable_header_v5) ->
 
 %% complete
 encode( Header ) when is_record(Header,mqtt_pubcomp_variable_header_v4) ->
-	Blob = << (Header#mqtt_pubcomp_variable_header_v4.packet_identifier):16,
-		(Header#mqtt_pubcomp_variable_header_v4.reason_code):8>>,
+	Blob = << (Header#mqtt_pubcomp_variable_header_v4.packet_identifier):16>>,
 	{ ?MQTT_PUBCOMP, 0, Blob};
 
 encode( Header ) when is_record(Header,mqtt_pubcomp_variable_header_v5) ->

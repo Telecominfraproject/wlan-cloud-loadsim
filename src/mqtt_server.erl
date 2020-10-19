@@ -15,7 +15,7 @@
 -include("../include/internal.hrl").
 
 %% API
--export([start_link/0,creation_info/0,increase_session/2,decrease_session/2]).
+-export([start_link/0,creation_info/0,increase_session/2,decrease_session/2,set_session_stats/4,delete_session_stats/3]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -27,7 +27,7 @@
 -define(SERVER, ?MODULE).
 -define(DBG, io:format("~s: ~p~n",[?FUNCTION_NAME,?LINE])).
 
--record(mqtt_server_state, { server_port, num_servers, num_listeners, server_pids, main_listen_socket, session_count = maps:new() , secure }).
+-record(mqtt_server_state, { server_port, num_servers, num_listeners, server_pids, main_listen_socket, session_count = maps:new() , secure , stats = maps:new() }).
 
 %%%===================================================================
 %%% API
@@ -44,6 +44,10 @@ increase_session(Pid,ListenerPid)->
 	gen_server:cast(Pid,{increase,ListenerPid}).
 decrease_session(Pid,ListenerPid)->
 	gen_server:cast(Pid,{decrease,ListenerPid}).
+set_session_stats(Pid,ListenerPid,ChildPid,Stats)->
+	gen_server:cast(Pid,{set_stats,ListenerPid,ChildPid,Stats}).
+delete_session_stats(Pid,ListenerPid,ChildPid)->
+	gen_server:cast(Pid,{delete_stats,ListenerPid,ChildPid}).
 
 %% @doc Spawns the server and registers the local name (unique)
 -spec(start_link() ->
@@ -115,6 +119,12 @@ handle_call(_Request, _From, State = #mqtt_server_state{}) ->
 	{noreply, NewState :: #mqtt_server_state{}} |
 	{noreply, NewState :: #mqtt_server_state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), NewState :: #mqtt_server_state{}}).
+handle_cast({set_stats,ListenerPid,ChildPid,Stats}, State) ->
+	NewStats = maps:put( {ListenerPid,ChildPid},Stats,State#mqtt_server_state.stats),
+	{noreply, State#mqtt_server_state{stats = NewStats}};
+handle_cast({delete_stats,ListenerPid,ChildPid}, State) ->
+	NewStats = maps:remove( {ListenerPid,ChildPid},State#mqtt_server_state.stats),
+	{noreply, State#mqtt_server_state{stats = NewStats}};
 handle_cast({decrease,Pid}, State) ->
 	Counter = maps:get(Pid,State#mqtt_server_state.session_count,0),
 	M2 = maps:put(Pid,Counter+1,State#mqtt_server_state.session_count),
@@ -236,6 +246,7 @@ mqttserver_processor(Socket,#mqtt_processor_state{ secure = false }=State)->
 			FullData = <<(State#mqtt_processor_state.bytes_left)/binary,Data/binary>>,
 			case mqttserver_process:process(State#mqtt_processor_state{ bytes_left = FullData }) of
 				{ ok, NewState } ->
+					set_session_stats(State#mqtt_processor_state.parent_pid,State#mqtt_processor_state.listener_pid,self(),NewState#mqtt_processor_state.stats),
 					mqttserver_processor(Socket,NewState);
 				Error ->
 					io:format("~p Error=~p~n",[?FUNCTION_NAME,Error]),
@@ -243,6 +254,7 @@ mqttserver_processor(Socket,#mqtt_processor_state{ secure = false }=State)->
 			end;
 		{tcp_closed,Socket} ->
 			mqtt_server:increase_session(State#mqtt_processor_state.parent_pid,State#mqtt_processor_state.listener_pid),
+			delete_session_stats(State#mqtt_processor_state.parent_pid,State#mqtt_processor_state.listener_pid,self()),
 			lager:info("Socket ~w closed [~w]~n",[Socket,self()]),
 			ok;
 		Anything ->
@@ -256,13 +268,16 @@ mqttserver_processor(Socket,#mqtt_processor_state{ secure = true }=State)->
 			FullData = <<(State#mqtt_processor_state.bytes_left)/binary,Data/binary>>,
 			case mqttserver_process:process(State#mqtt_processor_state{ bytes_left = FullData }) of
 				{ ok, NewState } ->
+					set_session_stats(State#mqtt_processor_state.parent_pid,State#mqtt_processor_state.listener_pid,self(),NewState#mqtt_processor_state.stats),
 					mqttserver_processor(Socket,NewState);
 				Error ->
 					io:format("~p Error=~p~n",[?FUNCTION_NAME,Error]),
+					delete_session_stats(State#mqtt_processor_state.parent_pid,State#mqtt_processor_state.listener_pid,self()),
 					ssl:close(Socket)
 			end;
 		{ssl_closed,Socket} ->
 			mqtt_server:increase_session(State#mqtt_processor_state.parent_pid,State#mqtt_processor_state.listener_pid),
+			delete_session_stats(State#mqtt_processor_state.parent_pid,State#mqtt_processor_state.listener_pid,self()),
 			lager:info("Socket ~w closed [~w]~n",[Socket,self()]),
 			ok;
 		Anything ->

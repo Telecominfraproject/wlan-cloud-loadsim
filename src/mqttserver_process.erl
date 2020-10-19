@@ -14,6 +14,9 @@
 
 -define(DBG,io:format("F=~p L=~p~n",[?FUNCTION_NAME,?LINE])).
 
+-define(INCREMENT_STATS1(X,Y),X#mqtt_connection_stats{ Y = X#mqtt_connection_stats.Y+1}).
+-define(INCREMENT_STATS2(X,Y,Z),X#mqtt_connection_stats{ Y = X#mqtt_connection_stats.Y+1, Z = X#mqtt_connection_stats.Z+1}).
+
 %% API
 -export([process/1,pub2/0]).
 
@@ -22,11 +25,9 @@ process(#mqtt_processor_state{ bytes_left = <<>> }=State) ->
 process(#mqtt_processor_state{ bytes_left = <<_Command:4,_Flags:4,1:1,V:15,Rest/binary>>}=State) ->
 ?DBG,
 	{ RemainingLength , <<>> } = mqttlib:dec_varint(<<1:1,V:15>>),
-	?DBG,
 	io:format("Bytes left=~p  Remaining=~p~n",[size(State#mqtt_processor_state.bytes_left),RemainingLength]),
 	case size(Rest) >= RemainingLength of
 		true ->
-			?DBG,
 			PacketLength=RemainingLength+3,
 			<< CurrentPacket:PacketLength/binary, LeftData/binary >> = State#mqtt_processor_state.bytes_left,
 			{ ok, Msg } = message:decode( CurrentPacket , State#mqtt_processor_state.version ),
@@ -34,26 +35,24 @@ process(#mqtt_processor_state{ bytes_left = <<_Command:4,_Flags:4,1:1,V:15,Rest/
 			?DBG,
 			process(NewState);
 		false ->
-			?DBG,
+			io:format("Need more data.~n"),
 			{ ok, State }
 	end;
 process(#mqtt_processor_state{ bytes_left = <<_Command:4,_Flags:4,RemainingLength:8,Rest/binary>>}=State) ->
-	?DBG,
 	io:format("Bytes left=~p  Remaining=~p~n",[size(State#mqtt_processor_state.bytes_left),RemainingLength]),
 	case size(Rest) >= RemainingLength of
 		true ->
-			?DBG,
 			PacketLength = RemainingLength+2,
 			<< CurrentPacket:PacketLength/binary, LeftData/binary >> = State#mqtt_processor_state.bytes_left,
 			{ ok, Msg } = message:decode( CurrentPacket, State#mqtt_processor_state.version ),
 			{ ok , NewState } = answer_msg(Msg#mqtt_msg.variable_header,State#mqtt_processor_state{bytes_left = LeftData}),
 			process(NewState);
 		false ->
-			?DBG,
+			io:format("Need more data.~n"),
 			{ ok, State }
 	end;
 process(State) ->
-	?DBG,
+	io:format("Nothing to process~n"),
 	{ok,State}.
 
 answer_msg( #mqtt_connect_variable_header{ protocol_version = ?MQTT_PROTOCOL_VERSION_3_11 }=Msg, State ) when is_record(Msg,mqtt_connect_variable_header) ->
@@ -62,7 +61,10 @@ answer_msg( #mqtt_connect_variable_header{ protocol_version = ?MQTT_PROTOCOL_VER
 	Blob = message:encode(Response),
 	Result = (State#mqtt_processor_state.module):send(State#mqtt_processor_state.socket,Blob),
 	io:format("Sending CONNECT response(~p): ~p~n",[Result,Blob]),
-	{ok,State#mqtt_processor_state{ version = Msg#mqtt_connect_variable_header.protocol_version }};
+	Stats1 = State#mqtt_processor_state.stats#mqtt_connection_stats{ client_identifier = Msg#mqtt_connect_variable_header.client_identifier },
+	Stats2 = ?INCREMENT_STATS2(Stats1,msg_connect,msg_connack),
+	{ok,State#mqtt_processor_state{ version = Msg#mqtt_connect_variable_header.protocol_version,
+		stats = Stats2 }};
 
 answer_msg( #mqtt_connect_variable_header{ protocol_version = ?MQTT_PROTOCOL_VERSION_5 }=Msg, State ) when is_record(Msg,mqtt_connect_variable_header) ->
 	VariableHeader = #mqtt_connack_variable_header_v5{ connect_acknowledge_flag = 0,connect_reason_code = ?MQTT_RC_CONNECTION_ACCEPTED },
@@ -70,24 +72,34 @@ answer_msg( #mqtt_connect_variable_header{ protocol_version = ?MQTT_PROTOCOL_VER
 	Blob = message:encode(Response),
 	Result = (State#mqtt_processor_state.module):send(State#mqtt_processor_state.socket,Blob),
 	io:format("Sending CONNECT response(~p): ~p~n",[Result,Blob]),
-	{ok,State#mqtt_processor_state{ version = Msg#mqtt_connect_variable_header.protocol_version }};
+	Stats1 = State#mqtt_processor_state.stats#mqtt_connection_stats{ client_identifier = Msg#mqtt_connect_variable_header.client_identifier },
+	Stats2 = ?INCREMENT_STATS2(Stats1,msg_connect,msg_connack),
+	{ok,State#mqtt_processor_state{ version = Msg#mqtt_connect_variable_header.protocol_version,
+		stats = Stats2 }};
 
 answer_msg( #mqtt_publish_variable_header_v4{ qos_level_flag = 0} = Msg, State ) when is_record(Msg,mqtt_publish_variable_header_v4) ->
-	{ ok , State};
+	io:format("Publish - no QoS.~n"),
+	Stats1 = State#mqtt_processor_state.stats,
+	Stats2 = ?INCREMENT_STATS1(Stats1,msg_publish),
+	{ ok , State#mqtt_processor_state{stats = Stats2}};
 answer_msg( #mqtt_publish_variable_header_v4{ qos_level_flag = 1} = Msg, State ) when is_record(Msg,mqtt_publish_variable_header_v4) ->
 	VariableHeader = #mqtt_puback_variable_header_v4{ packet_identifier = Msg#mqtt_publish_variable_header_v4.packet_identifier , reason_code = ?MQTT_RC_SUCCESS },
 	Response = #mqtt_msg{ packet_type = ?MQTT_PUBACK , variable_header = VariableHeader },
 	Blob = message:encode(Response),
 	Result = (State#mqtt_processor_state.module):send(State#mqtt_processor_state.socket,Blob),
 	io:format("Sending PUBACK response(~p): ~p~n",[Result,Blob]),
-	{ok,State };
+	Stats1 = State#mqtt_processor_state.stats,
+	Stats2 = ?INCREMENT_STATS2(Stats1,msg_publish,msg_puback),
+	{ok,State#mqtt_processor_state{ stats = Stats2} };
 answer_msg( #mqtt_publish_variable_header_v4{ qos_level_flag = 2} = Msg, State ) when is_record(Msg,mqtt_publish_variable_header_v4) ->
 	VariableHeader = #mqtt_pubrec_variable_header_v4{ packet_identifier = Msg#mqtt_publish_variable_header_v4.packet_identifier , reason_code = ?MQTT_RC_SUCCESS },
 	Response = #mqtt_msg{ packet_type = ?MQTT_PUBREC , variable_header = VariableHeader },
 	Blob = message:encode(Response),
 	Result = (State#mqtt_processor_state.module):send(State#mqtt_processor_state.socket,Blob),
 	io:format("Sending PUBREC response(~p): ~p~n",[Result,Blob]),
-	{ok,State };
+	Stats1 = State#mqtt_processor_state.stats,
+	Stats2 = ?INCREMENT_STATS2(Stats1,msg_publish,msg_pubrec),
+	{ok,State#mqtt_processor_state{ stats = Stats2} };
 
 answer_msg( Msg, State ) when is_record(Msg,mqtt_pubrel_variable_header_v4) ->
 	VariableHeader = #mqtt_pubcomp_variable_header_v4{ packet_identifier = Msg#mqtt_pubrel_variable_header_v4.packet_identifier },
@@ -95,7 +107,9 @@ answer_msg( Msg, State ) when is_record(Msg,mqtt_pubrel_variable_header_v4) ->
 	Blob = message:encode(Response),
 	Result = (State#mqtt_processor_state.module):send(State#mqtt_processor_state.socket,Blob),
 	io:format("Sending PUBCOMP response(~p): ~p~n",[Result,Blob]),
-	{ok,State };
+	Stats1 = State#mqtt_processor_state.stats,
+	Stats2 = ?INCREMENT_STATS2(Stats1,msg_pubrel,msg_pubcomp),
+	{ok,State#mqtt_processor_state{ stats = Stats2} };
 
 answer_msg( Msg, State ) when is_record(Msg,mqtt_subscribe_variable_header_v4) ->
 	VariableHeader = #mqtt_suback_variable_header_v4{
@@ -105,7 +119,9 @@ answer_msg( Msg, State ) when is_record(Msg,mqtt_subscribe_variable_header_v4) -
 	Blob = message:encode(Response),
 	Result=(State#mqtt_processor_state.module):send(State#mqtt_processor_state.socket,Blob),
 	io:format("Sending SUBACK response(~p): ~p~n",[Result,Blob]),
-	{ok,State};
+	Stats1 = State#mqtt_processor_state.stats,
+	Stats2 = ?INCREMENT_STATS2(Stats1,msg_subscribe,msg_suback),
+	{ok,State#mqtt_processor_state{ stats = Stats2} };
 
 answer_msg( Msg, State ) when is_record(Msg,mqtt_unsubscribe_variable_header_v4) ->
 	VariableHeader = #mqtt_unsuback_variable_header_v4{
@@ -114,7 +130,9 @@ answer_msg( Msg, State ) when is_record(Msg,mqtt_unsubscribe_variable_header_v4)
 	Blob = message:encode(Response),
 	Result=(State#mqtt_processor_state.module):send(State#mqtt_processor_state.socket,Blob),
 	io:format("Sending UNSUBACK response(~p): ~p~n",[Result,Blob]),
-	{ok,State};
+	Stats1 = State#mqtt_processor_state.stats,
+	Stats2 = ?INCREMENT_STATS2(Stats1,msg_unsubscribe,msg_unsuback),
+	{ok,State#mqtt_processor_state{ stats = Stats2} };
 
 answer_msg( Msg, State ) when is_record(Msg,mqtt_pingreq_variable_header_v4) ->
 	VariableHeader = #mqtt_pingresp_variable_header_v4{ time = erlang:timestamp() },
@@ -122,7 +140,9 @@ answer_msg( Msg, State ) when is_record(Msg,mqtt_pingreq_variable_header_v4) ->
 	Blob = message:encode(Response),
 	Result=(State#mqtt_processor_state.module):send(State#mqtt_processor_state.socket,Blob),
 	io:format("Sending PINGRESP response(~p): ~p~n",[Result,Blob]),
-	{ok,State};
+	Stats1 = State#mqtt_processor_state.stats,
+	Stats2 = ?INCREMENT_STATS2(Stats1,msg_pingreq,msg_pingresp),
+	{ok,State#mqtt_processor_state{ stats = Stats2} };
 
 answer_msg( Msg, State ) when is_record(Msg,mqtt_pingreq_variable_header_v5) ->
 	VariableHeader = #mqtt_pingresp_variable_header_v5{ time = erlang:timestamp() },
@@ -130,7 +150,9 @@ answer_msg( Msg, State ) when is_record(Msg,mqtt_pingreq_variable_header_v5) ->
 	Blob = message:encode(Response),
 	Result=(State#mqtt_processor_state.module):send(State#mqtt_processor_state.socket,Blob),
 	io:format("Sending PINGRESP response(~p): ~p~n",[Result,Blob]),
-	{ok,State};
+	Stats1 = State#mqtt_processor_state.stats,
+	Stats2 = ?INCREMENT_STATS2(Stats1,msg_pingreq,msg_pingresp),
+	{ok,State#mqtt_processor_state{ stats = Stats2} };
 
 answer_msg(Msg,State) when is_record(Msg,mqtt_publish_variable_header_v4) ->
 	io:format("PUBLISH: ~p~n",[binary_to_list(Msg#mqtt_publish_variable_header_v4.payload)]),

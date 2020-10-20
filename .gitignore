@@ -16,3 +16,8 @@ logs
 .rebar3
 _build/
 _checkouts/
+
+# generated code
+include/opensync_stats.hrl
+src/opensync_stats.erl
+

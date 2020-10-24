@@ -17,6 +17,8 @@
 -define(MQTT_PROTOCOL_VERSION_3_11,4).
 
 -define(MQTT_APP,mqttsim).
+-define(MQTT_INVENTORY_FILENAME,"/inventory.dets").
+
 -define(MQTT_DEFAULT_SERVER_PORT,1883).
 
 -define(MQTT_CONNECT,1).

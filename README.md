@@ -27,4 +27,15 @@ Erlang/OTP 23 [erts-11.1.1] [source] [64-bit] [smp:16:16] [ds:16:16:10] [async-t
 Eshell V11.1.1  (abort with ^G)
 1>
 ```
+ To exit, enter `q().`, like this
+ ```
+ Erlang/OTP 23 [erts-11.1.1] [source] [64-bit] [smp:16:16] [ds:16:16:10] [async-threads:1] [hipe] [dtrace]
+
+Eshell V11.1.1  (abort with ^G)
+1> q().
+ok
+2>                                                                                
+prompt >
+```
+ 
  

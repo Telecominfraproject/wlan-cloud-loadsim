@@ -8,5 +8,8 @@ start_link() ->
 	supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 init([]) ->
-	Procs = mqtt_server:creation_info(),
+	Procs = mqtt_server:creation_info() ++
+					mqtt_client:creation_info() ++
+					inventory:creation_info(),
+
 	{ok, {{one_for_one, 1, 5}, Procs}}.

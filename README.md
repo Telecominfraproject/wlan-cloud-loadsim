@@ -63,7 +63,7 @@ to run accross the internet and is expected to run behind firewalls. Security is
 #### Custom CA configuration
 Once you run `mqtt_conf`, you will get a customized configuration file located 
 in the config directory. The file `sys.config` contains most of the settings. You can change the `ca_name` line to reflect the name
-of the ca to use. The default is `sim_ca`. This value is cosmertic only.
+of the ca to use. The default is `sim_ca`. This value is cosmetic only.
 
  ## Starting the simulator
  A quick run file has been added in order to provide a playground for you. From the command line simply enter

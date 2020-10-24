@@ -46,7 +46,7 @@ cd mqttsim
 ./mqtt_conf `pwd`
 ```
 
-### Basic confighuration
+### Basic configuration
 The file `config/vm.args` contains the only value you must change. Near the op pf the file, you will find the following
 ```
 -name mqttsim@renegademac.local

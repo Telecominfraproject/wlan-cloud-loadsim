@@ -65,4 +65,16 @@ Once you run `mqtt_conf`, you will get a customized configuration file located
 in the config directory. The file `sys.config` contains most of the settings. You can change the `ca_name` line to reflect the name
 of the ca to use. The default is `sim_ca`. This value is cosmertic only.
 
- 
+ ## Starting the simulator
+ A quick run file has been added in order to provide a playground for you. From the command line simply enter
+ ```
+ prompt> ./r
+heart_beat_kill_pid = 44603
+Erlang/OTP 23 [erts-11.1.1] [source] [64-bit] [smp:16:16] [ds:16:16:10] [async-threads:5] [hipe] [dtrace]
+
+Eshell V11.1.1  (abort with ^G)
+(mqttsim@renegademac.local)1> 
+```
+This is what you should be able to see. If you do not see something similar, something went wrong and get in touch
+with the community to help you troubleshoot the problem. 
+

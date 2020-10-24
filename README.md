@@ -37,5 +37,14 @@ ok
 2>                                                                                
 prompt >
 ```
- 
+### Compiling the code
+You need to clone the repository, run a configuration command, and start doing the simulation
+
+```
+git clone https://github.com/stephb9959/mqttsim
+cd mqttsim
+./mqtt_conf `pwd`
+```
+
+
  

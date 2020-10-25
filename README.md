@@ -3,19 +3,28 @@ Erlang based MQTT simulator
 
 ## Getting started
 ### Pre-requisites
-You must install Erlang OTP 22 or newer. 
-#### Ubuntu
+You must install Erlang OTP 22 or newer.
+#### Linux 
+##### Ubuntu
 ```
 sudo apt install erlang
 ```
+##### Linux downloads
+Please visit https://www.erlang-solutions.com/resources/download.html in order to get instructions for 
+other Linux distributions and operating systems.
+
 #### OS X
 ```
 brew install erlang 
 ```
+
+#### From source
+Please visit https://erlang.org/doc/installation_guide/INSTALL.html to build Erlang from scratch.
+
 #### Windows
 The systeme currently does not support Windows
 
-### Verifying Erlang is available
+### Verifying if Erlang is available
 From the command line, simply type 
 ```
 prompt > erl

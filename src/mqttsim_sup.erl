@@ -10,6 +10,8 @@ start_link() ->
 init([]) ->
 	Procs = mqtt_server:creation_info() ++
 					mqtt_client:creation_info() ++
+					rest_api:creation_info() ++
+					oui_server:creation_info() ++
 					inventory:creation_info(),
 
 	{ok, {{one_for_one, 1, 5}, Procs}}.

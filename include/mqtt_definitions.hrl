@@ -19,6 +19,9 @@
 -define(MQTT_APP,mqttsim).
 -define(MQTT_INVENTORY_FILENAME,"/inventory.dets").
 
+-define(OUI_FILENAME,"oui_db.txt").
+-define(OUI_DEFAULT_DOWNLOAD_LINK,"https://linuxnet.ca/ieee/oui.txt").
+
 -define(MQTT_DEFAULT_SERVER_PORT,1883).
 
 -define(MQTT_CONNECT,1).

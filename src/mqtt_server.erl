@@ -225,13 +225,11 @@ mqttserver_worker_secure(ListenSock,ParentPid)->
 						}]),
 					ssl:controlling_process(SslSocket,Pid);
 				Error ->
-					io:format("SSL Handshake failed: ~p~n",[Error]),
 					lager:info("SSL handshake failed. ~p",[Error]),
 					ssl:close(Socket)
 			end,
 			mqttserver_worker_secure(ListenSock,ParentPid);
 		Error ->
-			io:format("Transport failed: ~p~n",[Error]),
 			lager:info("accept failed - server shutting down: ~p~n",[Error]),
 			ok
 	end.

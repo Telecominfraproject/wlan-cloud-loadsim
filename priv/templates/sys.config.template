@@ -17,7 +17,10 @@
     { ssl_config, "ssl-config.cnf" },
     { inventory_db_dir, "$$PROJECT_HOME$$/inventory"},
     { cert_db_dir, "$$PROJECT_HOME$$/certs_db"},
-    { ca_name, "sim_ca" }
+    { ca_name, "sim_ca" },
+    { rest_api_port, 9090 },
+    { rest_api_secure, false },
+    { oui_uri, "https://linuxnet.ca/ieee/oui.txt" }
     ]}
   ,
   {lager,

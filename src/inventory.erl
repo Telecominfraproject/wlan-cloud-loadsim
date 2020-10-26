@@ -103,15 +103,15 @@ init([]) ->
 	file:make_dir(CertsDbDir ++ "/clients" ),
 	file:make_dir(CertsDbDir ++ "/servers" ),
 
-	{ ok , TemplateConf } = file:read_file( code:priv_dir(?MQTT_APP) ++ "/data/ca.cnf.template" ),
+	{ ok , TemplateConf } = file:read_file( filename:join([code:priv_dir(?MQTT_APP),"templates","ca.cnf.template"] )),
 	NewConf = string:replace(binary_to_list(TemplateConf),"$$DIR_ROOT$$",CertsDbDir,all),
-	SslCaConfigFile = CertsDbDir ++ "/" ++ CaName ++ ".cnf",
+	SslCaConfigFile = filename:join([CertsDbDir,CaName ++ ".cnf"]),
 	file:write_file(SslCaConfigFile , list_to_binary(NewConf)),
-	DbFileName = InventoryDbDir ++ "/" ++ CaName ++ "_inventory.dets",
+	DbFileName = filename:join([InventoryDbDir,CaName ++ "_inventory.dets"]),
 	{ok,Name} = dets:open_file(inventory,[{file,DbFileName},{auto_save,10000}]),
 
-	CaKeyFileName = CertsDbDir ++ "/" ++ CaName ++ "_key.pem",
-	CaKeyCertFileName = CertsDbDir ++ "/" ++ CaName ++ "_cert.pem",
+	CaKeyFileName = filename:join([CertsDbDir,CaName ++ "_key.pem"]),
+	CaKeyCertFileName = filename:join([CertsDbDir,CaName ++ "_cert.pem"]),
 
 	CaStatus =
 		case all_files_exist([SslCaConfigFile,CaKeyCertFileName,CaKeyFileName]) of

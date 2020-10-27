@@ -120,9 +120,24 @@ handle_call(get_ouis, _From, State = #oui_server_state{}) ->
 handle_call(get_all, _From, State = #oui_server_state{}) ->
 	{reply, {ok,State#oui_server_state.all_ouis,State#oui_server_state.all_makers}, State};
 handle_call({lookup_oui,OUI}, _From, State = #oui_server_state{}) ->
-	{reply, {ok,ets:lookup(?OUI_LOOKUP_TABLE,OUI)}, State};
+	Answer = try
+	    [ {_ , Maker} ] = ets:lookup(?OUI_LOOKUP_TABLE,OUI),
+	    { reply, { ok , Maker }, State}
+	catch
+	    _:_  ->
+		    { reply , { error , "OUI not found" },State}
+	end,
+	Answer;
 handle_call({lookup_maker,Maker}, _From, State = #oui_server_state{}) ->
-	{reply, {ok,ets:lookup(?MAKER_LOOKUP_TABLE,Maker)}, State};
+	Answer = try
+		[{Maker,OUIs}]=ets:lookup(?MAKER_LOOKUP_TABLE,Maker),
+		{ reply, { ok , OUIs} , State}
+	catch
+		_:_ ->
+			{ reply, { error, "Maker not found."},State}
+   end,
+	Answer;
+
 handle_call({refresh,Pid}, _From, State = #oui_server_state{}) ->
 	ProcessingPid = spawn(?MODULE,refresh,[State,Pid]),
 	{reply, ok, State#oui_server_state{transfer_process_pid = ProcessingPid}};

@@ -1,0 +1,153 @@
+openapi: 3.0.0
+info:
+  title: TIP Simulator API
+  description: TIP Simulator API
+  version: 1.0.0
+servers:
+  - url: 'http://renegademac.local:9090'
+paths:
+  /api/v1/ouis:
+    get:
+      tags: [ OUIs ]
+      summary: Get the list of all available OUIs as known by the system.
+      operationId: getOUIs
+      responses:
+        200:
+          description: Successful retrieval of OUI array.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OUIlist'
+        500:
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          
+  /api/v1/oui:
+    get:
+      tags: [ OUIs ]
+      summary: Get the manufacturer associated with an OUI.
+      operationId: getOUI
+      parameters:
+        - in: query
+          description: 
+            The OUI for which you want to find the manufacturer.
+          name: 
+            id
+          schema:
+            type: string
+          required: 
+            true
+      responses:
+        200:
+          description: Successful retrieval of OUI array.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OUIMaker'
+        500:
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/makers:
+    get:
+      tags: [ Manufacturers ]
+      summary: Get the list of all available OUIs as known by the system for a given manufacturer.
+      operationId: getManufacturers
+      responses:
+        200:
+          description: Successful retrieval of OUI array.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MakerList'
+        500:
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          
+
+  /api/v1/maker:
+    get:
+      tags: [ Manufacturers ]
+      summary: Get the OUIs associated with a maker.
+      operationId: getManufacturer
+      parameters: 
+        - in: query
+          description: The OUI for which you want to find the manufacturer.
+          name: id
+          schema:
+            type: string
+          required: true
+      responses:
+        200:
+          description: Successful retrieval of OUI array.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MakerOUIList'
+        500:
+          description: Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          
+
+components:
+  schemas:
+    ErrorResponse:
+      description: Typical error response
+      properties:
+        ErrorCode:
+          type: integer
+        ErrorDescription:
+          type: string
+            
+    OUIlist:
+      description: List of OUIs.
+      properties:
+        OUIlist:
+          type: array
+          items:
+            type: string
+          
+    MakerList:
+      description: List of Manufacturers.
+      properties:
+        Manufacturers:
+          type: array
+          items: 
+            type: string
+            
+    MakerOUIList:
+      description: OUIs associated with a manufacturer.
+      properties:
+        Manufacturer:
+          type:
+            string
+        OUIs:
+          type: array
+          items:
+            type: string
+          
+    OUIMaker:
+      description: Manufacturer associated with an OUI.
+      properties:
+        OUI:
+          type:
+            string
+        Manufacturer:
+            type: 
+              string
+      
+
+
+  

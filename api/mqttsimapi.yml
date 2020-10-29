@@ -3,35 +3,65 @@ info:
   title: TIP Simulator API
   description: TIP Simulator API
   version: 1.0.0
+  termsOfService:
+    http://example.com/terms/
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  contact:
+    name: Arilia Support
+    email: apisupport@arilia.com
+    url: https://www.arilia.com/apisupport
+
 servers:
-  - url: 'http://renegademac.local:9090'
+  - url: 'http://10.2.249.193:9090'
+  - url: 'http://localhost:9090'
+
+security: 
+  - ApiKeyAuth: []
+
 paths:
   /api/v1/ouis:
     get:
       tags: [ OUIs ]
       summary: Get the list of all available OUIs as known by the system.
       operationId: getOUIs
+      parameters: 
+        - in: query
+          description: Pagination start (starts at 1. If not specified, 1 is assumed)
+          name: start
+          schema:
+            type: integer
+          required: false
+        - in: query
+          description: Maximum number of entries to return (if absent, no limit is assumed) 
+          name: limit
+          schema:
+            type: integer
+          required: false
+        - in: query
+          description: Filter the results
+          name: filter
+          schema:
+            type: string
+          required: false
       responses:
         200:
           description: Successful retrieval of OUI array.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OUIlist'
-        500:
-          description: Failure
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/OUIList'
+        403:
+          $ref: '#/components/responses/Unauthorized'
           
-  /api/v1/oui:
+  /api/v1/ouis/{id}:
     get:
       tags: [ OUIs ]
       summary: Get the manufacturer associated with an OUI.
       operationId: getOUI
       parameters:
-        - in: query
+        - in: path
           description: 
             The OUI for which you want to find the manufacturer.
           name: 
@@ -47,18 +77,35 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OUIMaker'
-        500:
-          description: Failure
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+        403:
+          $ref: '#/components/responses/Unauthorized'
+        404:
+          $ref: '#/components/responses/NotFound'
 
   /api/v1/makers:
     get:
       tags: [ Manufacturers ]
       summary: Get the list of all available OUIs as known by the system for a given manufacturer.
       operationId: getManufacturers
+      parameters:
+        - in: query
+          description: Pagination start (starts at 1. If not specified, 1 is assumed)
+          name: start
+          schema:
+            type: integer
+          required: false
+        - in: query
+          description: Maximum number of entries to return (if absent, no limit is assumed) 
+          name: limit
+          schema:
+            type: integer
+          required: false
+        - in: query
+          description: Filter the results
+          name: filter
+          schema:
+            type: string
+          required: false
       responses:
         200:
           description: Successful retrieval of OUI array.
@@ -66,21 +113,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MakerList'
-        500:
-          description: Failure
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-          
+        403:
+          $ref: '#/components/responses/Unauthorized'
 
-  /api/v1/maker:
+  /api/v1/makers/{id}:
     get:
       tags: [ Manufacturers ]
       summary: Get the OUIs associated with a maker.
       operationId: getManufacturer
       parameters: 
-        - in: query
+        - in: path
           description: The OUI for which you want to find the manufacturer.
           name: id
           schema:
@@ -93,28 +135,373 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MakerOUIList'
-        500:
-          description: Failure
+        403:
+          $ref: '#/components/responses/Unauthorized'
+        404:
+          $ref: '#/components/responses/NotFound'
+                
+  /api/v1/cas:
+    get:
+      tags: [ CA ]
+      summary: Get a list of existing CAs
+      operationId: getCAs
+      parameters:
+        - in: query
+          description: Pagination start (starts at 1. If not specified, 1 is assumed)
+          name: start
+          schema:
+            type: integer
+          required: false
+        - in: query
+          description: Maximum number of entries to return (if absent, no limit is assumed) 
+          name: limit
+          schema:
+            type: integer
+          required: false
+        - in: query
+          description: Filter the results
+          name: filter
+          schema:
+            type: string
+          required: false
+
+      responses:
+        200:
+          description: Return the list of CAs.This can be an empty list.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-          
+                $ref: '#/components/schemas/CAList'
+        403:
+          $ref: '#/components/responses/Unauthorized'
 
+    post:
+      tags: [ CA ]
+      summary: Create a new CA
+      operationId: CreateCA
+      requestBody:
+        description: The information about the CA
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CADetails'
+      responses:
+        201:
+          description: Return the list of CAs.This can be an empty list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CADetails'
+        403:
+          $ref: '#/components/responses/Unauthorized'
+        404:
+          $ref: '#/components/responses/NotFound'
+          
+  /api/v1/cas/{id}:
+    get:
+      tags: [CA]
+      summary: Get the details about a single CA
+      operationId: getASingleCA
+      parameters: 
+        - in: path
+          description: The name of the CA we are interested in.
+          name: id
+          schema:
+            type: string
+          required: true
+      responses:
+        200:
+          description: Details of the requested CA
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CADetails'
+        403:
+          $ref: '#/components/responses/Unauthorized'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      tags: [CA]
+      summary: Update the details about a single CA
+      operationId: CreateASingleCA
+      parameters: 
+        - in: path
+          description: The name of the CA we are interested in.
+          name: id
+          schema:
+            type: string
+          required: true
+      responses:
+        200:
+          description: Details of the requested CA
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CADetails'
+        403:
+          $ref: '#/components/responses/Unauthorized'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [CA]
+      summary: Remove all information about a given CA
+      operationId: RemoveCA
+      parameters:
+        - in: path
+          description: The name of the CA to remove
+          name: id
+          schema:
+            type: string
+          required: true
+      responses:
+        200:
+          description: Succesful removal of CA
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericGoodAnswer'
+        404:
+          description: CA does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericErrorResponse'
+
+  /api/v1/cas/{id}/devices:
+    get:
+      tags: [Devices]
+      summary: List devices for a given CA
+      operationId: GetCADevices
+      parameters: 
+        - in: query
+          description: Pagination start (starts at 1. If not specified, 1 is assumed)
+          name: start
+          schema:
+            type: integer
+          required: false
+        - in: query
+          description: Maximum number of entries to return (if absent, no limit is assumed) 
+          name: limit
+          schema:
+            type: integer
+          required: false
+        - in: query
+          description: Filter the results
+          name: filter
+          schema:
+            type: string
+          required: false
+        - in: path
+          description: The name of the CA we are querying for
+          name: id
+          schema:
+            type: string
+          required: true
+      responses:
+        200:
+          description: Return a list of devices
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceList'
+        403:
+          $ref: '#/components/responses/Unauthorized'
+        404:
+          $ref: '#/components/responses/NotFound'
+    
+    post:
+      tags: [Devices]
+      summary: Create a specific device
+      operationId: CreateADevice
+      parameters: 
+        - in: path
+          description: The name of the CA we are adding a device for
+          name: id
+          schema:
+            type: string
+          required: true
+      requestBody:
+        description: The information about the device
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceInfo'
+      responses:
+        201:
+          description: Return on success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceInfo'
+        403:
+          $ref: '#/components/responses/Unauthorized'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Devices]
+      summary: Delete all the devices associated with a given CA
+      operationId: DeleteCADevices
+      parameters:
+        - in: path
+          description: The name of the CA
+          name: id
+          schema:
+            type: string
+          required: true
+      responses:
+        200:
+          description: Succesfule removal of all devices
+          content: 
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericGoodAnswer'
+        403:
+          $ref: '#/components/responses/Unauthorized'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/cas/{id}/devices/{name}:
+    get:
+      tags: [Devices]
+      summary: Get specific device information
+      operationId: GetCADeviceInfo
+      parameters: 
+        - in: path
+          description: The name of the CA
+          name: id
+          schema:
+            type: string
+          required: true
+        - in: path
+          description: The name of the device
+          name: name
+          schema:
+            type: string
+          required: true
+      responses:
+        200:
+          description: Return the information for a single device
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceInfo'
+        403:
+          $ref: '#/components/responses/Unauthorized'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      tags: [Devices]
+      summary: Update a specific device
+      operationId: UpdateADevice
+      parameters: 
+        - in: path
+          description: The name of the CA
+          name: id
+          schema:
+            type: string
+          required: true
+        - in: path
+          description: The identifier for teh device
+          name: name
+          schema:
+            type: string
+          required: true
+      responses:
+        200:
+          description: Return for success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericGoodAnswer'
+        403:
+          $ref: '#/components/responses/Unauthorized'
+        404:
+          $ref: '#/components/responses/NotFound'
+                
+    delete:
+      tags: [Devices]
+      summary: Delete a specific device
+      operationId: DeleteDevice
+      parameters: 
+        - in: path
+          name: id
+          description: Name of the CA where devcie exists
+          schema:
+            type: string
+          required: true
+        - in: path
+          name: name
+          description: Identifier for the device
+          schema:
+            type: string
+          required: true
+      responses:
+        200:
+          $ref: '#/components/responses/Success'
+        403:
+          $ref: '#/components/responses/Unauthorized'
+        404:
+          $ref: '#/components/responses/NotFound'
+          
+                
 components:
+  responses:
+    NotFound:
+      description: The specified resource was not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/GenericErrorResponse'
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/GenericErrorResponse'
+    Success:
+      description: Success
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/GenericGoodAnswer'
+
+  securitySchemes:
+    ApiKeyAuth:        # arbitrary name for the security scheme
+      type: apiKey
+      in: header       
+      name: X-API-KEY 
+      
   schemas:
-    ErrorResponse:
+    GenericErrorResponse:
       description: Typical error response
       properties:
         ErrorCode:
           type: integer
+        ErrorDetails:
+          type: string
         ErrorDescription:
           type: string
+          
+    GenericGoodAnswer:
+      description: used for all succesful responses.
+      properties:
+        Operation:
+          type: string
+        Details:
+          type: string
+        Code:
+          type: integer
             
-    OUIlist:
+    OUIList:
       description: List of OUIs.
       properties:
-        OUIlist:
+        OUIs:
           type: array
           items:
             type: string
@@ -147,7 +534,87 @@ components:
         Manufacturer:
             type: 
               string
-      
+              
+    CAList:
+      description: A list of CAs
+      properties:
+        CAs:
+          type: array
+          items:
+            type: string
+            
+    CADetails:
+      description: Details information about a CA
+      properties:
+        Name: 
+          description: Name of the CA (may not contains special characters)
+          type: string
+        Description:
+          description: A brief description
+          type: string
+        Key:
+          description: The key for the CA
+          type: string
+          format: byte
+        Cert:
+          description: The certificate for the CA
+          type: string
+          format: byte
+        Password:
+          description: The password for the CA information
+          type: string
+          format: byte
+        Configuration:
+          description: The config file for the CA (dangerous-do not modify)
+          type: string
+          
+    DeviceList:
+      description: List of devices for a given CA
+      properties:
+        CA: 
+          description: Name of the CA 
+          type: string
+        Devices:
+          description: Device list
+          type: array
+          items:
+            type: string
+            
+    DeviceInfo:
+      description: Information about a single device
+      properties:
+        Name:
+          description: Device identifier
+          type: string
+        Description:
+          description: Device description if available
+          type: string
+        Type:
+          description: Device type
+          type: string
+        Firmware:
+          description: Firmware name
+          type: string
+        Vendor:
+          description: Vendor 
+          type: string
+        DeviceModel:
+          description: hardware model
+          type: string
+        Key:
+          description: Key for the device
+          type: string
+          format: byte
+        Cert:
+          description: Certificate for the device
+          type: string
+          format: byte
+        Decrypt:
+          description: Decrypt key
+          type: string
+          format: byte
+          
+          
+        
+              
 
-
-  

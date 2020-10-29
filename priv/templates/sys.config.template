@@ -20,7 +20,8 @@
     { ca_name, "sim_ca" },
     { rest_api_port, 9090 },
     { rest_api_secure, false },
-    { oui_uri, "https://linuxnet.ca/ieee/oui.txt" }
+    { oui_uri, "https://linuxnet.ca/ieee/oui.txt" },
+    { rest_api_token, "1234567890" }
     ]}
   ,
   {lager,

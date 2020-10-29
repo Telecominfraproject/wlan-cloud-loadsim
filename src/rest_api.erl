@@ -58,7 +58,7 @@ init([]) ->
 	Dispatch = cowboy_router:compile([
 		{
 			'_', [
-			{ "/api/v1/[:restype]" ,   api_rest_handler, [] },
+			{ "/api/v1/:restype/[:resid]" ,   api_rest_handler, [] },
 			{ "/", cowboy_static, {priv_file, ?MQTT_APP, "web/index.html"} },
 			{ "/[...]", cowboy_static, {priv_dir, ?MQTT_APP, "web" } }
 		]}

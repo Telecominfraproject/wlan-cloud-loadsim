@@ -184,12 +184,9 @@ handle_call({get_ca,Ca,_Pid}, _From, State = #inventory_state{}) ->
 			{reply,{error,unknown_ca},State};
 		[CAInfo]->
 			try
-				{ok,KeyPemBin} = file:read_file(CAInfo#ca_info.key),
-				{ok,CertPemBin} = file:read_file(CAInfo#ca_info.cert),
-				{ok,Config} = file:read_file(CAInfo#ca_info.config),
-				Attributes = [{key_pem,KeyPemBin},
-					{cert_pem,CertPemBin},
-					{config,Config}],
+				Attributes = [{key_pem,CAInfo#ca_info.key_data},
+					{cert_pem,CAInfo#ca_info.cert_data},
+					{config,CAInfo#ca_info.config_data}],
 				{ reply, {ok,Attributes}, State }
 			catch
 				_:_ ->
@@ -344,13 +341,16 @@ create_ca(CaName,Password,State,Pid)->
 	file:make_dir(filename:join([CaDir,"crl"])),
 	file:make_dir(filename:join([CaDir,"private"])),
 
+	{ok,CertData}=file:read_file(CaKeyCertFileName),
+
 	NewCa = #ca_info{ name = CaName,
-		dir = CaDir,
-		clients = CaClientsDir,
-		servers = CaServersDir,
-		cert = CaKeyCertFileName,
-		key = CaKeyFileName,
-		config = CaConfigFileName,
+		dir_name = CaDir,
+		clients_dir_name = CaClientsDir,
+		servers_dir_name = CaServersDir,
+		cert_file_name = CaKeyCertFileName,
+		key_file_name =  CaKeyFileName,
+		config_file_name = CaConfigFileName,
+		cert_data = CertData,
 		password = Password
 		},
 	ets:insert(?CADB_TABLE,NewCa),
@@ -358,7 +358,7 @@ create_ca(CaName,Password,State,Pid)->
 	{ ok, State#inventory_state{ status = created } }.
 
 delete_ca(CAInfo,State,_Pid)->
-	file:del_dir_r(CAInfo#ca_info.dir),
+	file:del_dir_r(CAInfo#ca_info.dir_name),
 	ets:delete(?CADB_TABLE,CAInfo#ca_info.name),
 	update_disk_db(State),
 	{ ok , State }.
@@ -369,23 +369,23 @@ delete_ca(CAInfo,State,_Pid)->
 %% openssl ca -batch -key apassword -config openssl-ca.cnf -policy signing_policy -extensions signing_req_server -out mqttservercert.pem -infiles mqttservercert.csr
 %% openssl rsa -passin pass:apassword -in mqttserverkey.pem -out mqttserverkey_dec.pem
 create_server(CAInfo,Name,State,Pid)->
-	ServerKeyPem = filename:join([CAInfo#ca_info.servers,"server-" ++ Name ++ "-key.pem"]),
-	ServerKeyDec = filename:join([CAInfo#ca_info.servers,"server-" ++ Name ++ "-key_dec.pem"]),
-	ServerCertCsr = filename:join([CAInfo#ca_info.servers,"server-" ++ Name ++ "-cert.csr"]),
-	ServerCertPem = filename:join([CAInfo#ca_info.servers,"server-" ++ Name ++ "-cert.pem"]),
+	ServerKeyPem = filename:join([CAInfo#ca_info.servers_dir_name,"server-" ++ Name ++ "-key.pem"]),
+	ServerKeyDec = filename:join([CAInfo#ca_info.servers_dir_name,"server-" ++ Name ++ "-key_dec.pem"]),
+	ServerCertCsr = filename:join([CAInfo#ca_info.servers_dir_name,"server-" ++ Name ++ "-cert.csr"]),
+	ServerCertPem = filename:join([CAInfo#ca_info.servers_dir_name,"server-" ++ Name ++ "-cert.pem"]),
 	Subject = "\"/C=CA/ST=BC/L=Vancouver/O=Arilia Wireless Inc./OU=Servers/CN=" ++ Name ++ "\"",
 	Cmd1 = io_lib:format("openssl req -config ~s -batch -passout pass:~s -newkey rsa:2048 -sha256 -keyout ~s -out ~s -outform PEM",
-		[ CAInfo#ca_info.config,
+		[ CAInfo#ca_info.config_file_name,
 			CAInfo#ca_info.password,
 			ServerKeyPem, ServerCertCsr]),
 	CommandResult1 = os:cmd(Cmd1),
 	io:format("~p> CMD1: ~s, RESULT: ~s~n~n",[Pid,Cmd1,CommandResult1]),
 	Cmd2 = io_lib:format("openssl ca -batch -passin pass:~s -config ~s -subj ~s -keyfile ~s -cert ~s -extensions server_cert -policy policy_loose -out ~s -infiles ~s",
 		[ CAInfo#ca_info.password,
-			CAInfo#ca_info.config,
+			CAInfo#ca_info.config_file_name,
 			Subject,
-			CAInfo#ca_info.key,
-			CAInfo#ca_info.cert,
+			CAInfo#ca_info.key_file_name,
+			CAInfo#ca_info.cert_file_name,
 			ServerCertPem,
 			ServerCertCsr]),
 	CommandResult2 = os:cmd(Cmd2),
@@ -406,21 +406,21 @@ create_servers(CAInfo,[H|T],State,Pid)->
 %% openssl ca -batch -key apassword -config openssl-ca.cnf -policy signing_policy -extensions signing_req_client -out clientcert.pem -infiles clientcert.csr
 %% openssl rsa -passin pass:apassword -in clientkey.pem -out clientkey_dec.pem
 create_client(CAInfo,Name,State,Pid)->
-	ClientKeyPem = filename:join([CAInfo#ca_info.clients,"client-" ++ Name ++ "-key.pem"]),
-	ClientKeyDec = filename:join([CAInfo#ca_info.clients,"client-" ++ Name ++ "-key_dec.pem"]),
-	ClientCertCsr = filename:join([CAInfo#ca_info.clients,"client-" ++ Name ++ "-cert.csr"]),
-	ClientCertPem = filename:join([CAInfo#ca_info.clients,"client-" ++ Name ++ "-cert.pem"]),
+	ClientKeyPem = filename:join([CAInfo#ca_info.clients_dir_name,"client-" ++ Name ++ "-key.pem"]),
+	ClientKeyDec = filename:join([CAInfo#ca_info.clients_dir_name,"client-" ++ Name ++ "-key_dec.pem"]),
+	ClientCertCsr = filename:join([CAInfo#ca_info.clients_dir_name,"client-" ++ Name ++ "-cert.csr"]),
+	ClientCertPem = filename:join([CAInfo#ca_info.clients_dir_name,"client-" ++ Name ++ "-cert.pem"]),
 	Subject = "\"/C=CA/ST=BC/L=Vancouver/O=Arilia Wireless Inc./OU=Clients/CN=" ++ Name ++ "\"",
 	Cmd1 = io_lib:format("openssl req -config ~s -batch -passout pass:~s -newkey rsa:2048 -sha256 -keyout ~s -out ~s -outform PEM -nodes",
-		[ CAInfo#ca_info.config, CAInfo#ca_info.password, ClientKeyPem,ClientCertCsr]),
+		[ CAInfo#ca_info.config_file_name, CAInfo#ca_info.password, ClientKeyPem,ClientCertCsr]),
 	CommandResult1 = os:cmd(Cmd1),
 	io:format("~p> CMD1: ~s, RESULT: ~s~n~n",[Pid,Cmd1,CommandResult1]),
 	Cmd2 = io_lib:format("openssl ca -batch -passin pass:~s -config ~s -subj ~s -keyfile ~s -cert ~s -extensions usr_cert -policy policy_loose -out ~s -infiles ~s",
 		[ CAInfo#ca_info.password,
-			CAInfo#ca_info.config,
+			CAInfo#ca_info.config_file_name,
 			Subject,
-			CAInfo#ca_info.key,
-			CAInfo#ca_info.cert,
+			CAInfo#ca_info.key_file_name,
+			CAInfo#ca_info.cert_file_name,
 			ClientCertPem	,
 			ClientCertCsr
 			]),

@@ -567,7 +567,9 @@ components:
         Configuration:
           description: The config file for the CA (dangerous-do not modify)
           type: string
-          
+        Info:
+          $ref: '#/components/schemas/GenericProperties'
+
     DeviceList:
       description: List of devices for a given CA
       properties:
@@ -613,7 +615,30 @@ components:
           description: Decrypt key
           type: string
           format: byte
+        Info:
+          $ref: '#/components/schemas/GenericProperties'
           
+    GenericProperties:
+      description: Read-only fields for all entries
+      readOnly: true
+      properties:
+        Id:
+          description: UUID for the record
+          type: string
+          format: uuid
+        Created:
+          description: The creation date for this record
+          type: string
+          format: date-time
+        Accessed:
+          description: The last accessed date for this record
+          type: string
+          format: date-time
+        Modified:
+          description: The last modified date for this record
+          type: string
+          format: date-time
+
           
         
               

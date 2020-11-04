@@ -1,1 +1,1 @@
-erl -config config/simmanager -args_file config/simmanager.args -pa deps/*/ebin -pa ebin -s mqttsim_app
+erl -config config/simmanager -args_file config/simmanager.args -pa deps/*/ebin -pa ebin -s owls_app

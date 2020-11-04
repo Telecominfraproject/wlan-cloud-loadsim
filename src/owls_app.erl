@@ -1,4 +1,4 @@
--module(mqttsim_app).
+-module(owls_app).
 -behaviour(application).
 
 -export([start/2,start/0,load_cli/0]).
@@ -9,7 +9,7 @@ start(_Type, _Args) ->
 	inets:start(),
 	lager:start(),
 	application:ensure_all_started(ssl),
-	mqttsim_sup:start_link().
+	owls_sup:start_link().
 
 stop(_State) ->
 	ok.
@@ -19,7 +19,7 @@ start() ->
 	inets:start(),
 	lager:start(),
 	application:ensure_all_started(ssl),
-	application:ensure_all_started(mqttsim).
+	application:ensure_all_started(owls).
 
 load_cli()->
 	code:purge(user_default),

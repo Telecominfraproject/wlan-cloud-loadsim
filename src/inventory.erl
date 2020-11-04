@@ -123,9 +123,9 @@ start_link() ->
 	{stop, Reason :: term()} | ignore).
 init([]) ->
 	process_flag(trap_exit, true),
-	InventoryDbDir = application:get_env(?MQTT_APP,inventory_db_dir,""),
+	InventoryDbDir = application:get_env(?OWLS_APP,inventory_db_dir,""),
 	file:make_dir(InventoryDbDir),
-	CertsDbDir = application:get_env(?MQTT_APP,cert_db_dir,""),
+	CertsDbDir = application:get_env(?OWLS_APP,cert_db_dir,""),
 	file:make_dir(CertsDbDir),
 	CaDbFileName=filename:join(CertsDbDir,?CADB_TABLE_FILENAME),
 	ServersDbFileName=filename:join([InventoryDbDir,?SERVERS_TABLE_FILENAME]),
@@ -311,7 +311,7 @@ create_ca(CaName,Password,State,Pid)->
 	file:make_dir(CaClientsDir),
 	file:make_dir(CaServersDir),
 
-	{ ok , TemplateConf } = file:read_file( filename:join([code:priv_dir(?MQTT_APP),"templates","ca.cnf.template"] )),
+	{ ok , TemplateConf } = file:read_file( filename:join([code:priv_dir(?OWLS_APP),"templates","ca.cnf.template"] )),
 	NewConf = string:replace(binary_to_list(TemplateConf),"$$DIR_ROOT$$",CaDir,all),
 	CaConfigFileName = filename:join([CaDir,CaName++".cnf"]),
 	file:write_file(CaConfigFileName , list_to_binary(NewConf)),

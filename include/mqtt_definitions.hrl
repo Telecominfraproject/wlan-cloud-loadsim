@@ -16,7 +16,6 @@
 -define(MQTT_PROTOCOL_VERSION_5,5).
 -define(MQTT_PROTOCOL_VERSION_3_11,4).
 
--define(MQTT_APP,mqttsim).
 -define(MQTT_INVENTORY_FILENAME,"/inventory.dets").
 
 -define(OUI_FILENAME,"oui_db.txt").

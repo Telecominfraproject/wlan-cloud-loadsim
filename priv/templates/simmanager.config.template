@@ -1,5 +1,5 @@
 [ {
-  mqttsim ,
+  owls ,
   [
     { secure, true },
     { certfile, "$$PROJECT_HOME$$/certs/tip/mqttservercert.pem" },

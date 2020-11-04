@@ -11,6 +11,7 @@
 
 -behaviour(gen_server).
 
+-include("../include/internal.hrl").
 -include("../include/mqtt_definitions.hrl").
 
 %% API
@@ -52,15 +53,15 @@ start_link() ->
 	{stop, Reason :: term()} | ignore).
 init([]) ->
 	process_flag(trap_exit, true),
-	Port = application:get_env( ?MQTT_APP, rest_api_port, 8088),
-	Secure = application:get_env( ?MQTT_APP, rest_api_secure, true ),
-	PrivDir = code:priv_dir(?MQTT_APP),
+	Port = application:get_env( ?OWLS_APP, rest_api_port, 8088),
+	Secure = application:get_env( ?OWLS_APP, rest_api_secure, true ),
+	PrivDir = code:priv_dir(?OWLS_APP),
 	Dispatch = cowboy_router:compile([
 		{
 			'_', [
 			{ "/api/v1/:restype/[:resid]" ,   api_rest_handler, [] },
-			{ "/", cowboy_static, {priv_file, ?MQTT_APP, "web/index.html"} },
-			{ "/[...]", cowboy_static, {priv_dir, ?MQTT_APP, "web" } }
+			{ "/", cowboy_static, {priv_file, ?OWLS_APP, "web/index.html"} },
+			{ "/[...]", cowboy_static, {priv_dir, ?OWLS_APP, "web" } }
 		]}
 	]),
 	{ok, CB } = case Secure of

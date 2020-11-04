@@ -65,13 +65,13 @@ start_link() ->
 	{ok, State :: #mqtt_server_state{}} | {ok, State :: #mqtt_server_state{}, timeout() | hibernate} |
 	{stop, Reason :: term()} | ignore).
 init([]) ->
-	ServerPort = application:get_env(?MQTT_APP,server_port,?MQTT_DEFAULT_SERVER_PORT),
-	NumListeners = application:get_env(?MQTT_APP,num_listeners,10),
-	NumServers = application:get_env(?MQTT_APP,num_servers,10),
-	Secure = application:get_env(?MQTT_APP,secure,false),
-	CertFile = application:get_env(?MQTT_APP,certfile,""),
-	_CaCert = application:get_env(?MQTT_APP,cacertfile,""),
-	KeyFile = application:get_env(?MQTT_APP,keyfile,""),
+	ServerPort = application:get_env(?OWLS_APP,server_port,?MQTT_DEFAULT_SERVER_PORT),
+	NumListeners = application:get_env(?OWLS_APP,num_listeners,10),
+	NumServers = application:get_env(?OWLS_APP,num_servers,10),
+	Secure = application:get_env(?OWLS_APP,secure,false),
+	CertFile = application:get_env(?OWLS_APP,certfile,""),
+	_CaCert = application:get_env(?OWLS_APP,cacertfile,""),
+	KeyFile = application:get_env(?OWLS_APP,keyfile,""),
 	{ ok , ListenSocket } = case Secure of
 														false ->
 															gen_tcp:listen(ServerPort,[

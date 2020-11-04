@@ -8,6 +8,8 @@
 %%%-------------------------------------------------------------------
 -author("stephb").
 
+-define(OWLS_APP,owls).
+
 -record(mqtt_connection_stats,{
 	client_identifier = <<>> :: binary(),
 	msg_connect = 0 :: integer(),

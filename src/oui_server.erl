@@ -11,6 +11,7 @@
 
 -behaviour(gen_server).
 
+-include("../include/internal.hrl").
 -include("../include/mqtt_definitions.hrl").
 -include_lib("stdlib/include/ms_transform.hrl").
 
@@ -78,10 +79,10 @@ start_link() ->
 	{stop, Reason :: term()} | ignore).
 init([]) ->
 	process_flag(trap_exit, true),
-	OuiUri = application:get_env(?MQTT_APP,oui_uri,?OUI_DEFAULT_DOWNLOAD_LINK),
+	OuiUri = application:get_env(?OWLS_APP,oui_uri,?OUI_DEFAULT_DOWNLOAD_LINK),
 
-	OuiTabFileName = filename:join([code:priv_dir(?MQTT_APP),"data",?OUI_LOOKUP_TABLE_FILENAME]),
-	MakerTabFileName = filename:join([code:priv_dir(?MQTT_APP),"data",?MAKER_LOOKUP_TABLE_FILENAME]),
+	OuiTabFileName = filename:join([code:priv_dir(?OWLS_APP),"data",?OUI_LOOKUP_TABLE_FILENAME]),
+	MakerTabFileName = filename:join([code:priv_dir(?OWLS_APP),"data",?MAKER_LOOKUP_TABLE_FILENAME]),
 
 	{ AllOuis , AllMakers } = try
 		                            ets:file2tab(OuiTabFileName),
@@ -296,4 +297,4 @@ refresh(State,_Pid) ->
 	end.
 
 latest_filename() ->
-	filename:join([code:priv_dir(?MQTT_APP),"data",?OUI_FILENAME]).
+	filename:join([code:priv_dir(?OWLS_APP),"data",?OUI_FILENAME]).

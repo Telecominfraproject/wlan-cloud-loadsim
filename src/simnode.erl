@@ -36,7 +36,9 @@
 	{ok, pid(), State :: term()} |
 	{error, Reason :: term()}).
 start(_StartType, _StartArgs) ->
-	case 'TopSupervisor':start_link() of
+	code:purge(node_cli),
+	code:load_file(node_cli),
+	case node_sup:start_link() of
 		{ok, Pid} ->
 			{ok, Pid};
 		Error ->

@@ -9,6 +9,7 @@
 -module(api_rest_handler).
 -author("stephb").
 
+-include("../include/internal.hrl").
 -include("../include/mqtt_definitions.hrl").
 
 %% API
@@ -178,7 +179,7 @@ generate_error(Error,Reason)->
 		Reason, "\" }"]).
 
 validate_token(Token)->
-	application:get_env(?MQTT_APP,rest_api_token,"") == binary_to_list(Token).
+	application:get_env(?OWLS_APP,rest_api_token,"") == binary_to_list(Token).
 
 get_pagination_parameters(Req) ->
 	#{ start := Start , limit := Limit, filter := Filter } = cowboy_req:match_qs([{start,int,1},{limit,int,0},{filter,[],<<>>}],Req),

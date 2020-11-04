@@ -81,6 +81,8 @@ init([]) ->
 	process_flag(trap_exit, true),
 	OuiUri = application:get_env(?OWLS_APP,oui_uri,?OUI_DEFAULT_DOWNLOAD_LINK),
 
+	file:make_dir(filename:join([code:priv_dir(?OWLS_APP),"data"])),
+
 	OuiTabFileName = filename:join([code:priv_dir(?OWLS_APP),"data",?OUI_LOOKUP_TABLE_FILENAME]),
 	MakerTabFileName = filename:join([code:priv_dir(?OWLS_APP),"data",?MAKER_LOOKUP_TABLE_FILENAME]),
 

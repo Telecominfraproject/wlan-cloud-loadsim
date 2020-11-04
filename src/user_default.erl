@@ -21,3 +21,6 @@ login(ApiKey)->
 logout()->
 	persistent_term:erase(?SIM_APIKEY).
 
+refresh_ouis()->
+	oui_server:refresh().
+

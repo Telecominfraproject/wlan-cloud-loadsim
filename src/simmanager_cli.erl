@@ -4,16 +4,14 @@
 %%% @doc
 %%%
 %%% @end
-%%% Created : 03. Nov 2020 9:27 p.m.
+%%% Created : 04. Nov 2020 10:43 a.m.
 %%%-------------------------------------------------------------------
--module(node_cli).
+-module(simmanager_cli).
 -author("stephb").
 
+%% API
 -compile(export_all).
 -compile(nowarn_export_all).
 
-connect(Node)->
-	io:format("Connecting to node: ~p~n",[Node]).
-
-disconnect(Node)->
-	io:format("Disconnecting from node: ~p~n",[Node]).
+refresh_ouis()->
+	oui_server:refresh().

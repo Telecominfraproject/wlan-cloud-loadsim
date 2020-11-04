@@ -4,9 +4,9 @@
 %%% @doc
 %%%
 %%% @end
-%%% Created : 03. Nov 2020 9:27 p.m.
+%%% Created : 04. Nov 2020 10:43 a.m.
 %%%-------------------------------------------------------------------
--module(manager_cli).
+-module(simnode_cli).
 -author("stephb").
 
 %% API

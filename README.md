@@ -1,4 +1,4 @@
-![alt text](https://github.com/stephb9959/mqttsim/images/owls.jpg?raw=true)
+![OWLS](images/owls.jpg?raw=true "OWLS")
 # OWLS (Open WiFi Load Simulator)
 Erlang based MQTT simulator
 

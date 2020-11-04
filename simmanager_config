@@ -1,12 +1,18 @@
 #!/usr/bin/env escript
 
-main([ProjectHome]) ->
+main([]) ->
     try
-        {ok,File}=file:read_file("priv/templates/simmanager.config.template"),
-        Config=binary_to_list(File),
-        NewConfig=string:replace(Config,"$$PROJECT_HOME$$",ProjectHome,all),
-        io:format("~s~n",[NewConfig]),
-        file:write_file("config/simmanager.config",list_to_binary(NewConfig))
+        {ok,DefaultDirName}=file:get_cwd(),
+        NodeName = input("Please enter a node name", make_nodename() ),
+        Cookie = input("Please enter a network cookie", "oreo" ),
+        DirName = input("Please enter a directory name", DefaultDirName ),
+        WebUiPort = input("Please enter the WEB UI port", "9091" ),
+        file_substitute(filename:join(["priv","templates","simmanager.config.template"]),
+            filename:join(["config","simmanager.config"]),
+            [{"$$PROJECT_HOME$$",DirName},{"$$ROLE$$","simmanager"},{"$$WEB_UI_PORT$$",WebUiPort}]),
+        file_substitute(filename:join(["priv","templates","simmanager.args.template"]),
+            filename:join(["config","simmanager.args"]),
+            [{"$$NODE_NAME$$",NodeName},{"$$COOKIE$$",Cookie}])
     catch
         _:_ ->
             usage()
@@ -18,3 +24,30 @@ usage() ->
     io:format("usage: mqtt_config <project_home_prefix>~n"),
     halt(1).
 
+find_hostname()->
+    {ok,Hostname}=inet:gethostname(),
+    {ok,{hostent,RealHostname,_,inet,4,_}}=inet:gethostbyname(Hostname),
+    RealHostname.
+
+make_nodename()->
+    "simmanager@" ++ find_hostname().
+
+replace([],FinalBlob)->
+    FinalBlob;
+replace([{Variable,Value}|T],Blob) when is_integer(Value)->
+    replace(T,string:replace(Blob,Variable,integer_to_list(Value),all));
+replace([{Variable,Value}|T],Blob) when is_list(Value)->
+    replace(T,string:replace(Blob,Variable,Value,all)).
+
+file_substitute(FileNameIn,FileNameOut,VariableList)->
+    {ok,FileBin}=file:read_file(FileNameIn),
+    FileBlob=binary_to_list(FileBin),
+    NewBlob=replace(VariableList,FileBlob),
+    file:write_file(FileNameOut,list_to_binary(NewBlob)).
+
+input(Prompt,Default)->
+    InputData=string:trim(io:get_line( Prompt ++ " [" ++ Default ++ "] :")),
+    case InputData=="" of
+        true -> Default;
+        false -> InputData
+    end.

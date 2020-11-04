@@ -53,30 +53,31 @@ prompt >
 You need to clone the repository, run a configuration command, and start doing the simulation
 
 ```
-git clone https://github.com/stephb9959/mqttsim
-cd mqttsim
+git clone https://github.com/stephb9959/owls
+cd owls
 ```
 
 ### Choosing a node type
 In a simulation, you have 2 types of nodes. 
 
 #### simmanager node
-There is only one 'simmanager' node. This node is responsible for directing all the other nodes in the simulation. It is a 
-central management point and gathers all the data about the simulation. You will be interacting with the 'simmanager' through a 
-command line interface or a web UI. If you wish to start a 'simmanager' node, you should do the following:
+There is only one `simmanager` node. This node is responsible for directing all the other nodes in the simulation. It is a 
+central management point and gathers all the data about the simulation. You will be interacting with the `simmanager` through a 
+command line interface or a web UI. If you wish to start a `simmanager` node, you should do the following and answer the questions
+for the initial configuration.
 
 ```
-./simmanager_config `pwd`
+./simmanager_config
 ./simnanager
 ```
 
 #### simnode node
-You can have multiple 'simnode' nodes. Each of these nodes can be started on the same host, or a number of other virtual or physical machines.
+You can have multiple `simnode` nodes. Each of these nodes can be started on the same host, or a number of other virtual or physical machines.
 Once a `simnode` is running, you will be able to monitor it trough a command line interface or a local web UI. If you wish to start a `simnode`, please 
-follow these instructions. 
+follow these instructions and answer the questions for the initial configuration.
 
 ```
-./simnode_config `pwd`
+./simnode_config
 ./simnode
 ```
 
@@ -84,25 +85,25 @@ follow these instructions.
 If you wish to run multiple nodes on a single host, you should run this from multiple copies of the repository code. 
 
 ```
-mkdir ~/owls
-cd ~/owls
+mkdir ~/projects
+cd ~/projects
 mkdir simnode1
 cd simnode1
-git clone https://github.com/stephb9959/mqttsim
-cd mqttsim
-./simnode_config `pwd`
+git clone https://github.com/stephb9959/owls
+cd owls
+./simnode_config
 ./simnode
 ```
 
 in another terminal window
 
 ```
-cd ~/owls
+cd ~/projects
 mkdir simnode2
 cd simnode2
-git clone https://github.com/stephb9959/mqttsim
-cd mqttsim
-./simnode_config `pwd`
+git clone https://github.com/stephb9959/owls
+cd owls
+./simnode_config
 ./simnode
 ```
 
@@ -149,4 +150,4 @@ with the community to help you troubleshoot the problem.
 
 ## API
 This project uses OpenAPI specification 3.0, and you can use Swagger (https://editor.swagger.io/) in order to look at the API located in the `api` directory. 
-This API also follows the best practices for RESTful APi discussed in https://github.com/stephb9959/REST-API-Design-Guide. 
+This API also follows the best practices for RESTful APi discussed in https://github.com/NationalBankBelgium/REST-API-Design-Guide/wiki. 

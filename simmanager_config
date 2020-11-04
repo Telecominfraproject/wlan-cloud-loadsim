@@ -2,11 +2,11 @@
 
 main([ProjectHome]) ->
     try
-        {ok,File}=file:read_file("priv/templates/sys.config.template"),
+        {ok,File}=file:read_file("priv/templates/simmanager.config.template"),
         Config=binary_to_list(File),
         NewConfig=string:replace(Config,"$$PROJECT_HOME$$",ProjectHome,all),
         io:format("~s~n",[NewConfig]),
-        file:write_file("config/sys.config",list_to_binary(NewConfig))
+        file:write_file("config/simmanager.config",list_to_binary(NewConfig))
     catch
         _:_ ->
             usage()

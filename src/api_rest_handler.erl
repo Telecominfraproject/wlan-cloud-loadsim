@@ -200,6 +200,6 @@ paginate( { Start, Limit, Filter}, List ) ->
 							  end, [], List))
 	        end,
 	case Limit == 0 of
-		true -> lists:nthtail(List1,Start-1);
+		true -> lists:nthtail(Start-1,List1);
 		false -> lists:sublist(List1,Start,Limit)
 	end.

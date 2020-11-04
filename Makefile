@@ -2,7 +2,7 @@ PROJECT = mqttsim
 PROJECT_DESCRIPTION = Erlang Based MQTT Traffic Simulator
 PROJECT_VERSION = 0.1.0
 
-DEPS = lager gpb jiffy ranch gun cowboy
+DEPS = lager gpb jiffy ranch gun cowboy rec2json
 
 ERLC_OPTS += -I deps/gpb/include
 ERLC_OPTS += +'{parse_transform, lager_transform}'

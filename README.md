@@ -150,4 +150,4 @@ with the community to help you troubleshoot the problem.
 
 ## API
 This project uses OpenAPI specification 3.0, and you can use Swagger (https://editor.swagger.io/) in order to look at the API located in the `api` directory. 
-This API also follows the best practices for RESTful APi discussed in https://github.com/stephb9959/REST-API-Design-Guide. 
+This API also follows the best practices for RESTful APi discussed in https://github.com/NationalBankBelgium/REST-API-Design-Guide/wiki. 

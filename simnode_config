@@ -1,0 +1,20 @@
+#!/usr/bin/env escript
+
+main([ProjectHome]) ->
+    try
+        {ok,File}=file:read_file("priv/templates/simnode.config.template"),
+        Config=binary_to_list(File),
+        NewConfig=string:replace(Config,"$$PROJECT_HOME$$",ProjectHome,all),
+        io:format("~s~n",[NewConfig]),
+        file:write_file("config/simnode.config",list_to_binary(NewConfig))
+    catch
+        _:_ ->
+            usage()
+    end;
+main(_) ->
+    usage().
+
+usage() ->
+    io:format("usage: mqtt_config <project_home_prefix>~n"),
+    halt(1).
+

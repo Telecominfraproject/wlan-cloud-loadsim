@@ -65,8 +65,12 @@ resource_exists(Req, State) ->
 
 options(Req0, State) ->
 	%% io:format("Calling OPTIONS/2~n"),
-	Req1 = cowboy_req:set_resp_header(
-		<<"Access-Control-Allow-Methods">>, <<"GET, OPTIONS">>, Req0),
+	Req1 = case State#request_state.resource of
+						cas -> cowboy_req:set_resp_header(<<"Access-Control-Allow-Methods">>, <<"GET, OPTIONS">>, Req0);
+					  ouis -> cowboy_req:set_resp_header(<<"Access-Control-Allow-Methods">>, <<"GET, OPTIONS">>, Req0);
+						makers -> cowboy_req:set_resp_header(<<"Access-Control-Allow-Methods">>, <<"GET, OPTIONS">>, Req0);
+					  _ -> cowboy_req:set_resp_header(<<"Access-Control-Allow-Methods">>, <<"GET, OPTIONS">>, Req0)
+	       end,
 	Req2 = cowboy_req:set_resp_header(
 		<<"Access-Control-Allow-Origin">>, <<"*">>, Req1),
 	Req3 = cowboy_req:set_resp_header(

@@ -1,4 +1,5 @@
-# mqttsim
+![alt text](https://github.com/stephb9959/mqttsim/images/owls.jpg?raw=true)
+# OWLS (Open WiFi Load Simulator)
 Erlang based MQTT simulator
 
 ## Getting started

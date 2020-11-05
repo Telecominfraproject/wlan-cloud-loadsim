@@ -1,8 +1,8 @@
 openapi: 3.0.0
 info:
-  title: TIP Simulator API
-  description: TIP Simulator API
-  version: 1.0.0
+  title: OWLS API
+  description: OpenWiFi Load Simulator API
+  version: 0.0.1
   termsOfService:
     http://example.com/terms/
   license:
@@ -10,8 +10,8 @@ info:
     url: http://www.apache.org/licenses/LICENSE-2.0.html
   contact:
     name: Arilia Support
-    email: apisupport@arilia.com
-    url: https://www.arilia.com/apisupport
+    email: owlsapisupport@arilia.com
+    url: https://www.arilia.com/owlsapisupport
 
 servers:
   - url: 'http://10.2.249.193:9090'
@@ -51,7 +51,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OUIList'
+                $ref: '#/components/schemas/OUIsPagination'
         403:
           $ref: '#/components/responses/Unauthorized'
           
@@ -171,7 +171,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CAList'
+                $ref: '#/components/schemas/CAsPagination'
         403:
           $ref: '#/components/responses/Unauthorized'
 
@@ -638,8 +638,50 @@ components:
           description: The last modified date for this record
           type: string
           format: date-time
-
           
+    PaginationInfo:
+      description: Optional information about pagination during bulk operations
+      readOnly: true
+      properties:
+        Limit:
+          description: Selected limit
+          type: integer
+        Offset:
+          description: Starting point
+          type: integer
+        PreviousOffset:
+          description: the previous offset or null if there is none
+          type: integer
+        NextOffset: 
+          description: the next offset or null if there is none
+          type: integer
+        CurrentPage: 
+          description: the current page or null if it does not exist (e.g., out of bounds)
+          type: integer
+        PageCount: 
+          description: the total number of pages
+          type: integer
+        TotalCount: 
+          description: the total number of elements in the collection
+          type: integer
+
+    CAsPagination:
+      description: Returning a list of CAs
+      readOnly: true
+      properties:
+        Items:
+          $ref: '#/components/schemas/CAList'
+        Meta:
+          $ref: '#/components/schemas/PaginationInfo'
+          
+    OUIsPagination:
+      description: Returning a list of OUIs
+      readOnly: true
+      properties:
+        Items: 
+          $ref: '#/components/schemas/OUIList'
+        Meta:
+          $ref: '#/components/schemas/PaginationInfo'
         
               
 

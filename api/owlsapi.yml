@@ -29,7 +29,7 @@ paths:
       parameters: 
         - in: query
           description: Pagination start (starts at 1. If not specified, 1 is assumed)
-          name: start
+          name: offset
           schema:
             type: integer
           required: false
@@ -90,7 +90,7 @@ paths:
       parameters:
         - in: query
           description: Pagination start (starts at 1. If not specified, 1 is assumed)
-          name: start
+          name: offset
           schema:
             type: integer
           required: false
@@ -148,7 +148,7 @@ paths:
       parameters:
         - in: query
           description: Pagination start (starts at 1. If not specified, 1 is assumed)
-          name: start
+          name: offset
           schema:
             type: integer
           required: false
@@ -278,7 +278,7 @@ paths:
       parameters: 
         - in: query
           description: Pagination start (starts at 1. If not specified, 1 is assumed)
-          name: start
+          name: offset
           schema:
             type: integer
           required: false

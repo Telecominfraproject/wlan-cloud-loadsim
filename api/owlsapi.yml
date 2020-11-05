@@ -14,7 +14,7 @@ info:
     url: https://www.arilia.com/owlsapisupport
 
 servers:
-  - url: 'http://10.2.249.193:9090'
+  - url: 'https://renegademac.local:9090'
   - url: 'http://localhost:9090'
 
 security: 

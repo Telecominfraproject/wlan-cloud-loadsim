@@ -16,7 +16,7 @@ init([]) ->
 		manager ->
 			lager:info("Simulation Manager starting."),
 			manager:creation_info() ++
-			rest_api:creation_info() ++
+			manager_rest_api:creation_info() ++
 			oui_server:creation_info() ++
 			inventory:creation_info();
 		node ->

@@ -283,11 +283,11 @@ handle_info(_Info, State = #inventory_state{}) ->
 %% with Reason. The return value is ignored.
 -spec(terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
 		State :: #inventory_state{}) -> term()).
-terminate(_Reason, State = #inventory_state{}) ->
+terminate(Reason, State = #inventory_state{}) ->
 	update_disk_db(State),
 	dets:close(State#inventory_state.clients_tab),
 	dets:close(State#inventory_state.servers_tab),
-	lager:info("Inventory exiting."),
+	lager:info("Inventory exiting (~p).",[Reason]),
 	ok.
 
 %% @private

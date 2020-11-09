@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 25. Oct 2020 3:21 p.m.
 %%%-------------------------------------------------------------------
--module(rest_api).
+-module(manager_rest_api).
 -author("stephb").
 
 -behaviour(gen_server).
@@ -59,21 +59,25 @@ init([]) ->
 	Dispatch = cowboy_router:compile([
 		{
 			'_', [
-			{ "/api/v1/:restype/[:resid]" ,   api_rest_handler, [] },
-			{ "/", cowboy_static, {priv_file, ?OWLS_APP, "web/index.html"} },
-			{ "/[...]", cowboy_static, {priv_dir, ?OWLS_APP, "web" } }
+			{ "/api/v1/:restype/[:resid]" ,   manager_api_rest_handler, [] },
+			{ "/", cowboy_static, {priv_file, ?OWLS_APP, "www/index.html"} },
+			{ "/[...]", cowboy_static, {priv_dir, ?OWLS_APP, "www" } }
 		]}
 	]),
 	{ok, CB } = case Secure of
 		            true ->
-			            cowboy:start_tls(
-				            dpaas_https_listener,
+			            io:format("Starting secure.~n"),
+			            PrivDir = code:priv_dir(?OWLS_APP),
+			            Result = cowboy:start_tls(
+				            rest_http_listener,
 				            [
 					            { port, Port } ,
-					            {certfile, PrivDir ++ "/ssl/star.dpaas.arilia.com.crt"},
-					            {keyfile, PrivDir ++ "/ssl/STAR_dpaas_arilia_com_key.txt"}
-				            ],
-				            #{env => #{dispatch => Dispatch}} );
+					            {cacertfile, filename:join([PrivDir,"ssl","sim_cert.pem"])},
+					            {certfile, filename:join([PrivDir,"ssl","server-api-cert.pem"])},
+					            {keyfile, filename:join([PrivDir,"ssl","server-api-key_dec.pem"])}				            ],
+				            #{env => #{dispatch => Dispatch}} ),
+		              io:format("Starting secure: ~p~n",[Result]),
+		              Result;
 		            false ->
 			            cowboy:start_clear(
 				            rest_http_listener,

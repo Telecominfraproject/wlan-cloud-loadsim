@@ -12,7 +12,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0]).
+-export([start_link/0,creation_info/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -25,6 +25,13 @@
 %%%===================================================================
 %%% API
 %%%===================================================================
+creation_info() ->
+	[	#{	id => ?MODULE ,
+		start => { ?MODULE , start_link, [] },
+		restart => permanent,
+		shutdown => 100,
+		type => worker,
+		modules => [?MODULE]} ].
 
 %% @doc Spawns the server and registers the local name (unique)
 -spec(start_link() ->

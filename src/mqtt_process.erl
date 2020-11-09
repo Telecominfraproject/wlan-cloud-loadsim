@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 14. Oct 2020 10:14 p.m.
 %%%-------------------------------------------------------------------
--module(mqttserver_process).
+-module(mqtt_process).
 -author("stephb").
 
 -include("../include/mqtt_definitions.hrl").

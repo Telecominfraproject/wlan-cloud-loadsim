@@ -9,7 +9,7 @@ main([]) ->
         WebUiPort = input("Please enter the WEB UI port", "9091" ),
         file_substitute(filename:join(["priv","templates","simmanager.config.template"]),
             filename:join(["config","simmanager.config"]),
-            [{"$$PROJECT_HOME$$",DirName},{"$$ROLE$$","simmanager"},{"$$WEB_UI_PORT$$",WebUiPort}]),
+            [{"$$PROJECT_HOME$$",DirName},{"$$WEB_UI_PORT$$",WebUiPort}]),
         file_substitute(filename:join(["priv","templates","simmanager.args.template"]),
             filename:join(["config","simmanager.args"]),
             [{"$$NODE_NAME$$",NodeName},{"$$COOKIE$$",Cookie}])

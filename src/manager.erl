@@ -12,7 +12,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0,creation_info/0]).
+-export([start_link/0,creation_info/0,connect/0,disconnect/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -20,7 +20,7 @@
 
 -define(SERVER, ?MODULE).
 
--record(manager_state, {}).
+-record(manager_state, { nodes }).
 
 %%%===================================================================
 %%% API
@@ -33,11 +33,17 @@ creation_info() ->
 		type => worker,
 		modules => [?MODULE]} ].
 
+connect()->
+	gen_server:call({global,?SERVER},{connect,node()}).
+
+disconnect()->
+	gen_server:call({global,?SERVER},{disconnect,node()}).
+
 %% @doc Spawns the server and registers the local name (unique)
 -spec(start_link() ->
 	{ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
 start_link() ->
-	gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+	gen_server:start_link({global, ?SERVER}, ?MODULE, [], []).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -49,7 +55,7 @@ start_link() ->
 	{ok, State :: #manager_state{}} | {ok, State :: #manager_state{}, timeout() | hibernate} |
 	{stop, Reason :: term()} | ignore).
 init([]) ->
-	{ok, #manager_state{}}.
+	{ok, #manager_state{ nodes = sets:new() }}.
 
 %% @private
 %% @doc Handling call messages
@@ -61,6 +67,14 @@ init([]) ->
 	{noreply, NewState :: #manager_state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), Reply :: term(), NewState :: #manager_state{}} |
 	{stop, Reason :: term(), NewState :: #manager_state{}}).
+handle_call({connect,NodeName}, _From, State = #manager_state{}) ->
+	NewNodes = sets:add_element(NodeName,State#manager_state.nodes),
+	io:format("NewNodes: ~p~n",[NewNodes]),
+	{reply, ok, State#manager_state{ nodes = NewNodes }};
+handle_call({disconnect,NodeName}, _From, State = #manager_state{}) ->
+	NewNodes = sets:del_element(NodeName,State#manager_state.nodes),
+	io:format("NewNodes: ~p~n",[NewNodes]),
+	{reply, ok, State#manager_state{ nodes = NewNodes }};
 handle_call(_Request, _From, State = #manager_state{}) ->
 	{reply, ok, State}.
 

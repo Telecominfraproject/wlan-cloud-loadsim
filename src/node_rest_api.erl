@@ -52,7 +52,7 @@ creation_info() ->
 	{stop, Reason :: term()} | ignore).
 init([]) ->
 	process_flag(trap_exit, true),
-	Port = application:get_env( ?OWLS_APP, rest_api_port, 8088),
+	Port = application:get_env( ?OWLS_APP, rest_api_port, 9091),
 	Secure = application:get_env( ?OWLS_APP, rest_api_secure, true ),
 	PrivDir = code:priv_dir(?OWLS_APP),
 	Dispatch = cowboy_router:compile([

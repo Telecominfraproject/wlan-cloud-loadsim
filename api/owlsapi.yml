@@ -14,14 +14,14 @@ info:
     url: https://www.arilia.com/owlsapisupport
 
 servers:
-  - url: 'https://renegademac.local:9090'
-  - url: 'http://localhost:9090'
+  - url: 'https://renegademac.local:9090/api/v1'
+  - url: 'http://localhost:9090/api/v1'
 
 security: 
   - ApiKeyAuth: []
 
 paths:
-  /api/v1/ouis:
+  /ouis:
     get:
       tags: [ OUIs ]
       summary: Get the list of all available OUIs as known by the system.
@@ -55,7 +55,7 @@ paths:
         403:
           $ref: '#/components/responses/Unauthorized'
           
-  /api/v1/ouis/{id}:
+  /ouis/{id}:
     get:
       tags: [ OUIs ]
       summary: Get the manufacturer associated with an OUI.
@@ -82,7 +82,7 @@ paths:
         404:
           $ref: '#/components/responses/NotFound'
 
-  /api/v1/makers:
+  /makers:
     get:
       tags: [ Manufacturers ]
       summary: Get the list of all available OUIs as known by the system for a given manufacturer.
@@ -116,7 +116,7 @@ paths:
         403:
           $ref: '#/components/responses/Unauthorized'
 
-  /api/v1/makers/{id}:
+  /makers/{id}:
     get:
       tags: [ Manufacturers ]
       summary: Get the OUIs associated with a maker.
@@ -140,7 +140,7 @@ paths:
         404:
           $ref: '#/components/responses/NotFound'
                 
-  /api/v1/cas:
+  /cas:
     get:
       tags: [ CA ]
       summary: Get a list of existing CAs
@@ -198,7 +198,7 @@ paths:
         404:
           $ref: '#/components/responses/NotFound'
           
-  /api/v1/cas/{id}:
+  /cas/{id}:
     get:
       tags: [CA]
       summary: Get the details about a single CA
@@ -270,7 +270,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/GenericErrorResponse'
 
-  /api/v1/cas/{id}/devices:
+  /cas/{id}/devices:
     get:
       tags: [Devices]
       summary: List devices for a given CA
@@ -365,7 +365,7 @@ paths:
         404:
           $ref: '#/components/responses/NotFound'
 
-  /api/v1/cas/{id}/devices/{name}:
+  /cas/{id}/devices/{name}:
     get:
       tags: [Devices]
       summary: Get specific device information

@@ -66,19 +66,18 @@ init([]) ->
 	]),
 	{ok, CB } = case Secure of
 		            true ->
-			            io:format("Starting secure.~n"),
+			            lager:info("Starting in secure mode."),
 			            PrivDir = code:priv_dir(?OWLS_APP),
-			            Result = cowboy:start_tls(
+			            cowboy:start_tls(
 				            rest_http_listener,
 				            [
 					            { port, Port } ,
 					            {cacertfile, filename:join([PrivDir,"ssl","sim_cert.pem"])},
 					            {certfile, filename:join([PrivDir,"ssl","server-api-cert.pem"])},
 					            {keyfile, filename:join([PrivDir,"ssl","server-api-key_dec.pem"])}				            ],
-				            #{env => #{dispatch => Dispatch}} ),
-		              io:format("Starting secure: ~p~n",[Result]),
-		              Result;
+				            #{env => #{dispatch => Dispatch}} );
 		            false ->
+			            lager:info("Starting in clear mode."),
 			            cowboy:start_clear(
 				            rest_http_listener,
 				            [

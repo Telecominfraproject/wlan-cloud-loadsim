@@ -15,6 +15,7 @@ init([]) ->
 	Processes = case application:get_env(?OWLS_APP,role,undefined) of
 		manager ->
 			lager:info("Simulation Manager starting."),
+			node_finder:creation_info() ++
 			manager:creation_info() ++
 			manager_rest_api:creation_info() ++
 			oui_server:creation_info() ++

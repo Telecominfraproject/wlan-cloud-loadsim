@@ -12,7 +12,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0,creation_info/0]).
+-export([start_link/0,creation_info/0,connect/0,disconnect/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -32,6 +32,12 @@ creation_info() ->
 		shutdown => 100,
 		type => worker,
 		modules => [?MODULE]} ].
+
+connect() ->
+	gen_server:call(?SERVER,{connect,node()}).
+
+disconnect() ->
+	gen_server:call(?SERVER,{disconnect,node()}).
 
 %% @doc Spawns the server and registers the local name (unique)
 -spec(start_link() ->
@@ -61,6 +67,10 @@ init([]) ->
 	{noreply, NewState :: #simnode_state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), Reply :: term(), NewState :: #simnode_state{}} |
 	{stop, Reason :: term(), NewState :: #simnode_state{}}).
+handle_call({connect,_NodeName}, _From, State = #simnode_state{}) ->
+	{reply, ok, State};
+handle_call({connect,_NodeName}, _From, State = #simnode_state{}) ->
+	{reply, ok, State};
 handle_call(_Request, _From, State = #simnode_state{}) ->
 	{reply, ok, State}.
 

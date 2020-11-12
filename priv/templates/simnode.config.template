@@ -2,7 +2,7 @@
   owls ,
   [
     { secure, true },
-    { role , $$ROLE$$ },
+    { role , node },
     { web_ui_port , $$WEB_UI_PORT$$ },
     { certfile, "$$PROJECT_HOME$$/certs/tip/mqttservercert.pem" },
     { keyfile, "$$PROJECT_HOME$$/certs/tip/mqttserverkey_dec.pem"},
@@ -20,7 +20,7 @@
     { inventory_db_dir, "$$PROJECT_HOME$$/inventory"},
     { cert_db_dir, "$$PROJECT_HOME$$/certs_db"},
     { ca_name, "sim_ca" },
-    { rest_api_port, 9090 },
+    { rest_api_port, 9091 },
     { rest_api_secure, false },
     { oui_uri, "https://linuxnet.ca/ieee/oui.txt" },
     { rest_api_token, "1234567890" },

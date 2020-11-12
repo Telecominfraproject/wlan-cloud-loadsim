@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 25. Oct 2020 3:21 p.m.
 %%%-------------------------------------------------------------------
--module(rest_api).
+-module(manager_rest_api).
 -author("stephb").
 
 -behaviour(gen_server).
@@ -53,28 +53,31 @@ start_link() ->
 	{stop, Reason :: term()} | ignore).
 init([]) ->
 	process_flag(trap_exit, true),
-	Port = application:get_env( ?OWLS_APP, rest_api_port, 8088),
+	Port = application:get_env( ?OWLS_APP, rest_api_port, 9090),
 	Secure = application:get_env( ?OWLS_APP, rest_api_secure, true ),
 	PrivDir = code:priv_dir(?OWLS_APP),
 	Dispatch = cowboy_router:compile([
 		{
 			'_', [
-			{ "/api/v1/:restype/[:resid]" ,   api_rest_handler, [] },
-			{ "/", cowboy_static, {priv_file, ?OWLS_APP, "web/index.html"} },
-			{ "/[...]", cowboy_static, {priv_dir, ?OWLS_APP, "web" } }
+			{ "/api/v1/:restype/[:resid]" ,   manager_api_rest_handler, [] },
+			{ "/", cowboy_static, {priv_file, ?OWLS_APP, "www/index.html"} },
+			{ "/[...]", cowboy_static, {priv_dir, ?OWLS_APP, "www" } }
 		]}
 	]),
 	{ok, CB } = case Secure of
 		            true ->
+			            lager:info("Starting in secure mode."),
+			            PrivDir = code:priv_dir(?OWLS_APP),
 			            cowboy:start_tls(
-				            dpaas_https_listener,
+				            rest_http_listener,
 				            [
 					            { port, Port } ,
-					            {certfile, PrivDir ++ "/ssl/star.dpaas.arilia.com.crt"},
-					            {keyfile, PrivDir ++ "/ssl/STAR_dpaas_arilia_com_key.txt"}
-				            ],
+					            {cacertfile, filename:join([PrivDir,"ssl","sim_cert.pem"])},
+					            {certfile, filename:join([PrivDir,"ssl","server-api-cert.pem"])},
+					            {keyfile, filename:join([PrivDir,"ssl","server-api-key_dec.pem"])}				            ],
 				            #{env => #{dispatch => Dispatch}} );
 		            false ->
+			            lager:info("Starting in clear mode."),
 			            cowboy:start_clear(
 				            rest_http_listener,
 				            [

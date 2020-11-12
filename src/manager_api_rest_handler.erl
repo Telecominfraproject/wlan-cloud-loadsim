@@ -6,16 +6,23 @@
 %%% @end
 %%% Created : 25. Oct 2020 3:38 p.m.
 %%%-------------------------------------------------------------------
--module(api_rest_handler).
+-module(manager_api_rest_handler).
 -author("stephb").
 
 -include("../include/internal.hrl").
 -include("../include/mqtt_definitions.hrl").
 
+-define(HTTP_GET,<<"GET">>).
+-define(HTTP_POST,<<"POST">>).
+-define(HTTP_PUT,<<"PUT">>).
+-define(HTTP_DELETE,<<"DELETE">>).
+-define(HTTP_OPTIONS,<<"OPTIONS">>).
+-define(HTTP_HEAD,<<"HEAD">>).
+
 %% API
 -export([ init/2,allowed_methods/2,is_authorized/2 ]).
 -export([ content_types_provided/2, content_types_accepted/2,options/2 ]).
--export([ db_to_json/2 , json_to_db/2 ,resource_exists/2,delete_resource/2,test_get_ouis/0 ]).
+-export([ db_to_json/2 , json_to_db/2 ,resource_exists/2,delete_resource/2]).
 
 -record(request_state,{resource,id,method,time_in}).
 
@@ -65,8 +72,12 @@ resource_exists(Req, State) ->
 
 options(Req0, State) ->
 	%% io:format("Calling OPTIONS/2~n"),
-	Req1 = cowboy_req:set_resp_header(
-		<<"Access-Control-Allow-Methods">>, <<"GET, OPTIONS">>, Req0),
+	Req1 = case State#request_state.resource of
+						<<"cas">> -> cowboy_req:set_resp_header(<<"Access-Control-Allow-Methods">>, <<"GET, OPTIONS">>, Req0);
+					  <<"ouis">> -> cowboy_req:set_resp_header(<<"Access-Control-Allow-Methods">>, <<"GET, OPTIONS">>, Req0);
+						<<"makers">> -> cowboy_req:set_resp_header(<<"Access-Control-Allow-Methods">>, <<"GET, OPTIONS">>, Req0);
+					  _ -> cowboy_req:set_resp_header(<<"Access-Control-Allow-Methods">>, <<"GET, OPTIONS">>, Req0)
+	       end,
 	Req2 = cowboy_req:set_resp_header(
 		<<"Access-Control-Allow-Origin">>, <<"*">>, Req1),
 	Req3 = cowboy_req:set_resp_header(
@@ -75,6 +86,7 @@ options(Req0, State) ->
 		<<"Access-Control-Allow-Credentials">>, <<"true">>, Req3),
 	Req5 = cowboy_req:set_resp_header(
 		<<"Access-Control-Allow-Headers">>, <<"*">>, Req4),
+	%% io:format("REQ5=~p~n",[Req5]),
 	{ok, Req5, State}.
 
 json_to_db(Req, State) ->
@@ -86,15 +98,15 @@ db_to_json(Req, State) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-do( <<"GET">> , Req , #request_state{ resource = <<"ouis">> , id = nothing } = State ) ->
+do( ?HTTP_GET , Req , #request_state{ resource = <<"ouis">> , id = nothing } = State ) ->
 	PaginationParameters = restutils:get_pagination_parameters(Req),
 	{ok,OUIs}=oui_server:get_ouis(),
 	{ SubList, PaginationInfo }  = restutils:paginate(PaginationParameters,OUIs),
 	JSON = restutils:create_paginated_return( "OUIs" , SubList, PaginationInfo),
 	{JSON,restutils:add_CORS(Req),State};
 
-do( <<"GET">> , Req , #request_state{ resource = <<"ouis">> } = State ) ->
-	io:format(">>>>OUIS...~n"),
+do( ?HTTP_GET , Req , #request_state{ resource = <<"ouis">> } = State ) ->
+	%% io:format(">>>>OUIS...~n"),
 	OUI = State#request_state.id,
 	case oui_server:lookup_oui(binary_to_list(OUI)) of
 		{ok,Maker} ->
@@ -105,14 +117,14 @@ do( <<"GET">> , Req , #request_state{ resource = <<"ouis">> } = State ) ->
 			{JSON,restutils:add_CORS(Req),State}
 	end;
 
-do( <<"GET">> , Req , #request_state{ resource = <<"makers">> , id = nothing } = State ) ->
+do( ?HTTP_GET , Req , #request_state{ resource = <<"makers">> , id = nothing } = State ) ->
 	PaginationParameters = restutils:get_pagination_parameters(Req),
 	{ok,Makers}=oui_server:get_makers(),
 	{ SubList , PaginationInfo } = restutils:paginate(PaginationParameters,Makers),
 	JSON = restutils:create_paginated_return("Manufacturers",SubList,PaginationInfo),
 	{JSON,restutils:add_CORS(Req),State};
 
-do( <<"GET">> , Req , #request_state{ resource = <<"makers">> } = State ) ->
+do( ?HTTP_GET , Req , #request_state{ resource = <<"makers">> } = State ) ->
 	Maker = State#request_state.id,
 	case oui_server:lookup_maker(binary_to_list(Maker)) of
 		{ok,OUIs} ->
@@ -124,23 +136,15 @@ do( <<"GET">> , Req , #request_state{ resource = <<"makers">> } = State ) ->
 	end;
 
 %% list CAs
-do(<<"GET">>,Req,#request_state{resource = <<"cas">>,id=nothing}=State)->
+do( ?HTTP_GET ,Req,#request_state{resource = <<"cas">>,id=nothing}=State)->
 	PaginationParameters = restutils:get_pagination_parameters(Req),
 	{ok,CAs}=inventory:get_cas(),
 	{SubList,PaginationInfo} = restutils:paginate(PaginationParameters,CAs),
 	JSON = restutils:create_paginated_return("CAs",SubList,PaginationInfo),
 	{JSON,restutils:add_CORS(Req),State};
 
-do( <<"HEAD">> , Req , State) ->
+do( ?HTTP_HEAD , Req , State) ->
 	io:format("HEAD~n"),
-	{<<>>,Req,State};
-
-do( <<"OPTIONS">> , Req , State) ->
-	io:format("OPTIONS~n"),
 	{<<>>,Req,State}.
 
-%% tests
-test_get_ouis()->
-	{ok,OUIs}=oui_server:get_ouis(),
-	binary:list_to_bin([<<"{ \"OUIlist\" : [ ">>, restutils:dump_string_array(OUIs), <<" ] }">>]).
 

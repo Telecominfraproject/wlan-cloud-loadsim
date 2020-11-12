@@ -2,7 +2,7 @@
   owls ,
   [
     { secure, true },
-    { role , $$ROLE$$ },
+    { role , manager },
     { web_ui_port , $$WEB_UI_PORT$$ },
     { certfile, "$$PROJECT_HOME$$/certs/tip/mqttservercert.pem" },
     { keyfile, "$$PROJECT_HOME$$/certs/tip/mqttserverkey_dec.pem"},

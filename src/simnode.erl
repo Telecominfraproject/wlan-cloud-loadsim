@@ -4,59 +4,111 @@
 %%% @doc
 %%%
 %%% @end
-%%% Created : 03. Nov 2020 4:47 p.m.
+%%% Created : 09. Nov 2020 12:10 p.m.
 %%%-------------------------------------------------------------------
 -module(simnode).
 -author("stephb").
 
--behaviour(application).
+-behaviour(gen_server).
 
-%% Application callbacks
--export([start/2,
-	stop/1]).
+%% API
+-export([start_link/0,creation_info/0,connect/0,disconnect/0]).
+
+%% gen_server callbacks
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
+	code_change/3]).
+
+-define(SERVER, ?MODULE).
+
+-record(simnode_state, {}).
 
 %%%===================================================================
-%%% Application callbacks
+%%% API
+%%%===================================================================
+creation_info() ->
+	[	#{	id => ?MODULE ,
+		start => { ?MODULE , start_link, [] },
+		restart => permanent,
+		shutdown => 100,
+		type => worker,
+		modules => [?MODULE]} ].
+
+connect() ->
+	gen_server:call(?SERVER,{connect,node()}).
+
+disconnect() ->
+	gen_server:call(?SERVER,{disconnect,node()}).
+
+%% @doc Spawns the server and registers the local name (unique)
+-spec(start_link() ->
+	{ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
+start_link() ->
+	gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+
+%%%===================================================================
+%%% gen_server callbacks
 %%%===================================================================
 
-%%--------------------------------------------------------------------
 %% @private
-%% @doc
-%% This function is called whenever an application is started using
-%% application:start/[1,2], and should start the processes of the
-%% application. If the application is structured according to the OTP
-%% design principles as a supervision tree, this means starting the
-%% top supervisor of the tree.
-%%
-%% @end
-%%--------------------------------------------------------------------
--spec(start(StartType :: normal | {takeover, node()} | {failover, node()},
-		StartArgs :: term()) ->
-	{ok, pid()} |
-	{ok, pid(), State :: term()} |
-	{error, Reason :: term()}).
-start(_StartType, _StartArgs) ->
-	code:purge(node_cli),
-	code:load_file(node_cli),
-	case node_sup:start_link() of
-		{ok, Pid} ->
-			{ok, Pid};
-		Error ->
-			Error
-	end.
+%% @doc Initializes the server
+-spec(init(Args :: term()) ->
+	{ok, State :: #simnode_state{}} | {ok, State :: #simnode_state{}, timeout() | hibernate} |
+	{stop, Reason :: term()} | ignore).
+init([]) ->
+	{ok, #simnode_state{}}.
 
-%%--------------------------------------------------------------------
 %% @private
-%% @doc
-%% This function is called whenever an application has stopped. It
-%% is intended to be the opposite of Module:start/2 and should do
-%% any necessary cleaning up. The return value is ignored.
-%%
-%% @end
-%%--------------------------------------------------------------------
--spec(stop(State :: term()) -> term()).
-stop(_State) ->
+%% @doc Handling call messages
+-spec(handle_call(Request :: term(), From :: {pid(), Tag :: term()},
+		State :: #simnode_state{}) ->
+	{reply, Reply :: term(), NewState :: #simnode_state{}} |
+	{reply, Reply :: term(), NewState :: #simnode_state{}, timeout() | hibernate} |
+	{noreply, NewState :: #simnode_state{}} |
+	{noreply, NewState :: #simnode_state{}, timeout() | hibernate} |
+	{stop, Reason :: term(), Reply :: term(), NewState :: #simnode_state{}} |
+	{stop, Reason :: term(), NewState :: #simnode_state{}}).
+handle_call({connect,_NodeName}, _From, State = #simnode_state{}) ->
+	{reply, ok, State};
+handle_call({connect,_NodeName}, _From, State = #simnode_state{}) ->
+	{reply, ok, State};
+handle_call(_Request, _From, State = #simnode_state{}) ->
+	{reply, ok, State}.
+
+%% @private
+%% @doc Handling cast messages
+-spec(handle_cast(Request :: term(), State :: #simnode_state{}) ->
+	{noreply, NewState :: #simnode_state{}} |
+	{noreply, NewState :: #simnode_state{}, timeout() | hibernate} |
+	{stop, Reason :: term(), NewState :: #simnode_state{}}).
+handle_cast(_Request, State = #simnode_state{}) ->
+	{noreply, State}.
+
+%% @private
+%% @doc Handling all non call/cast messages
+-spec(handle_info(Info :: timeout() | term(), State :: #simnode_state{}) ->
+	{noreply, NewState :: #simnode_state{}} |
+	{noreply, NewState :: #simnode_state{}, timeout() | hibernate} |
+	{stop, Reason :: term(), NewState :: #simnode_state{}}).
+handle_info(_Info, State = #simnode_state{}) ->
+	{noreply, State}.
+
+%% @private
+%% @doc This function is called by a gen_server when it is about to
+%% terminate. It should be the opposite of Module:init/1 and do any
+%% necessary cleaning up. When it returns, the gen_server terminates
+%% with Reason. The return value is ignored.
+-spec(terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
+		State :: #simnode_state{}) -> term()).
+terminate(_Reason, _State = #simnode_state{}) ->
 	ok.
+
+%% @private
+%% @doc Convert process state when code is changed
+-spec(code_change(OldVsn :: term() | {down, term()}, State :: #simnode_state{},
+		Extra :: term()) ->
+	{ok, NewState :: #simnode_state{}} | {error, Reason :: term()}).
+code_change(_OldVsn, State = #simnode_state{}, _Extra) ->
+	{ok, State}.
 
 %%%===================================================================
 %%% Internal functions

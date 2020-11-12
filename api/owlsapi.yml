@@ -1,8 +1,8 @@
 openapi: 3.0.0
 info:
-  title: TIP Simulator API
-  description: TIP Simulator API
-  version: 1.0.0
+  title: OWLS API
+  description: OpenWiFi Load Simulator API
+  version: 0.0.1
   termsOfService:
     http://example.com/terms/
   license:
@@ -10,18 +10,18 @@ info:
     url: http://www.apache.org/licenses/LICENSE-2.0.html
   contact:
     name: Arilia Support
-    email: apisupport@arilia.com
-    url: https://www.arilia.com/apisupport
+    email: owlsapisupport@arilia.com
+    url: https://www.arilia.com/owlsapisupport
 
 servers:
-  - url: 'http://10.2.249.193:9090'
-  - url: 'http://localhost:9090'
+  - url: 'https://renegademac.local:9090/api/v1'
+  - url: 'http://localhost:9090/api/v1'
 
 security: 
   - ApiKeyAuth: []
 
 paths:
-  /api/v1/ouis:
+  /ouis:
     get:
       tags: [ OUIs ]
       summary: Get the list of all available OUIs as known by the system.
@@ -29,7 +29,7 @@ paths:
       parameters: 
         - in: query
           description: Pagination start (starts at 1. If not specified, 1 is assumed)
-          name: start
+          name: offset
           schema:
             type: integer
           required: false
@@ -51,11 +51,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OUIList'
+                $ref: '#/components/schemas/OUIsPagination'
         403:
           $ref: '#/components/responses/Unauthorized'
           
-  /api/v1/ouis/{id}:
+  /ouis/{id}:
     get:
       tags: [ OUIs ]
       summary: Get the manufacturer associated with an OUI.
@@ -82,7 +82,7 @@ paths:
         404:
           $ref: '#/components/responses/NotFound'
 
-  /api/v1/makers:
+  /makers:
     get:
       tags: [ Manufacturers ]
       summary: Get the list of all available OUIs as known by the system for a given manufacturer.
@@ -90,7 +90,7 @@ paths:
       parameters:
         - in: query
           description: Pagination start (starts at 1. If not specified, 1 is assumed)
-          name: start
+          name: offset
           schema:
             type: integer
           required: false
@@ -116,7 +116,7 @@ paths:
         403:
           $ref: '#/components/responses/Unauthorized'
 
-  /api/v1/makers/{id}:
+  /makers/{id}:
     get:
       tags: [ Manufacturers ]
       summary: Get the OUIs associated with a maker.
@@ -140,7 +140,7 @@ paths:
         404:
           $ref: '#/components/responses/NotFound'
                 
-  /api/v1/cas:
+  /cas:
     get:
       tags: [ CA ]
       summary: Get a list of existing CAs
@@ -148,7 +148,7 @@ paths:
       parameters:
         - in: query
           description: Pagination start (starts at 1. If not specified, 1 is assumed)
-          name: start
+          name: offset
           schema:
             type: integer
           required: false
@@ -171,7 +171,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CAList'
+                $ref: '#/components/schemas/CAsPagination'
         403:
           $ref: '#/components/responses/Unauthorized'
 
@@ -198,7 +198,7 @@ paths:
         404:
           $ref: '#/components/responses/NotFound'
           
-  /api/v1/cas/{id}:
+  /cas/{id}:
     get:
       tags: [CA]
       summary: Get the details about a single CA
@@ -270,7 +270,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/GenericErrorResponse'
 
-  /api/v1/cas/{id}/devices:
+  /cas/{id}/devices:
     get:
       tags: [Devices]
       summary: List devices for a given CA
@@ -278,7 +278,7 @@ paths:
       parameters: 
         - in: query
           description: Pagination start (starts at 1. If not specified, 1 is assumed)
-          name: start
+          name: offset
           schema:
             type: integer
           required: false
@@ -365,7 +365,7 @@ paths:
         404:
           $ref: '#/components/responses/NotFound'
 
-  /api/v1/cas/{id}/devices/{name}:
+  /cas/{id}/devices/{name}:
     get:
       tags: [Devices]
       summary: Get specific device information
@@ -638,8 +638,50 @@ components:
           description: The last modified date for this record
           type: string
           format: date-time
-
           
+    PaginationInfo:
+      description: Optional information about pagination during bulk operations
+      readOnly: true
+      properties:
+        Limit:
+          description: Selected limit
+          type: integer
+        Offset:
+          description: Starting point
+          type: integer
+        PreviousOffset:
+          description: the previous offset or null if there is none
+          type: integer
+        NextOffset: 
+          description: the next offset or null if there is none
+          type: integer
+        CurrentPage: 
+          description: the current page or null if it does not exist (e.g., out of bounds)
+          type: integer
+        PageCount: 
+          description: the total number of pages
+          type: integer
+        TotalCount: 
+          description: the total number of elements in the collection
+          type: integer
+
+    CAsPagination:
+      description: Returning a list of CAs
+      readOnly: true
+      properties:
+        Items:
+          $ref: '#/components/schemas/CAList'
+        Meta:
+          $ref: '#/components/schemas/PaginationInfo'
+          
+    OUIsPagination:
+      description: Returning a list of OUIs
+      readOnly: true
+      properties:
+        Items: 
+          $ref: '#/components/schemas/OUIList'
+        Meta:
+          $ref: '#/components/schemas/PaginationInfo'
         
               
 

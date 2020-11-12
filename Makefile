@@ -6,6 +6,7 @@ DEPS = lager gpb jiffy ranch gun cowboy rec2json
 
 ERLC_OPTS += -I deps/gpb/include
 ERLC_OPTS += +'{parse_transform, lager_transform}'
+ERLC_OPTS += -Ddebug
 
 dep_cowboy_commit = master
 dep_ranch_commit = master

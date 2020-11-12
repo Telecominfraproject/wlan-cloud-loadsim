@@ -12,6 +12,7 @@ init([]) ->
 					mqtt_client:creation_info() ++
 					rest_api:creation_info() ++
 					oui_server:creation_info() ++
-					inventory:creation_info(),
+					inventory:creation_info() ++
+					ovsdb_server:creation_info(),
 
 	{ok, {{one_for_one, 1, 5}, Procs}}.

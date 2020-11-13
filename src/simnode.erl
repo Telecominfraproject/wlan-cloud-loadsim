@@ -56,7 +56,7 @@ start_link() ->
 	{stop, Reason :: term()} | ignore).
 init([]) ->
 	{ok,NodeFinder} = timer:apply_interval(20000,?MODULE,find_manager,[self()]),
-	{ok,StatsUpdater} = timer:apply_interval(5000,manager:send_stats_report(),[]),
+	{ok,StatsUpdater} = timer:apply_interval(5000,manager,send_stats_report,[]),
 	{ok,#simnode_state{ node_finder = NodeFinder, stats_updater = StatsUpdater }}.
 
 %% @private

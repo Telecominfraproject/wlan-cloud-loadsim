@@ -55,7 +55,7 @@ start_link() ->
 	{ok, State :: #simnode_state{}} | {ok, State :: #simnode_state{}, timeout() | hibernate} |
 	{stop, Reason :: term()} | ignore).
 init([]) ->
-	{ok,NodeFinder} = timer:apply_interval(20000,node_finder,find_manager,[self()]),
+	{ok,NodeFinder} = timer:apply_interval(20000,?MODULE,find_manager,[self()]),
 	{ok,#simnode_state{ node_finder = NodeFinder}}.
 
 %% @private
@@ -125,8 +125,8 @@ code_change(_OldVsn, State = #simnode_state{}, _Extra) ->
 find_manager( Pid ) ->
 	case node_finder:receiver() of
 		unknown ->
-			find_manager(Pid);
+			ok;
 		NodeName ->
 			gen_server:bcast( Pid , { manager_found, NodeName}),
-			find_manager(Pid)
+			ok
 	end.

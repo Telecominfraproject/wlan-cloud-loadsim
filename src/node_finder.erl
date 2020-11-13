@@ -116,6 +116,7 @@ broadcaster(_Pid)->
 	Cookie = erlang:get_cookie(),
 	Key = crypto:hash(sha256,atom_to_binary(Cookie)),
 	Data = term_to_binary({Cookie,node()},[compressed]),
+	io:format("DATA: ~p~n",[Data]),
 	Payload = crypto:crypto_one_time(aes_256_ctr,Key,<<0:128>>,Data,true),
 	{ ok , Socket } = socket:open(inet,dgram,udp),
 	socket:setopt(Socket,socket,broadcast,true),

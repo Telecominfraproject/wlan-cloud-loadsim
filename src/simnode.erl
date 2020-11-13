@@ -87,6 +87,7 @@ handle_cast( {manager_found,NodeName}, State = #simnode_state{}) ->
 		false ->
 			case net_adm:ping(NodeName) of
 				pong ->
+					global:sync(),
 					manager:connect(),
 					lager:info("Adding new manager node.");
 				pang ->

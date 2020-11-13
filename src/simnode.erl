@@ -12,7 +12,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0,creation_info/0,connect/0,disconnect/0]).
+-export([start_link/0,creation_info/0,connect/0,disconnect/0,find_manager/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -20,7 +20,7 @@
 
 -define(SERVER, ?MODULE).
 
--record(simnode_state, {}).
+-record(simnode_state, { node_finder }).
 
 %%%===================================================================
 %%% API
@@ -55,7 +55,8 @@ start_link() ->
 	{ok, State :: #simnode_state{}} | {ok, State :: #simnode_state{}, timeout() | hibernate} |
 	{stop, Reason :: term()} | ignore).
 init([]) ->
-	{ok, #simnode_state{}}.
+	{ok,NodeFinder} = apply:interval(20,?MODULE,find_manager,[self()]),
+	{ok,#simnode_state{ node_finder = NodeFinder}}.
 
 %% @private
 %% @doc Handling call messages
@@ -67,9 +68,8 @@ init([]) ->
 	{noreply, NewState :: #simnode_state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), Reply :: term(), NewState :: #simnode_state{}} |
 	{stop, Reason :: term(), NewState :: #simnode_state{}}).
-handle_call({connect,_NodeName}, _From, State = #simnode_state{}) ->
-	{reply, ok, State};
-handle_call({connect,_NodeName}, _From, State = #simnode_state{}) ->
+handle_call({connect,NodeName}, _From, State = #simnode_state{}) ->
+	net_adm:ping(NodeName),
 	{reply, ok, State};
 handle_call(_Request, _From, State = #simnode_state{}) ->
 	{reply, ok, State}.
@@ -80,6 +80,15 @@ handle_call(_Request, _From, State = #simnode_state{}) ->
 	{noreply, NewState :: #simnode_state{}} |
 	{noreply, NewState :: #simnode_state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), NewState :: #simnode_state{}}).
+handle_cast( {manager_found,NodeName}, State = #simnode_state{}) ->
+	case lists:member(NodeName,nodes()) of
+		true ->
+			{noreply,State};
+		false ->
+			net_adm:ping(NodeName),
+			lager:info("Adding new manager node."),
+			{noreply,State}
+	end;
 handle_cast(_Request, State = #simnode_state{}) ->
 	{noreply, State}.
 
@@ -113,3 +122,11 @@ code_change(_OldVsn, State = #simnode_state{}, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+find_manager( Pid ) ->
+	case node_finder:receiver() of
+		unknown ->
+			find_manager(Pid);
+		NodeName ->
+			gen_server:bcast( Pid , { manager_found, NodeName}),
+			find_manager(Pid)
+	end.

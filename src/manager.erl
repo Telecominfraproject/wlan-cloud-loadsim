@@ -106,7 +106,7 @@ handle_call(_Request, _From, State = #manager_state{}) ->
 	{noreply, NewState :: #manager_state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), NewState :: #manager_state{}}).
 handle_cast({stats_report,NodeName,Report},State=#manager_state{})->
-	io:format("Received stats from ~p.~n",[NodeName]),
+	%% io:format("Received stats from ~p.~n",[NodeName]),
 	{noreply,State#manager_state{ stats = maps:put(NodeName,Report,State#manager_state.stats)}};
 handle_cast(_Request, State = #manager_state{}) ->
 	{noreply, State}.
@@ -118,7 +118,7 @@ handle_cast(_Request, State = #manager_state{}) ->
 	{noreply, NewState :: #manager_state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), NewState :: #manager_state{}}).
 handle_info({nodedown,Node},State=#manager_state{})->
-	io:format("Node ~p is down.~n",[Node]),
+	io:format("Node ~p is going down.~n",[Node]),
 	NewNodes = sets:del_element(Node,State#manager_state.nodes),
 	NewStats = maps:remove( Node, State#manager_state.stats),
 	{noreply,State#manager_state{ nodes = NewNodes, stats = NewStats }};

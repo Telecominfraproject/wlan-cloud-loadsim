@@ -12,7 +12,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0,creation_info/0,connect/0,disconnect/0]).
+-export([start_link/0,creation_info/0,connect/0,disconnect/0,send_stats_report/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -20,7 +20,7 @@
 
 -define(SERVER, ?MODULE).
 
--record(manager_state, { nodes }).
+-record(manager_state, { nodes, stats }).
 
 %%%===================================================================
 %%% API
@@ -39,6 +39,9 @@ connect()->
 disconnect()->
 	gen_server:call({global,?SERVER},{disconnect,node()}).
 
+send_stats_report()->
+	gen_server:cast({global,?SERVER},{stats_report,node(),create_stats_report()}).
+
 %% @doc Spawns the server and registers the local name (unique)
 -spec(start_link() ->
 	{ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
@@ -55,7 +58,7 @@ start_link() ->
 	{ok, State :: #manager_state{}} | {ok, State :: #manager_state{}, timeout() | hibernate} |
 	{stop, Reason :: term()} | ignore).
 init([]) ->
-	{ok, #manager_state{ nodes = sets:new() }}.
+	{ok, #manager_state{ nodes = sets:new(), stats = maps:new() }}.
 
 %% @private
 %% @doc Handling call messages
@@ -68,13 +71,25 @@ init([]) ->
 	{stop, Reason :: term(), Reply :: term(), NewState :: #manager_state{}} |
 	{stop, Reason :: term(), NewState :: #manager_state{}}).
 handle_call({connect,NodeName}, _From, State = #manager_state{}) ->
-	NewNodes = sets:add_element(NodeName,State#manager_state.nodes),
-	io:format("NewNodes: ~p~n",[NewNodes]),
-	{reply, ok, State#manager_state{ nodes = NewNodes }};
+	case sets:is_element(NodeName,State#manager_state.nodes) of
+		true ->
+			{reply,ok,State};
+		false ->
+			NewNodes = sets:add_element(NodeName,State#manager_state.nodes),
+			erlang:monitor_node(NodeName,true),
+			lager:info("Node ~p is connecting.",[NodeName]),
+			{reply, ok, State#manager_state{ nodes = NewNodes }}
+	end;
 handle_call({disconnect,NodeName}, _From, State = #manager_state{}) ->
-	NewNodes = sets:del_element(NodeName,State#manager_state.nodes),
-	io:format("NewNodes: ~p~n",[NewNodes]),
-	{reply, ok, State#manager_state{ nodes = NewNodes }};
+	case sets:is_element(NodeName,State#manager_state.nodes) of
+		false ->
+			{reply,ok,State};
+		true ->
+			NewNodes = sets:add_element(NodeName,State#manager_state.nodes),
+			erlang:monitor_node(NodeName,false),
+			lager:info("Node ~p is disconnecting.",[NodeName]),
+			{reply, ok, State#manager_state{ nodes = NewNodes }}
+	end;
 handle_call(_Request, _From, State = #manager_state{}) ->
 	{reply, ok, State}.
 
@@ -84,6 +99,9 @@ handle_call(_Request, _From, State = #manager_state{}) ->
 	{noreply, NewState :: #manager_state{}} |
 	{noreply, NewState :: #manager_state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), NewState :: #manager_state{}}).
+handle_cast({stats_report,NodeName,_Report},State=#manager_state{})->
+	io:format("Received stats from ~p.~n",[NodeName]),
+	{noreply,State};
 handle_cast(_Request, State = #manager_state{}) ->
 	{noreply, State}.
 
@@ -93,6 +111,10 @@ handle_cast(_Request, State = #manager_state{}) ->
 	{noreply, NewState :: #manager_state{}} |
 	{noreply, NewState :: #manager_state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), NewState :: #manager_state{}}).
+handle_info({nodedown,Node},State=#manager_state{})->
+	io:format("Node ~p is down.~n",[Node]),
+	NewNodes = sets:del_element(Node),
+	{noreply,State#manager_state{ nodes = NewNodes }};
 handle_info(_Info, State = #manager_state{}) ->
 	{noreply, State}.
 
@@ -117,3 +139,12 @@ code_change(_OldVsn, State = #manager_state{}, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+create_stats_report() ->
+	CpuSup = #{ avg1 => cpu_sup:avg1() , avg5 => cpu_sup:avg5(), avg15 => cpu_sup:avg15(),
+		nprocs => cpu_sup:nprocs(), util => cpu_sup:util(), detailed => cpu_sup:util([detailed]), per_cpu => cpu_sup:util([per_cpu])},
+	DiskSup = #{ disk_data => disksup:get_disk_data(), check_interval => disksup:get_check_interval(),
+		almost_full_threshold => disksup:get_almost_full_threshold()},
+	MemSup = #{ check_interval => memsup:get_check_interval(), procmem_high_watermark => memsup:get_procmem_high_watermark(),
+		sysmem_high_watermark => memsup:get_sysmem_high_watermark(), memory_data => memsup:get_memory_data(),
+		helper_timeout => memsup:get_helper_timeout(), system_memory_data => memsup:get_system_memory_data()},
+	#{ cpu_sup => CpuSup,disk_sup => DiskSup, memsup => MemSup}.

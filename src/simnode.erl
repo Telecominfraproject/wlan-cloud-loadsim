@@ -20,7 +20,7 @@
 
 -define(SERVER, ?MODULE).
 
--record(simnode_state, { node_finder }).
+-record(simnode_state, { node_finder, stats_updater }).
 
 %%%===================================================================
 %%% API
@@ -56,7 +56,8 @@ start_link() ->
 	{stop, Reason :: term()} | ignore).
 init([]) ->
 	{ok,NodeFinder} = timer:apply_interval(20000,?MODULE,find_manager,[self()]),
-	{ok,#simnode_state{ node_finder = NodeFinder}}.
+	{ok,StatsUpdater} = timer:apply_interval(5000,manager:send_stats_report(),[]),
+	{ok,#simnode_state{ node_finder = NodeFinder, stats_updater = StatsUpdater }}.
 
 %% @private
 %% @doc Handling call messages
@@ -115,7 +116,9 @@ handle_info(_Info, State = #simnode_state{}) ->
 %% with Reason. The return value is ignored.
 -spec(terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
 		State :: #simnode_state{}) -> term()).
-terminate(_Reason, _State = #simnode_state{}) ->
+terminate(_Reason, State = #simnode_state{}) ->
+	timer:cancel(State#simnode_state.stats_updater),
+	timer:cancel(State#simnode_state.node_finder),
 	ok.
 
 %% @private
@@ -137,3 +140,4 @@ find_manager( Pid ) ->
 			gen_server:cast( Pid , { manager_found, NodeName}),
 			ok
 	end.
+

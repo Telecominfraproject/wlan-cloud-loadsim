@@ -133,7 +133,9 @@ receiver()->
 	io:format("recev() 2~n"),
 	Result = try
 		         io:format("recev() 3~n"),
-		{ Cookie , NodeName } = erlang:binary_to_term(Payload,[safe]),
+			         Received = erlang:binary_to_term(Payload,[safe]),
+			         io:format("Received; ~p~n",[Received]),
+		{ Cookie , NodeName } = Received,
 			NodeName
 	catch
 		_:_ ->

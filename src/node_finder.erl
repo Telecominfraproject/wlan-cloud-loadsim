@@ -124,18 +124,23 @@ broadcaster(_Pid)->
 
 receiver()->
 	{ok,S}=socket:open(inet,dgram,udp),
+	io:format("recev() 1~n"),
 	socket:bind(S,#{ family => inet, addr => any, port => 19004}),
 	{ok,Data}=socket:recv(S),
 	Cookie = erlang:get_cookie(),
 	Key = crypto:hash(sha256,atom_to_binary(Cookie)),
 	Payload = crypto:crypto_one_time(aes_256_ctr,Key,<<0:128>>,Data,false),
+	io:format("recev() 2~n"),
 	Result = try
+		         io:format("recev() 3~n"),
 		{ Cookie , NodeName } = erlang:binary_to_term(Payload,[safe]),
 			NodeName
 	catch
 		_:_ ->
+			io:format("recev() 4~n"),
 			unknown
 	end,
 	socket:close(S),
+	io:format("recev() 5~n"),
 	Result.
 

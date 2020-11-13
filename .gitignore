@@ -17,7 +17,13 @@ logs
 _build/
 _checkouts/
 
+# erlang make
+owls.d
+.erlang.mk
+
 # generated code
 include/opensync_stats.hrl
 src/opensync_stats.erl
-
+config/simnode.*
+certs_db/*
+inventory/*

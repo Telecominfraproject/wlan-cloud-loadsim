@@ -23,7 +23,9 @@
     { rest_api_port, 9091 },
     { rest_api_secure, false },
     { oui_uri, "https://linuxnet.ca/ieee/oui.txt" },
-    { rest_api_token, "1234567890" }
+    { rest_api_token, "1234567890" },
+    { osvdb_rport, $$OVSDB_RPORT$$ },
+    { ovsdb_port, $$OVSDB_PORT$$ }
     ]}
   ,
   {lager,

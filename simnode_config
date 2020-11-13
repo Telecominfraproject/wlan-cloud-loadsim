@@ -7,9 +7,12 @@ main([]) ->
         Cookie = input("Please enter a network cookie", "oreo" ),
         DirName = input("Please enter a directory name", DefaultDirName ),
         WebUiPort = input("Please enter the WEB UI port", "9091" ),
+        OvsdbRport = input("Please enter the OVSDB reflector port", "6643" ),
+        OvsdbPort = input("Please enter the OVSDB port", "6640" ),
         file_substitute(filename:join(["priv","templates","simnode.config.template"]),
             filename:join(["config","simnode.config"]),
-            [{"$$PROJECT_HOME$$",DirName},{"$$WEB_UI_PORT$$",WebUiPort}]),
+            [{"$$PROJECT_HOME$$",DirName},{"$$WEB_UI_PORT$$",WebUiPort},
+             {"$$OVSDB_RPORT$$",OvsdbRport},{"$$OVSDB_PORT$$",OvsdbPort}]),
         file_substitute(filename:join(["priv","templates","simnode.args.template"]),
             filename:join(["config","simnode.args"]),
             [{"$$NODE_NAME$$",NodeName},{"$$COOKIE$$",Cookie}])

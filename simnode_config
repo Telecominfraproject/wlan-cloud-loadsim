@@ -3,16 +3,18 @@
 main([]) ->
     try
         {ok,DefaultDirName}=file:get_cwd(),
-        NodeName = input("Please enter a node name", make_nodename() ),
+        Id = input_int("Please enter a node number", 1,99),
+        NodeName = input("Please enter a node name", make_nodename(Id) ),
         Cookie = input("Please enter a network cookie", "oreo" ),
         DirName = input("Please enter a directory name", DefaultDirName ),
-        WebUiPort = input("Please enter the WEB UI port", "9091" ),
+        WebUiPort = input_int("Please enter the WEB UI port", 9095+Id, 9095+Id+100 ),
         OvsdbRport = input("Please enter the OVSDB reflector port", "6643" ),
         OvsdbPort = input("Please enter the OVSDB port", "6640" ),
         file_substitute(filename:join(["priv","templates","simnode.config.template"]),
             filename:join(["config","simnode.config"]),
-            [{"$$PROJECT_HOME$$",DirName},{"$$WEB_UI_PORT$$",WebUiPort},
-             {"$$OVSDB_RPORT$$",OvsdbRport},{"$$OVSDB_PORT$$",OvsdbPort}]),
+            [{"$$PROJECT_HOME$$",DirName},{"$$REST_API_PORT$$",integer_to_list(WebUiPort)},
+             {"$$OVSDB_RPORT$$",OvsdbRport},{"$$OVSDB_PORT$$",OvsdbPort},
+             {"$$NODE_ID$$",integer_to_list(Id)}]),
         file_substitute(filename:join(["priv","templates","simnode.args.template"]),
             filename:join(["config","simnode.args"]),
             [{"$$NODE_NAME$$",NodeName},{"$$COOKIE$$",Cookie}])
@@ -32,8 +34,8 @@ find_hostname()->
     {ok,{hostent,RealHostname,_,inet,4,_}}=inet:gethostbyname(Hostname),
     RealHostname.
 
-make_nodename()->
-    "simnode@" ++ find_hostname().
+make_nodename(Id)->
+    "simnode" ++ integer_to_list(Id) ++ "@" ++ find_hostname().
 
 replace([],FinalBlob)->
     FinalBlob;
@@ -47,6 +49,29 @@ file_substitute(FileNameIn,FileNameOut,VariableList)->
     FileBlob=binary_to_list(FileBin),
     NewBlob=replace(VariableList,FileBlob),
     file:write_file(FileNameOut,list_to_binary(NewBlob)).
+
+input_int(Prompt,Min,Max)->
+    InputData=string:trim(io:get_line( Prompt ++ "(" ++ integer_to_list(Min) ++ ".." ++ integer_to_list(Max) ++ ") [" ++ integer_to_list(Min) ++ "] :")),
+    case InputData=="" of
+        true ->
+            Min;
+        false ->
+            D = string:trim(InputData),
+            try
+                I = list_to_integer(D),
+                case ((I >= Min) and (I =< Max)) of
+                    true ->
+                        I;
+                    false ->
+                        io:format("Must be a number between ~p and ~p.~n",[Min,Max]),
+                        input_int(Prompt,Min,Max)
+                end
+            catch
+                _:_ ->
+                    io:format("Must be a number between ~p and ~p.~n",[Min,Max]),
+                    input_int(Prompt,Min,Max)
+            end
+    end.
 
 input(Prompt,Default)->
     InputData=string:trim(io:get_line( Prompt ++ " [" ++ Default ++ "] :")),

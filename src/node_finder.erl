@@ -12,7 +12,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0,broadcaster/1,creation_info/0,receiver/0]).
+-export([start_link/0,broadcaster/1,creation_info/0,receiver/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -122,9 +122,9 @@ broadcaster(_Pid)->
 	send_payload( Socket, Payload, 19000,100 ),
 	socket:close(Socket).
 
-receiver()->
+receiver(Id)->
 	{ok,S}=socket:open(inet,dgram,udp),
-	socket:bind(S,#{ family => inet, addr => any, port => 19004}),
+	socket:bind(S,#{ family => inet, addr => any, port => 19000+Id}),
 	{ok,Data}=socket:recv(S),
 	Cookie = erlang:get_cookie(),
 	Key = crypto:hash(sha256,atom_to_binary(Cookie)),

@@ -9,10 +9,12 @@
 -module(simnode).
 -author("stephb").
 
+-include("../include/internal.hrl").
+
 -behaviour(gen_server).
 
 %% API
--export([start_link/0,creation_info/0,connect/0,disconnect/0,find_manager/1]).
+-export([start_link/0,creation_info/0,connect/0,disconnect/0,find_manager/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -20,7 +22,7 @@
 
 -define(SERVER, ?MODULE).
 
--record(simnode_state, { node_finder, stats_updater }).
+-record(simnode_state, { node_finder, stats_updater, node_id}).
 
 %%%===================================================================
 %%% API
@@ -55,9 +57,10 @@ start_link() ->
 	{ok, State :: #simnode_state{}} | {ok, State :: #simnode_state{}, timeout() | hibernate} |
 	{stop, Reason :: term()} | ignore).
 init([]) ->
-	{ok,NodeFinder} = timer:apply_interval(20000,?MODULE,find_manager,[self()]),
+	NodeId = application:get_env(?OWLS_APP,node_id,1),
+	{ok,NodeFinder} = timer:apply_interval(20000,?MODULE,find_manager,[self(),NodeId]),
 	{ok,StatsUpdater} = timer:apply_interval(5000,manager,send_stats_report,[]),
-	{ok,#simnode_state{ node_finder = NodeFinder, stats_updater = StatsUpdater }}.
+	{ok,#simnode_state{ node_finder = NodeFinder, stats_updater = StatsUpdater , node_id = NodeId }}.
 
 %% @private
 %% @doc Handling call messages
@@ -132,8 +135,8 @@ code_change(_OldVsn, State = #simnode_state{}, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-find_manager( Pid ) ->
-	case node_finder:receiver() of
+find_manager(Pid,Id) ->
+	case node_finder:receiver(Id) of
 		unknown ->
 			ok;
 		NodeName ->

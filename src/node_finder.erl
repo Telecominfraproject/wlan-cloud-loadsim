@@ -115,7 +115,7 @@ send_payload(Socket,Payload,StartPort,HowMany)->
 broadcaster(_Pid)->
 	Cookie = erlang:get_cookie(),
 	Key = crypto:hash(sha256,atom_to_binary(Cookie)),
-	Data = term_to_binary({Cookie,node()},[compressed]),
+	Data = term_to_binary({atom_to_list(Cookie),atom_to_list(node())},[compressed]),
 	%% io:format("DATA: ~p~n",[Data]),
 	Payload = crypto:crypto_one_time(aes_256_ctr,Key,<<0:128>>,Data,true),
 	{ ok , Socket } = socket:open(inet,dgram,udp),
@@ -135,10 +135,9 @@ receiver()->
 	%% io:format("recev() 2 size=~p Payload=~p~n",[size(Data),size(Payload)]),
 	Result = try
 	%%	         io:format("recev() 3~n"),
-			         Received = erlang:binary_to_term(Payload,[safe]),
-	%%	         io:format("Received; ~p~n",[Received]),
-		{ Cookie , NodeName } = Received,
-			NodeName
+      { RCookie, RNode } = erlang:binary_to_term(Payload,[safe]),
+      io:format("Received; {~p,~p} ~n",[RCookie,RNode]),
+			list_to_atom(RNode)
 	catch
 		_:_ ->
 	%%	io:format("recev() 4: Payload: ~p~n",[Payload]),

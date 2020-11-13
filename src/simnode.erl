@@ -85,7 +85,13 @@ handle_cast( {manager_found,NodeName}, State = #simnode_state{}) ->
 		true ->
 			{noreply,State};
 		false ->
-			net_adm:ping(NodeName),
+			case net_adm:ping(NodeName) of
+				pong ->
+					manager:connect(),
+					lager:info("Adding new manager node.");
+				pang ->
+					lager:info("Node ~p unresponsive.",[NodeName])
+			end,
 			lager:info("Adding new manager node."),
 			{noreply,State}
 	end;

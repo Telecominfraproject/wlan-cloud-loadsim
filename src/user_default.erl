@@ -24,3 +24,6 @@ logout()->
 refresh_ouis()->
 	oui_server:refresh().
 
+connected()->
+	simnode:connected().
+

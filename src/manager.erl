@@ -12,7 +12,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0,creation_info/0,connect/0,disconnect/0,send_stats_report/0]).
+-export([start_link/0,creation_info/0,connect/0,disconnect/0,send_stats_report/0,connected_nodes/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -38,6 +38,9 @@ connect()->
 
 disconnect()->
 	gen_server:call({global,?SERVER},{disconnect,node()}).
+
+connected_nodes()->
+	gen_server:call({global,?SERVER},connected_nodes).
 
 send_stats_report()->
 	gen_server:cast({global,?SERVER},{stats_report,node(),create_stats_report()}).
@@ -85,11 +88,14 @@ handle_call({disconnect,NodeName}, _From, State = #manager_state{}) ->
 		false ->
 			{reply,ok,State};
 		true ->
-			NewNodes = sets:add_element(NodeName,State#manager_state.nodes),
+			NewNodes = sets:del_element(NodeName,State#manager_state.nodes),
+			NewStats = maps:remove(NodeName,State#manager_state.stats),
 			erlang:monitor_node(NodeName,false),
 			lager:info("Node ~p is disconnecting.",[NodeName]),
-			{reply, ok, State#manager_state{ nodes = NewNodes }}
+			{reply, ok, State#manager_state{ nodes = NewNodes , stats = NewStats }}
 	end;
+handle_call(connected_nodes, _From, State = #manager_state{}) ->
+	{reply,{ok,sets:to_list(State#manager_state.nodes)},State};
 handle_call(_Request, _From, State = #manager_state{}) ->
 	{reply, ok, State}.
 

@@ -14,7 +14,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0,creation_info/0,connect/0,disconnect/0,find_manager/2]).
+-export([start_link/0,creation_info/0,connect/1,disconnect/0,find_manager/2,connected/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -22,7 +22,7 @@
 
 -define(SERVER, ?MODULE).
 
--record(simnode_state, { node_finder, stats_updater, node_id}).
+-record(simnode_state, { node_finder, stats_updater, node_id, manager }).
 
 %%%===================================================================
 %%% API
@@ -35,11 +35,14 @@ creation_info() ->
 		type => worker,
 		modules => [?MODULE]} ].
 
-connect() ->
-	gen_server:call(?SERVER,{connect,node()}).
+connect(NodeName) ->
+	gen_server:call(?SERVER,{connect,NodeName}).
 
 disconnect() ->
 	gen_server:call(?SERVER,{disconnect,node()}).
+
+connected()->
+	gen_server:call(?SERVER,connected).
 
 %% @doc Spawns the server and registers the local name (unique)
 -spec(start_link() ->
@@ -60,7 +63,7 @@ init([]) ->
 	NodeId = application:get_env(?OWLS_APP,node_id,1),
 	{ok,NodeFinder} = timer:apply_interval(20000,?MODULE,find_manager,[self(),NodeId]),
 	{ok,StatsUpdater} = timer:apply_interval(5000,manager,send_stats_report,[]),
-	{ok,#simnode_state{ node_finder = NodeFinder, stats_updater = StatsUpdater , node_id = NodeId }}.
+	{ok,#simnode_state{ node_finder = NodeFinder, stats_updater = StatsUpdater , node_id = NodeId, manager = none }}.
 
 %% @private
 %% @doc Handling call messages
@@ -72,9 +75,14 @@ init([]) ->
 	{noreply, NewState :: #simnode_state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), Reply :: term(), NewState :: #simnode_state{}} |
 	{stop, Reason :: term(), NewState :: #simnode_state{}}).
+handle_call({disconnect,_},_From,State=#simnode_state{})->
+	manager:disconnect(),
+	{ reply, ok, State#simnode_state{ manager = none }};
 handle_call({connect,NodeName}, _From, State = #simnode_state{}) ->
-	net_adm:ping(NodeName),
-	{reply, ok, State};
+	NewState = try_connecting(NodeName,State),
+	{ reply, ok, NewState };
+handle_call(connected, _From, State = #simnode_state{}) ->
+	{ reply, { ok, State#simnode_state.manager } , State };
 handle_call(_Request, _From, State = #simnode_state{}) ->
 	{reply, ok, State}.
 
@@ -85,21 +93,8 @@ handle_call(_Request, _From, State = #simnode_state{}) ->
 	{noreply, NewState :: #simnode_state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), NewState :: #simnode_state{}}).
 handle_cast( {manager_found,NodeName}, State = #simnode_state{}) ->
-	case lists:member(NodeName,nodes()) of
-		true ->
-			{noreply,State};
-		false ->
-			case net_adm:ping(NodeName) of
-				pong ->
-					global:sync(),
-					manager:connect(),
-					lager:info("Adding new manager node.");
-				pang ->
-					lager:info("Node ~p unresponsive.",[NodeName])
-			end,
-			lager:info("Adding new manager node."),
-			{noreply,State}
-	end;
+	NewState=try_connecting(NodeName,State),
+	{noreply,NewState};
 handle_cast(_Request, State = #simnode_state{}) ->
 	{noreply, State}.
 
@@ -144,3 +139,19 @@ find_manager(Pid,Id) ->
 			ok
 	end.
 
+try_connecting(NodeName,State)->
+	case NodeName == State#simnode_state.manager of
+		true ->
+			State;
+		false ->
+			case net_adm:ping(NodeName) of
+				pong ->
+					global:sync(),
+					manager:connect(),
+					lager:info("Adding new manager node."),
+					State#simnode_state{ manager = NodeName };
+				pang ->
+					lager:info("Node ~p unresponsive.",[NodeName]),
+					State
+			end
+	end.

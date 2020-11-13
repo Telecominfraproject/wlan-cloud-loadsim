@@ -27,3 +27,6 @@ refresh_ouis()->
 connected()->
 	simnode:connected().
 
+connected_nodes()->
+	manager:connected_nodes().
+

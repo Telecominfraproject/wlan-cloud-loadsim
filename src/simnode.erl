@@ -104,6 +104,9 @@ handle_cast(_Request, State = #simnode_state{}) ->
 	{noreply, NewState :: #simnode_state{}} |
 	{noreply, NewState :: #simnode_state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), NewState :: #simnode_state{}}).
+handle_info({nodedown,Node},State=#simnode_state{})->
+	io:format("Manager ~p is going down.~n",[Node]),
+	{noreply,State#simnode_state{ manager = none }};
 handle_info(_Info, State = #simnode_state{}) ->
 	{noreply, State}.
 
@@ -148,6 +151,7 @@ try_connecting(NodeName,State)->
 				pong ->
 					global:sync(),
 					manager:connect(),
+					erlang:monitor_node(NodeName,true),
 					lager:info("Adding new manager node."),
 					State#simnode_state{ manager = NodeName };
 				pang ->

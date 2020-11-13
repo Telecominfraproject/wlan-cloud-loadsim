@@ -132,18 +132,18 @@ receiver()->
 	Cookie = erlang:get_cookie(),
 	Key = crypto:hash(sha256,atom_to_binary(Cookie)),
 	Payload = crypto:crypto_one_time(aes_256_ctr,Key,<<0:128>>,Data,false),
-	%% io:format("recev() 2 size=~p Payload=~p~n",[size(Data),size(Payload)]),
+	io:format("recev() 2 size=~p Payload=~p~n",[size(Data),size(Payload)]),
 	Result = try
-	%%	         io:format("recev() 3~n"),
+	    io:format("recev() 3~n"),
       { RCookie, RNode } = erlang:binary_to_term(Payload,[safe]),
       io:format("Received; {~p,~p} ~n",[RCookie,RNode]),
 			list_to_atom(RNode)
 	catch
 		_:_ ->
-	%%	io:format("recev() 4: Payload: ~p~n",[Payload]),
+			io:format("recev() 4: Payload: ~p~n",[Payload]),
 			unknown
 	end,
 	socket:close(S),
-	%% io:format("recev() 5~n"),
+	io:format("recev() 5~n"),
 	Result.
 

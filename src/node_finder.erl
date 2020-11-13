@@ -139,7 +139,7 @@ receiver()->
 			NodeName
 	catch
 		_:_ ->
-			io:format("recev() 4~n"),
+			io:format("recev() 4: Payload: ~p~n",[Payload]),
 			unknown
 	end,
 	socket:close(S),

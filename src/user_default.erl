@@ -38,8 +38,9 @@ help()->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -spec node_help() -> string().
 node_help()->
-	io:format("login(ApiKey).~n"),
+	io:format("login(ApiKey).    ApiKey ,ust be a string.~n"),
 	io:format("logout().~n"),
+	io:format("connect(Node).    Node must be a string.~n"),
 	io:format("connected().~n").
 
 -spec login( ApiKey :: string()) -> ok.
@@ -53,6 +54,11 @@ logout()->
 -spec connected() -> { ok , none } | { ok , Manager::node() }.
 connected()->
 	simnode:connected().
+
+-spec connect(NodeName::string()) -> ok | { error , Reason::atom() }.
+connect(NodeName) ->
+	Node = list_to_atom(NodeName),
+	simnode:connect(Node).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

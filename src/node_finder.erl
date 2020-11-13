@@ -119,6 +119,7 @@ broadcaster(_Pid)->
 	Payload = crypto:crypto_one_time(aes_256_ctr,Key,<<0:128>>,Data,true),
 	{ ok , Socket } = socket:open(inet,dgram,udp),
 	socket:setopt(Socket,socket,broadcast,true),
+	io:format("PAYLOAD: ~p~n",[Payload]),
 	send_payload( Socket, Payload, 19000,100 ),
 	socket:close(Socket).
 

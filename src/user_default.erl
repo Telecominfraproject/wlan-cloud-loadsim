@@ -9,11 +9,25 @@
 -module(user_default).
 -author("stephb").
 
+-include("../include/internal.hrl").
+
 %% API
 -compile(export_all).
 -compile(nowarn_export_all).
 
 -define(SIM_APIKEY,sim_api_key).
+
+
+-spec help() -> string().
+help()->
+	case application:get_env(?OWLS_APP,role,none) of
+		none ->
+			io:format("Invalid application role. Please verify your configuration.~n");
+		node ->
+			node_help();
+		manager ->
+			manager_help()
+	end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -22,6 +36,12 @@
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-spec node_help() -> string().
+node_help()->
+	io:format("login(ApiKey).~n"),
+	io:format("logout().~n"),
+	io:format("connected().~n").
+
 -spec login( ApiKey :: string()) -> ok.
 login(ApiKey)->
 	persistent_term:put(?SIM_APIKEY,ApiKey).
@@ -42,6 +62,11 @@ connected()->
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-spec manager_help() -> string().
+manager_help()->
+	io:format("refresh_ouis().~n"),
+	io:format("connected_nodes().~n").
+
 -spec refresh_ouis()-> ok.
 refresh_ouis()->
 	oui_server:refresh().

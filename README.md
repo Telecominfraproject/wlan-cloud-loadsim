@@ -135,18 +135,69 @@ to run accross the internet and is expected to run behind firewalls. Security is
 #### Custom CA configuration
 Once you run `simmanager_config` or `simnode_config`, you will get a customized configuration file located in the config directory.
 
- ## Starting the simulator
- A quick run file has been added in order to provide a playground for you. From the command line simply enter
- ```
- prompt> ./r
-heart_beat_kill_pid = 44603
+## Planning the simulation
+In order to create a successful simualtion, a bit of planning is necessary. Here is what you will need:
+- 1 `simmanager` node
+- 1 or more `simnode`
+Wether the node is a `simmanager` or `simnode`, you will need to have a copy of this repo. Therefore, if you use different physical hosts,
+you just need to clone this repo. If you plan on running multiple nodes on a single host, you should clone this repo in a separate directory 
+for each node.
+
+### Creating the `simmanager`
+In order to create the `simmanager` you need to clone the repo and launch the `simmanager_config` command. The command will ask you 
+for several questions. In many cases the default values are just fine. Here's an example:
+
+```
+cd ~
+github clone https://github.com/stephb9959/owls
+cd owls
+./simmanager_config
+Please enter a node name [simmanager@renegademac.arilia.com] :
+Please enter a network cookie [oreo] :
+Please enter a directory name [/Users/stephb/Desktop/Dropbox/dhcp/test_repos3/owls] :
+Please enter the WEB UI port [9091] :
+```
+All the values between brackets are the default values. The most important value is the host part of the node name. You must be able to `ping` any host used as a node for this simulation. 
+
+Once the `simmanager` is started, you should be able to start it like this:
+```
+./simmanager
+heart_beat_kill_pid = 17839
 Erlang/OTP 23 [erts-11.1.1] [source] [64-bit] [smp:16:16] [ds:16:16:10] [async-threads:5] [hipe] [dtrace]
 
 Eshell V11.1.1  (abort with ^G)
-(mqttsim@renegademac.local)1> 
+(simmanager@renegademac.arilia.com)1>
 ```
-This is what you should be able to see. If you do not see something similar, something went wrong and get in touch
-with the community to help you troubleshoot the problem. 
+The prompt should show the node name you entered when you configured the node initially.
+
+### Creating the `simnodes`
+In order to create the `simnodes` you need to clone the repo and launch the `simnode_config` command. The command will ask you 
+for several questions. In many cases the default values are just fine. Here's an example:
+
+```
+cd ~
+github clone https://github.com/stephb9959/owls
+cd owls
+./simnode_config
+Please enter a node number(1..99) [1] :
+Please enter a node name [simnode1@renegademac.arilia.com] :
+Please enter a network cookie [oreo] :
+Please enter a directory name [/Users/stephb/Desktop/Dropbox/dhcp/test_repos3/owls] :
+Please enter the WEB UI port(9096..9196) [9096] :
+Please enter the OVSDB reflector port [6643] :
+Please enter the OVSDB port [6640] :
+```
+All the values between brackets are the default values. The most important value is the host part of the node name. You must be able to `ping` any host used as a node for this simulation. 
+
+Once the `simnode` is started, you should be able to start it like this:
+```
+./simnode
+heart_beat_kill_pid = 17839
+Erlang/OTP 23 [erts-11.1.1] [source] [64-bit] [smp:16:16] [ds:16:16:10] [async-threads:5] [hipe] [dtrace]
+
+Eshell V11.1.1  (abort with ^G)
+(simnode1@renegademac.arilia.com)1>
+```
 
 ## API
 This project uses OpenAPI specification 3.0, and you can use Swagger (https://editor.swagger.io/) in order to look at the API located in the `api` directory. 

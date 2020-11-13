@@ -127,6 +127,6 @@ find_manager( Pid ) ->
 		unknown ->
 			ok;
 		NodeName ->
-			gen_server:bcast( Pid , { manager_found, NodeName}),
+			gen_server:cast( Pid , { manager_found, NodeName}),
 			ok
 	end.

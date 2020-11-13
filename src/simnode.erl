@@ -55,7 +55,7 @@ start_link() ->
 	{ok, State :: #simnode_state{}} | {ok, State :: #simnode_state{}, timeout() | hibernate} |
 	{stop, Reason :: term()} | ignore).
 init([]) ->
-	{ok,NodeFinder} = apply:interval(20,?MODULE,find_manager,[self()]),
+	{ok,NodeFinder} = timer:apply_interval(20000,node_finder,find_manager,[self()]),
 	{ok,#simnode_state{ node_finder = NodeFinder}}.
 
 %% @private

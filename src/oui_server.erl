@@ -250,11 +250,15 @@ process_record( Io , Acc ) ->
 
 process_oui_file() ->
 	%% skip the top 4 lines
-	{ ok , Io } = file:open( latest_filename() , read ) ,
-	skip_lines( Io , 4 ) ,
-	M = process_record( Io , maps:new() ),
-	file:close( Io ),
-	M.
+	case file:open( latest_filename() , [read] ) of
+		{ ok , Io } ->
+			skip_lines( Io , 4 ) ,
+			M = process_record( Io , maps:new() ),
+			file:close( Io ),
+			M;
+		Error ->
+			Error
+	end.
 
 create_oui_lookup_table(M)->
 	ets:delete_all_objects(?OUI_LOOKUP_TABLE),
@@ -298,5 +302,6 @@ refresh(State,_Pid) ->
 			lager:info("Please refresh OUI lists later.",[Error])
 	end.
 
+-spec latest_filename() -> string().
 latest_filename() ->
 	filename:join([code:priv_dir(?OWLS_APP),"data",?OUI_FILENAME]).

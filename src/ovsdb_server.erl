@@ -31,13 +31,11 @@
 %==============================================================================
 % API
 
--spec creation_info () -> Info when
-            Info :: [#{}].
-
+-spec creation_info () -> Info :: [map()].
 creation_info () ->
 	[
-        #{	
-            id => ?MODULE ,
+    #{
+        id => ?MODULE ,
 		    start => { ?MODULE , start_link, [] },
 		    restart => permanent,
 		    shutdown => 100,
@@ -46,9 +44,6 @@ creation_info () ->
         } 
     ].
 
-
-
-
 -spec start_link () -> {ok, Pid} | ignore | {error, Reason} when
             Pid :: pid(),
             Reason :: string().
@@ -56,16 +51,9 @@ creation_info () ->
 start_link () ->
 	gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
-
-
-
--spec init(Args) -> {ok, State} | {ok, State, timeout() | hibernate} | {stop, Reason} | ignore when
-            Args :: term(),
-            State :: #ovsdb_state{},
-            Reason :: string().
-
+-spec init(Args::term()) -> {ok, State :: #ovsdb_state{} }.
 init([]) ->
-    Cfg = create_config(),
+	Cfg = create_config(),
 	{ok, #ovsdb_state{config = Cfg}}.
 
 

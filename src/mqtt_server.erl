@@ -246,14 +246,9 @@ mqttserver_processor(Socket,#mqtt_processor_state{ secure = false }=State)->
 		{tcp,Socket,Data} ->
 			io:format("Received ~p bytes.~n",[size(Data)]),
 			FullData = <<(State#mqtt_processor_state.bytes_left)/binary,Data/binary>>,
-			case mqttserver_process:process(State#mqtt_processor_state{ bytes_left = FullData }) of
-				{ ok, NewState } ->
-					set_session_stats(State#mqtt_processor_state.parent_pid,State#mqtt_processor_state.listener_pid,self(),NewState#mqtt_processor_state.stats),
-					mqttserver_processor(Socket,NewState);
-				Error ->
-					io:format("~p Error=~p~n",[?FUNCTION_NAME,Error]),
-					gen_tcp:close(Socket)
-			end;
+			{ ok, NewState } = mqtt_process:process(State#mqtt_processor_state{ bytes_left = FullData }),
+			set_session_stats(State#mqtt_processor_state.parent_pid,State#mqtt_processor_state.listener_pid,self(),NewState#mqtt_processor_state.stats),
+			mqttserver_processor(Socket,NewState);
 		{tcp_closed,Socket} ->
 			mqtt_server:increase_session(State#mqtt_processor_state.parent_pid,State#mqtt_processor_state.listener_pid),
 			delete_session_stats(State#mqtt_processor_state.parent_pid,State#mqtt_processor_state.listener_pid,self()),
@@ -268,15 +263,9 @@ mqttserver_processor(Socket,#mqtt_processor_state{ secure = true }=State)->
 		{ssl,Socket,Data} ->
 			io:format("Received ~p bytes.~n",[size(Data)]),
 			FullData = <<(State#mqtt_processor_state.bytes_left)/binary,Data/binary>>,
-			case mqttserver_process:process(State#mqtt_processor_state{ bytes_left = FullData }) of
-				{ ok, NewState } ->
-					set_session_stats(State#mqtt_processor_state.parent_pid,State#mqtt_processor_state.listener_pid,self(),NewState#mqtt_processor_state.stats),
-					mqttserver_processor(Socket,NewState);
-				Error ->
-					io:format("~p Error=~p~n",[?FUNCTION_NAME,Error]),
-					delete_session_stats(State#mqtt_processor_state.parent_pid,State#mqtt_processor_state.listener_pid,self()),
-					ssl:close(Socket)
-			end;
+			{ ok, NewState } = mqtt_process:process(State#mqtt_processor_state{ bytes_left = FullData }),
+			set_session_stats(State#mqtt_processor_state.parent_pid,State#mqtt_processor_state.listener_pid,self(),NewState#mqtt_processor_state.stats),
+			mqttserver_processor(Socket,NewState);
 		{ssl_closed,Socket} ->
 			mqtt_server:increase_session(State#mqtt_processor_state.parent_pid,State#mqtt_processor_state.listener_pid),
 			delete_session_stats(State#mqtt_processor_state.parent_pid,State#mqtt_processor_state.listener_pid,self()),

@@ -11,6 +11,9 @@
 
 -include("../include/internal.hrl").
 
+-compile({parse_transform, lager_transform}).
+-dialyzer(no_match).
+
 -behaviour(gen_server).
 
 %% API
@@ -106,7 +109,7 @@ handle_cast(_Request, State = #simnode_state{}) ->
 	{stop, Reason :: term(), NewState :: #simnode_state{}}).
 handle_info({nodedown,Node},State=#simnode_state{})->
 	io:format("Manager ~p is going down.~n",[Node]),
-	lager:info("Manager ~p is going down.~n",[Node]),
+	_=lager:info("Manager ~p is going down.",[Node]),
 	{noreply,State#simnode_state{ manager = none }};
 handle_info(_Info, State = #simnode_state{}) ->
 	{noreply, State}.
@@ -119,8 +122,8 @@ handle_info(_Info, State = #simnode_state{}) ->
 -spec(terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
 		State :: #simnode_state{}) -> term()).
 terminate(_Reason, State = #simnode_state{}) ->
-	timer:cancel(State#simnode_state.stats_updater),
-	timer:cancel(State#simnode_state.node_finder),
+	_=timer:cancel(State#simnode_state.stats_updater),
+	_=timer:cancel(State#simnode_state.node_finder),
 	ok.
 
 %% @private
@@ -150,13 +153,13 @@ try_connecting(NodeName,State)->
 		false ->
 			case net_adm:ping(NodeName) of
 				pong ->
-					global:sync(),
+					_=global:sync(),
 					manager:connect(),
 					erlang:monitor_node(NodeName,true),
-					lager:info("Adding new manager ~p node.",[NodeName]),
+					_=lager:info("Adding new manager ~p node.",[NodeName]),
 					State#simnode_state{ manager = NodeName };
 				pang ->
-					lager:info("Node ~p unresponsive.",[NodeName]),
+					_=lager:info("Node ~p unresponsive.",[NodeName]),
 					State
 			end
 	end.

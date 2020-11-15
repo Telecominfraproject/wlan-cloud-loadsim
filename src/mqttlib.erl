@@ -23,8 +23,11 @@ dec_binary(<<L:16,Data:L/binary,Rest/binary>>)->
 enc_binary(Data)->
 	<<(size(Data)):16,Data/binary>>.
 
-enc_string(S)->
-	<<(length(S)):16,(list_to_binary(S))/binary>>.
+-spec enc_string(string() | binary())->binary().
+enc_string(S) when is_list(S)->
+	<<(length(S)):16,(list_to_binary(S))/binary>>;
+enc_string(S) when is_binary(S)->
+	<<(size(S)):16,S/binary>>.
 
 dec_byte(<<V:8,Rest/binary>>)->
 	{ V,Rest }.

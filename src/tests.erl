@@ -9,6 +9,8 @@
 -module(tests).
 -author("stephb").
 
+-dialyzer(no_return).
+
 -include_lib("eunit/include/eunit.hrl").
 -include("../include/mqtt_definitions.hrl").
 
@@ -22,13 +24,13 @@ connection_packet_encoding_decoding_test() ->
 	PacketVariableHeader = #mqtt_connect_variable_header{
 		username_flag = 1 ,
 		password_flag = 1,
-		username = "Stephb",
+		username = <<"Stephb">>,
 		password = <<"1234567890">>,
 		will_flag = 1,
 		will_qos_flag = 1,
 		keep_alive = 60,
-		client_identifier = "test_device_1",
-		will_topic = "topics/a",
+		client_identifier = <<"test_device_1">>,
+		will_topic = <<"topics/a">>,
 		clean_start_flag = 1,
 		will_properties = [{will_delay_interval,1000},
 			{payload_format_indicator,1},
@@ -39,8 +41,8 @@ connection_packet_encoding_decoding_test() ->
 		will_payload = <<"will payload">>
 	},
 	Msg = #mqtt_msg{ packet_type = ?MQTT_CONNECT , variable_header = PacketVariableHeader },
-	Blob = message:encode(Msg),
-	{ ok, Decoded } = message:decode(Blob),
+	Blob = mqtt_message:encode(Msg),
+	{ ok, Decoded } = mqtt_message:decode(Blob,4),
 	?assert( Decoded#mqtt_msg.variable_header == PacketVariableHeader ).
 
 connack_packet_encoding_decoding_test()->
@@ -51,8 +53,8 @@ connack_packet_encoding_decoding_test()->
 		connect_reason_code = ?MQTT_RC_SUCCESS
 	},
 	Msg = #mqtt_msg{ packet_type = ?MQTT_CONNACK , variable_header = PacketVariableHeader },
-	Blob = message:encode(Msg),
-	{ ok, Decoded } = message:decode(Blob),
+	Blob = mqtt_message:encode(Msg),
+	{ ok, Decoded } = mqtt_message:decode(Blob,5),
 	?assert( Decoded#mqtt_msg.variable_header == PacketVariableHeader ).
 
 publish_packet_encoding_decoding_test()->
@@ -76,8 +78,8 @@ publish_packet_encoding_decoding_test()->
 		retain_flag = 1
 	},
 	Msg = #mqtt_msg{ packet_type = ?MQTT_CONNACK , variable_header = PacketVariableHeader },
-	Blob = message:encode(Msg),
-	{ ok, Decoded } = message:decode(Blob),
+	Blob = mqtt_message:encode(Msg),
+	{ ok, Decoded } = mqtt_message:decode(Blob,5),
 	?assert( Decoded#mqtt_msg.variable_header == PacketVariableHeader ).
 
 publish_puback_encoding_decoding_test()->
@@ -97,8 +99,8 @@ publish_puback_encoding_decoding_test()->
 		]
 	},
 	Msg = #mqtt_msg{ packet_type = ?MQTT_PUBACK , variable_header = PacketVariableHeader },
-	Blob = message:encode(Msg),
-	{ ok, Decoded } = message:decode(Blob),
+	Blob = mqtt_message:encode(Msg),
+	{ ok, Decoded } = mqtt_message:decode(Blob,5),
 	?assert( Decoded#mqtt_msg.variable_header == PacketVariableHeader ).
 
 publish_pubrec_encoding_decoding_test()->
@@ -118,8 +120,8 @@ publish_pubrec_encoding_decoding_test()->
 		]
 	},
 	Msg = #mqtt_msg{ packet_type = ?MQTT_PUBREC , variable_header = PacketVariableHeader },
-	Blob = message:encode(Msg),
-	{ ok, Decoded } = message:decode(Blob),
+	Blob = mqtt_message:encode(Msg),
+	{ ok, Decoded } = mqtt_message:decode(Blob,5),
 	?assert( Decoded#mqtt_msg.variable_header == PacketVariableHeader ).
 
 publish_pubrel_encoding_decoding_test()->
@@ -139,8 +141,8 @@ publish_pubrel_encoding_decoding_test()->
 		]
 	},
 	Msg = #mqtt_msg{ packet_type = ?MQTT_PUBREL , variable_header = PacketVariableHeader },
-	Blob = message:encode(Msg),
-	{ ok, Decoded } = message:decode(Blob),
+	Blob = mqtt_message:encode(Msg),
+	{ ok, Decoded } = mqtt_message:decode(Blob,5),
 	?assert( Decoded#mqtt_msg.variable_header == PacketVariableHeader ).
 
 publish_pubcomp_encoding_decoding_test()->
@@ -160,8 +162,8 @@ publish_pubcomp_encoding_decoding_test()->
 		]
 	},
 	Msg = #mqtt_msg{ packet_type = ?MQTT_PUBCOMP , variable_header = PacketVariableHeader },
-	Blob = message:encode(Msg),
-	{ ok, Decoded } = message:decode(Blob),
+	Blob = mqtt_message:encode(Msg),
+	{ ok, Decoded } = mqtt_message:decode(Blob,5),
 	?assert( Decoded#mqtt_msg.variable_header == PacketVariableHeader ).
 
 publish_subscribe_encoding_decoding_test()->
@@ -183,8 +185,8 @@ publish_subscribe_encoding_decoding_test()->
 			{ "topic3", ?MQTT_SUBSCRIBE_LEVEL_2 }]
 	},
 	Msg = #mqtt_msg{ packet_type = ?MQTT_SUBSCRIBE , variable_header = PacketVariableHeader },
-	Blob = message:encode(Msg),
-	{ ok, Decoded } = message:decode(Blob),
+	Blob = mqtt_message:encode(Msg),
+	{ ok, Decoded } = mqtt_message:decode(Blob,5),
 	?assert( Decoded#mqtt_msg.variable_header == PacketVariableHeader ).
 
 publish_suback_encoding_decoding_test()->
@@ -204,8 +206,8 @@ publish_suback_encoding_decoding_test()->
 		reason_codes = [ ?MQTT_RC_GRANTED_QOS_0, ?MQTT_RC_GRANTED_QOS_1, ?MQTT_RC_GRANTED_QOS_2 ]
 	},
 	Msg = #mqtt_msg{ packet_type = ?MQTT_SUBACK , variable_header = PacketVariableHeader },
-	Blob = message:encode(Msg),
-	{ ok, Decoded } = message:decode(Blob),
+	Blob = mqtt_message:encode(Msg),
+	{ ok, Decoded } = mqtt_message:decode(Blob,5),
 	?assert( Decoded#mqtt_msg.variable_header == PacketVariableHeader ).
 
 publish_unsubscribe_encoding_decoding_test()->
@@ -225,8 +227,8 @@ publish_unsubscribe_encoding_decoding_test()->
 		topic_list = [ "topic1" , "topic2", "topic3" ]
 	},
 	Msg = #mqtt_msg{ packet_type = ?MQTT_UNSUBSCRIBE , variable_header = PacketVariableHeader },
-	Blob = message:encode(Msg),
-	{ ok, Decoded } = message:decode(Blob),
+	Blob = mqtt_message:encode(Msg),
+	{ ok, Decoded } = mqtt_message:decode(Blob,5),
 	?assert( Decoded#mqtt_msg.variable_header == PacketVariableHeader ).
 
 publish_unsuback_encoding_decoding_test()->
@@ -246,8 +248,8 @@ publish_unsuback_encoding_decoding_test()->
 		reason_codes = [ ?MQTT_RC_SUCCESS, ?MQTT_RC_NO_SUBSCRIPTION_EXISTED, ?MQTT_RC_SUCCESS ]
 	},
 	Msg = #mqtt_msg{ packet_type = ?MQTT_UNSUBACK , variable_header = PacketVariableHeader },
-	Blob = message:encode(Msg),
-	{ ok, Decoded } = message:decode(Blob),
+	Blob = mqtt_message:encode(Msg),
+	{ ok, Decoded } = mqtt_message:decode(Blob,5),
 	?assert( Decoded#mqtt_msg.variable_header == PacketVariableHeader ).
 
 publish_pingreq_encoding_decoding_test()->
@@ -257,8 +259,8 @@ publish_pingreq_encoding_decoding_test()->
 	Time = erlang:timestamp(),
 	PacketVariableHeader = #mqtt_pingreq_variable_header_v5{ time = Time },
 	Msg = #mqtt_msg{ packet_type = ?MQTT_PINGREQ , variable_header = PacketVariableHeader },
-	Blob = message:encode(Msg),
-	{ ok, Decoded } = message:decode(Blob),
+	Blob = mqtt_message:encode(Msg),
+	{ ok, Decoded } = mqtt_message:decode(Blob,5),
 	D2 = Decoded#mqtt_msg{ variable_header = #mqtt_pingreq_variable_header_v5{ time = Time }},
 	?assert( D2#mqtt_msg.variable_header == PacketVariableHeader ).
 
@@ -269,8 +271,8 @@ publish_pingresp_encoding_decoding_test()->
 	Time = erlang:timestamp(),
 	PacketVariableHeader = #mqtt_pingresp_variable_header_v5{ time = Time },
 	Msg = #mqtt_msg{ packet_type = ?MQTT_PINGRESP , variable_header = PacketVariableHeader },
-	Blob = message:encode(Msg),
-	{ ok, Decoded } = message:decode(Blob),
+	Blob = mqtt_message:encode(Msg),
+	{ ok, Decoded } = mqtt_message:decode(Blob,5),
 	D2 = Decoded#mqtt_msg{ variable_header = #mqtt_pingresp_variable_header_v5{ time = Time }},
 	?assert( D2#mqtt_msg.variable_header == PacketVariableHeader ).
 
@@ -290,8 +292,8 @@ publish_disconnect_encoding_decoding_test()->
 			]
 	},
 	Msg = #mqtt_msg{ packet_type = ?MQTT_DISCONNECT , variable_header = PacketVariableHeader },
-	Blob = message:encode(Msg),
-	{ ok, Decoded } = message:decode(Blob),
+	Blob = mqtt_message:encode(Msg),
+	{ ok, Decoded } = mqtt_message:decode(Blob,5),
 	?assert( Decoded#mqtt_msg.variable_header == PacketVariableHeader ).
 
 publish_auth_encoding_decoding_test()->
@@ -310,6 +312,6 @@ publish_auth_encoding_decoding_test()->
 		]
 	},
 	Msg = #mqtt_msg{ packet_type = ?MQTT_AUTH , variable_header = PacketVariableHeader },
-	Blob = message:encode(Msg),
-	{ ok, Decoded } = message:decode(Blob),
+	Blob = mqtt_message:encode(Msg),
+	{ ok, Decoded } = mqtt_message:decode(Blob,5),
 	?assert( Decoded#mqtt_msg.variable_header == PacketVariableHeader ).

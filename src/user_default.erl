@@ -18,7 +18,7 @@
 -define(SIM_APIKEY,sim_api_key).
 
 
--spec help() -> string().
+-spec help() -> ok.
 help()->
 	case application:get_env(?OWLS_APP,role,none) of
 		none ->
@@ -36,7 +36,7 @@ help()->
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--spec node_help() -> string().
+-spec node_help() -> ok.
 node_help()->
 	io:format("login(ApiKey).    ApiKey ,ust be a string.~n"),
 	io:format("logout().~n"),
@@ -49,7 +49,8 @@ login(ApiKey)->
 
 -spec logout() -> ok.
 logout()->
-	persistent_term:erase(?SIM_APIKEY).
+	persistent_term:erase(?SIM_APIKEY),
+	ok.
 
 -spec connected() -> { ok , none } | { ok , Manager::node() }.
 connected()->
@@ -68,7 +69,7 @@ connect(NodeName) ->
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--spec manager_help() -> string().
+-spec manager_help() -> ok.
 manager_help()->
 	io:format("refresh_ouis().~n"),
 	io:format("connected_nodes().~n").

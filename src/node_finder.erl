@@ -91,7 +91,7 @@ handle_info(_Info, State = #node_finder_state{}) ->
 -spec(terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
 		State :: #node_finder_state{}) -> term()).
 terminate(_Reason, State = #node_finder_state{}) ->
-	timer:cancel(State#node_finder_state.broadcaster),
+	_=timer:cancel(State#node_finder_state.broadcaster),
 	ok.
 
 %% @private
@@ -109,7 +109,7 @@ send_payload(_,_,_,-1)->
 	ok;
 send_payload(Socket,Payload,StartPort,HowMany)->
 	SockAddr = #{ family => inet, port => StartPort+HowMany, addr => broadcast },
-	socket:sendto(Socket,Payload,SockAddr),
+	_=socket:sendto(Socket,Payload,SockAddr),
 	send_payload(Socket,Payload,StartPort,HowMany-1).
 
 broadcaster(_Pid)->
@@ -118,13 +118,13 @@ broadcaster(_Pid)->
 	Data = term_to_binary({atom_to_list(Cookie),atom_to_list(node())},[compressed]),
 	Payload = crypto:crypto_one_time(aes_256_ctr,Key,<<0:128>>,Data,true),
 	{ ok , Socket } = socket:open(inet,dgram,udp),
-	socket:setopt(Socket,socket,broadcast,true),
+	_=socket:setopt(Socket,socket,broadcast,true),
 	send_payload( Socket, Payload, 19000,100 ),
 	socket:close(Socket).
 
 receiver(Id)->
 	{ok,S}=socket:open(inet,dgram,udp),
-	socket:bind(S,#{ family => inet, addr => any, port => 19000+Id}),
+	_=socket:bind(S,#{ family => inet, addr => any, port => 19000+Id}),
 	{ok,Data}=socket:recv(S),
 	Cookie = erlang:get_cookie(),
 	Key = crypto:hash(sha256,atom_to_binary(Cookie)),
@@ -136,6 +136,6 @@ receiver(Id)->
 		_:_ ->
 			unknown
 	end,
-	socket:close(S),
+	_=socket:close(S),
 	Result.
 

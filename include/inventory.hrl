@@ -20,9 +20,9 @@
 	cert_file_name = "" :: string(),
 	key_file_name = "" :: string(),
 	config_file_name = "" :: string(),
-	cert_data = "" :: string(),
-	key_data = "" :: string(),
-	config_data = "" :: string(),
+	cert_data = <<>> :: binary(),
+	key_data = <<>> :: binary(),
+	config_data = <<>> :: binary(),
 	password = "" :: string(),
 	attributes = [] :: attribute_list()
 }).

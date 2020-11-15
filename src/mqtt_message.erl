@@ -120,11 +120,11 @@ decode_packet(#mqtt_msg{ packet_type = ?MQTT_CONNECT } = Msg,
 		will_flag = WillFlag,
 		clean_start_flag = CleanStart,
 		keep_alive = KeepAlive,
-		client_identifier = ClientIdentifier ,
+		client_identifier = list_to_binary(ClientIdentifier) ,
 		will_payload = WillPayload ,
 		will_properties = WillProperties,
-		will_topic = WillTopic,
-		username = UserName,
+		will_topic = list_to_binary(WillTopic),
+		username = list_to_binary(UserName),
 		password = Password},
 	{ok,Msg#mqtt_msg{ variable_header = VariableHeader }};
 
@@ -363,13 +363,16 @@ decode_packet(#mqtt_msg{ packet_type = ?MQTT_AUTH }=Msg,Data, ?MQTT_PROTOCOL_VER
 	{ok,Msg#mqtt_msg{ variable_header = VariableHeader}}.
 
 
--spec encode( Msg::mqtt_msg() ) -> { error, atom() } | { ok, Data::binary() }.
+%% -spec encode( Msg:: mqtt_msg() | mqtt_msg_any() | mqtt_puback_variable_header_v4() ) -> binary() | { integer(), integer(), binary() }.
+-spec encode( Msg:: mqtt_msg() ) -> binary().
 encode(Msg) when is_record(Msg,mqtt_msg)->
-	{ Command, Flags, Blob } = encode( Msg#mqtt_msg.variable_header ),
+	{ Command, Flags, Blob } = inner_encode( Msg#mqtt_msg.variable_header ),
 	Length = mqttlib:enc_varint(size(Blob)),
-	<<Command:4,Flags:4,Length/binary,Blob/binary>>;
+	<<Command:4,Flags:4,Length/binary,Blob/binary>>.
+
 %% Complete
-encode( Header ) when is_record(Header,mqtt_connect_variable_header) ->
+-spec inner_encode( Msg::mqtt_msg_any() ) ->  { integer(), integer(), binary() }.
+inner_encode( Header ) when is_record(Header,mqtt_connect_variable_header) ->
 	Flags = <<(Header#mqtt_connect_variable_header.username_flag):1,
 		(Header#mqtt_connect_variable_header.password_flag):1,
 		(Header#mqtt_connect_variable_header.will_retain_flag):1,
@@ -395,11 +398,11 @@ encode( Header ) when is_record(Header,mqtt_connect_variable_header) ->
 	{?MQTT_CONNECT, 0, Blob};
 
 %% complete
-encode( Header ) when is_record(Header,mqtt_connack_variable_header_v4) ->
+inner_encode( Header ) when is_record(Header,mqtt_connack_variable_header_v4) ->
 	Blob =  << 0:7, (Header#mqtt_connack_variable_header_v4.connect_acknowledge_flag):1,
 							 (Header#mqtt_connack_variable_header_v4.connect_reason_code):8>>,
 	{?MQTT_CONNACK, 0, Blob};
-encode( Header ) when is_record(Header,mqtt_connack_variable_header_v5) ->
+inner_encode( Header ) when is_record(Header,mqtt_connack_variable_header_v5) ->
 	Blob = case Header#mqtt_connack_variable_header_v5.properties == [] of
 		       true ->
 			       << 0:7, (Header#mqtt_connack_variable_header_v5.connect_acknowledge_flag):1,
@@ -412,7 +415,7 @@ encode( Header ) when is_record(Header,mqtt_connack_variable_header_v5) ->
 	{?MQTT_CONNACK, 0, Blob};
 
 %% complete
-encode( Header ) when is_record(Header,mqtt_publish_variable_header_v4) ->
+inner_encode( Header ) when is_record(Header,mqtt_publish_variable_header_v4) ->
 	Flags = (Header#mqtt_publish_variable_header_v4.dup_flag bsl 3) bor
 					(Header#mqtt_publish_variable_header_v4.qos_level_flag bsl 1) bor
 					(Header#mqtt_publish_variable_header_v4.retain_flag),
@@ -426,7 +429,7 @@ encode( Header ) when is_record(Header,mqtt_publish_variable_header_v4) ->
 							 (Header#mqtt_publish_variable_header_v4.payload)/binary>>
 	       end,
 	{?MQTT_PUBLISH, Flags, Blob};
-encode( Header ) when is_record(Header,mqtt_publish_variable_header_v5) ->
+inner_encode( Header ) when is_record(Header,mqtt_publish_variable_header_v5) ->
 	Flags = (Header#mqtt_publish_variable_header_v5.dup_flag bsl 3) bor
 		(Header#mqtt_publish_variable_header_v5.qos_level_flag bsl 1) bor
 		(Header#mqtt_publish_variable_header_v5.retain_flag),
@@ -444,115 +447,115 @@ encode( Header ) when is_record(Header,mqtt_publish_variable_header_v5) ->
 	{?MQTT_PUBLISH, Flags, Blob};
 
 %% Complete
-encode( Header ) when is_record(Header,mqtt_puback_variable_header_v4) ->
+inner_encode( Header ) when is_record(Header, mqtt_puback_variable_header_v4 ) ->
 	Blob = << (Header#mqtt_puback_variable_header_v4.packet_identifier):16,
 		(Header#mqtt_puback_variable_header_v4.reason_code):8/binary>>,
 	{ ?MQTT_PUBACK, 0, Blob};
 
-encode( Header ) when is_record(Header,mqtt_puback_variable_header_v5) ->
+inner_encode( Header ) when is_record(Header,mqtt_puback_variable_header_v5) ->
 	Blob = << (Header#mqtt_puback_variable_header_v5.packet_identifier):16,
 		(Header#mqtt_puback_variable_header_v5.reason_code):8,
 		(set_properties_section(Header#mqtt_puback_variable_header_v5.properties))/binary>>,
 	{ ?MQTT_PUBACK, 0, Blob};
 
 %% complete
-encode( Header ) when is_record(Header,mqtt_pubrec_variable_header_v4) ->
+inner_encode( Header ) when is_record(Header,mqtt_pubrec_variable_header_v4) ->
 	Blob = << (Header#mqtt_pubrec_variable_header_v4.packet_identifier):16,
 		(Header#mqtt_pubrec_variable_header_v4.reason_code):8>>,
 	{ ?MQTT_PUBREC, 0, Blob};
 
-encode( Header ) when is_record(Header,mqtt_pubrec_variable_header_v5) ->
+inner_encode( Header ) when is_record(Header,mqtt_pubrec_variable_header_v5) ->
 	Blob = << (Header#mqtt_pubrec_variable_header_v5.packet_identifier):16,
 		(Header#mqtt_pubrec_variable_header_v5.reason_code):8,
 		(set_properties_section(Header#mqtt_pubrec_variable_header_v5.properties))/binary>>,
 	{ ?MQTT_PUBREC, 0, Blob};
 
 % complete
-encode( Header ) when is_record(Header,mqtt_pubrel_variable_header_v4) ->
+inner_encode( Header ) when is_record(Header,mqtt_pubrel_variable_header_v4) ->
 	Blob = << (Header#mqtt_pubrel_variable_header_v4.packet_identifier):16>>,
 	{ ?MQTT_PUBREL, 2, Blob};
 
-encode( Header ) when is_record(Header,mqtt_pubrel_variable_header_v5) ->
+inner_encode( Header ) when is_record(Header,mqtt_pubrel_variable_header_v5) ->
 	Blob = << (Header#mqtt_pubrel_variable_header_v5.packet_identifier):16,
 		(Header#mqtt_pubrel_variable_header_v5.reason_code):8,
 		(set_properties_section(Header#mqtt_pubrel_variable_header_v5.properties))/binary>>,
 	{ ?MQTT_PUBREL, 2, Blob};
 
 %% complete
-encode( Header ) when is_record(Header,mqtt_pubcomp_variable_header_v4) ->
+inner_encode( Header ) when is_record(Header,mqtt_pubcomp_variable_header_v4) ->
 	Blob = << (Header#mqtt_pubcomp_variable_header_v4.packet_identifier):16>>,
 	{ ?MQTT_PUBCOMP, 0, Blob};
 
-encode( Header ) when is_record(Header,mqtt_pubcomp_variable_header_v5) ->
+inner_encode( Header ) when is_record(Header,mqtt_pubcomp_variable_header_v5) ->
 	Blob = << (Header#mqtt_pubcomp_variable_header_v5.packet_identifier):16,
 		(Header#mqtt_pubcomp_variable_header_v5.reason_code):8,
 		(set_properties_section(Header#mqtt_pubcomp_variable_header_v5.properties))/binary>>,
 	{ ?MQTT_PUBCOMP, 0, Blob};
 
 %% complete
-encode( Header ) when is_record(Header,mqtt_subscribe_variable_header_v4) ->
+inner_encode( Header ) when is_record(Header,mqtt_subscribe_variable_header_v4) ->
 	Blob = << (Header#mqtt_subscribe_variable_header_v4.packet_identifier):16,
 		(set_topic_filter_list(Header#mqtt_subscribe_variable_header_v4.topic_filter_list))/binary>>,
 	{ ?MQTT_SUBSCRIBE, 2, Blob};
 
-encode( Header ) when is_record(Header,mqtt_subscribe_variable_header_v5) ->
+inner_encode( Header ) when is_record(Header,mqtt_subscribe_variable_header_v5) ->
 	Blob = << (Header#mqtt_subscribe_variable_header_v5.packet_identifier):16,
 		(set_properties_section(Header#mqtt_subscribe_variable_header_v5.properties))/binary,
 		(set_topic_filter_list(Header#mqtt_subscribe_variable_header_v5.topic_filter_list))/binary>>,
 	{ ?MQTT_SUBSCRIBE, 2, Blob};
 
 %% complete
-encode( Header ) when is_record(Header,mqtt_suback_variable_header_v4) ->
+inner_encode( Header ) when is_record(Header,mqtt_suback_variable_header_v4) ->
 	Blob = << (Header#mqtt_suback_variable_header_v4.packet_identifier):16,
 		(set_reason_code_list(Header#mqtt_suback_variable_header_v4.reason_codes))/binary>>,
 	{ ?MQTT_SUBACK, 0, Blob};
 
-encode( Header ) when is_record(Header,mqtt_suback_variable_header_v5) ->
+inner_encode( Header ) when is_record(Header,mqtt_suback_variable_header_v5) ->
 	Blob = << (Header#mqtt_suback_variable_header_v5.packet_identifier):16,
 		(set_properties_section(Header#mqtt_suback_variable_header_v5.properties))/binary,
 		(set_reason_code_list(Header#mqtt_suback_variable_header_v5.reason_codes))/binary>>,
 	{ ?MQTT_SUBACK, 0, Blob};
 
 %% complete
-encode( Header ) when is_record(Header,mqtt_unsubscribe_variable_header_v4) ->
+inner_encode( Header ) when is_record(Header,mqtt_unsubscribe_variable_header_v4) ->
 	Blob = << (Header#mqtt_unsubscribe_variable_header_v4.packet_identifier):16,
 		(set_string_list(Header#mqtt_unsubscribe_variable_header_v4.topic_list))/binary>>,
 	{ ?MQTT_UNSUBSCRIBE, 2, Blob};
 
-encode( Header ) when is_record(Header,mqtt_unsubscribe_variable_header_v5) ->
+inner_encode( Header ) when is_record(Header,mqtt_unsubscribe_variable_header_v5) ->
 	Blob = << (Header#mqtt_unsubscribe_variable_header_v5.packet_identifier):16,
 		(set_properties_section(Header#mqtt_unsubscribe_variable_header_v5.properties))/binary,
 		(set_string_list(Header#mqtt_unsubscribe_variable_header_v5.topic_list))/binary>>,
 	{ ?MQTT_UNSUBSCRIBE, 2, Blob};
 
 %% complete
-encode( Header ) when is_record(Header,mqtt_unsuback_variable_header_v4) ->
+inner_encode( Header ) when is_record(Header,mqtt_unsuback_variable_header_v4) ->
 	Blob = << (Header#mqtt_unsuback_variable_header_v4.packet_identifier):16 >>,
 	{ ?MQTT_UNSUBACK, 0, Blob};
 
-encode( Header ) when is_record(Header,mqtt_unsuback_variable_header_v5) ->
+inner_encode( Header ) when is_record(Header,mqtt_unsuback_variable_header_v5) ->
 	Blob = << (Header#mqtt_unsuback_variable_header_v5.packet_identifier):16,
 		(set_properties_section(Header#mqtt_unsuback_variable_header_v5.properties))/binary,
 		(set_reason_code_list(Header#mqtt_unsuback_variable_header_v5.reason_codes))/binary>>,
 	{ ?MQTT_UNSUBACK, 0, Blob};
 
 %% Complete
-encode( Header ) when is_record(Header,mqtt_pingreq_variable_header_v4) ->
+inner_encode( Header ) when is_record(Header,mqtt_pingreq_variable_header_v4) ->
 	{ ?MQTT_PINGREQ, 0, <<>>};
-encode( Header ) when is_record(Header,mqtt_pingreq_variable_header_v5) ->
+inner_encode( Header ) when is_record(Header,mqtt_pingreq_variable_header_v5) ->
 	{ ?MQTT_PINGREQ, 0, <<>>};
 
 %% Complete
-encode( Header ) when is_record(Header,mqtt_pingresp_variable_header_v4) ->
+inner_encode( Header ) when is_record(Header,mqtt_pingresp_variable_header_v4) ->
 	{ ?MQTT_PINGRESP, 0, <<>>};
-encode( Header ) when is_record(Header,mqtt_pingresp_variable_header_v5) ->
+inner_encode( Header ) when is_record(Header,mqtt_pingresp_variable_header_v5) ->
 	{ ?MQTT_PINGRESP, 0, <<>>};
 
 %% Complete
-encode( Header ) when is_record(Header,mqtt_disconnect_variable_header_v4) ->
+inner_encode( Header ) when is_record(Header,mqtt_disconnect_variable_header_v4) ->
 	{ ?MQTT_DISCONNECT, 0, <<>>};
 
-encode( Header ) when is_record(Header,mqtt_disconnect_variable_header_v5) ->
+inner_encode( Header ) when is_record(Header,mqtt_disconnect_variable_header_v5) ->
 	Blob = case length(Header#mqtt_disconnect_variable_header_v5.properties) > 0 of
 					 true ->
 						 <<(Header#mqtt_disconnect_variable_header_v5.reason_code):8,
@@ -563,7 +566,7 @@ encode( Header ) when is_record(Header,mqtt_disconnect_variable_header_v5) ->
 	{ ?MQTT_DISCONNECT, 0, Blob};
 
 %% complete
-encode( Header ) when is_record(Header,mqtt_auth_variable_header_v5) ->
+inner_encode( Header ) when is_record(Header,mqtt_auth_variable_header_v5) ->
 	Blob = case length(Header#mqtt_auth_variable_header_v5.properties) >0 of
 					 true ->
 						 << (Header#mqtt_auth_variable_header_v5.reason_code):8,

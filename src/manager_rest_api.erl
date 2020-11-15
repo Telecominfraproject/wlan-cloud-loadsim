@@ -59,7 +59,8 @@ init([]) ->
 	Dispatch = cowboy_router:compile([
 		{
 			'_', [
-			{ "/api/v1/:restype/[:resid]" ,   manager_api_rest_handler, [] },
+			{ "/api/v1/:restype/[:resid]", manager_api_rest_handler, [] },
+			{ "/ws", web_socket_handler, [] },
 			{ "/", cowboy_static, {priv_file, ?OWLS_APP, "www/index.html"} },
 			{ "/[...]", cowboy_static, {priv_dir, ?OWLS_APP, "www" } }
 		]}

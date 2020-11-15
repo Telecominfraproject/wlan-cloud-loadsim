@@ -19,13 +19,14 @@ start() ->
 
 load_cli()->
 	code:purge(user_default),
-	code:load_file(user_default).
+	code:load_file(user_default),
+	ok.
 
 app_settings()->
-	load_cli(),
-	inets:start(),
+	ok = load_cli(),
+	ok = inets:start(),
 	lager:start(),
-	application:start(sasl),
-	application:start(os_mon),
+	ok = application:start(sasl),
+	ok = application:start(os_mon),
 	disksup:set_check_interval(5),
 	disksup:set_almost_full_threshold(0.90).

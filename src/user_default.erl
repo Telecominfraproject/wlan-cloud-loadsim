@@ -9,7 +9,7 @@
 -module(user_default).
 -author("stephb").
 
--include("../include/internal.hrl").
+-include("../include/common.hrl").
 
 %% API
 -compile(export_all).

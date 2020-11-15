@@ -12,7 +12,7 @@
 -behaviour(gen_server).
 
 -include("../include/mqtt_definitions.hrl").
--include("../include/internal.hrl").
+-include("../include/common.hrl").
 
 -define(DBG, io:format("~s: ~p~n",[?FUNCTION_NAME,?LINE])).
 

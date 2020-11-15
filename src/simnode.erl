@@ -9,7 +9,7 @@
 -module(simnode).
 -author("stephb").
 
--include("../include/internal.hrl").
+-include("../include/common.hrl").
 
 -compile({parse_transform, lager_transform}).
 -dialyzer(no_match).

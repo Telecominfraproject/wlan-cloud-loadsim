@@ -11,7 +11,7 @@
 
 -behaviour(gen_server).
 
--include("../include/internal.hrl").
+-include("../include/common.hrl").
 
 %% API
 -export([start_link/0,creation_info/0]).

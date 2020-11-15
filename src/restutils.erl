@@ -9,7 +9,7 @@
 -module(restutils).
 -author("stephb").
 
--include("../include/internal.hrl").
+-include("../include/common.hrl").
 
 %% API
 -export([create_paginated_return/3,dump_string_array/1,get_access_token/1,add_CORS/1,generate_error/2,get_pagination_parameters/1,paginate/2,validate_token/1]).

@@ -11,7 +11,7 @@
 
 -behaviour(gen_server).
 -include("../include/mqtt_definitions.hrl").
--include("../include/internal.hrl").
+-include("../include/common.hrl").
 
 -include("../include/inventory.hrl").
 
@@ -124,9 +124,9 @@ start_link() ->
 init([]) ->
 	process_flag(trap_exit, true),
 	InventoryDbDir = application:get_env(?OWLS_APP,inventory_db_dir,""),
-	file:make_dir(InventoryDbDir),
+	ok = utils:make_dir(InventoryDbDir),
 	CertsDbDir = application:get_env(?OWLS_APP,cert_db_dir,""),
-	file:make_dir(CertsDbDir),
+	ok = utils:make_dir(CertsDbDir),
 	CaDbFileName=filename:join(CertsDbDir,?CADB_TABLE_FILENAME),
 	ServersDbFileName=filename:join([InventoryDbDir,?SERVERS_TABLE_FILENAME]),
 	ClientsDbFileName=filename:join([InventoryDbDir,?CLIENTS_TABLE_FILENAME]),
@@ -336,10 +336,10 @@ create_ca(CaName,Password,State,Pid)->
 	file:write_file( filename:join([CaDir, "index.txt"]),<<>>),
 	file:write_file( filename:join([CaDir, "serial.txt"]),<<$0,$1>>),
 
-	file:make_dir(filename:join([CaDir,"certs"])),
-	file:make_dir(filename:join([CaDir,"newcerts"])),
-	file:make_dir(filename:join([CaDir,"crl"])),
-	file:make_dir(filename:join([CaDir,"private"])),
+	utils:make_dir(filename:join([CaDir,"certs"])),
+	utils:make_dir(filename:join([CaDir,"newcerts"])),
+	utils:make_dir(filename:join([CaDir,"crl"])),
+	utils:make_dir(filename:join([CaDir,"private"])),
 
 	{ok,CertData}=file:read_file(CaKeyCertFileName),
 
@@ -456,7 +456,8 @@ all_files_exist([H|T])->
 	end.
 
 update_disk_db(State)->
-	ets:tab2file(?CADB_TABLE,State#inventory_state.ca_db_filename).
+	ets:tab2file(?CADB_TABLE,State#inventory_state.ca_db_filename),
+	ok.
 
 valid_ca_name(Name)->
 	valid_ca_name(Name,1).

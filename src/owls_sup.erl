@@ -1,12 +1,10 @@
 -module(owls_sup).
 -behaviour(supervisor).
 
--include("../include/internal.hrl").
+-include("../include/common.hrl").
 
 -export([start_link/0]).
 -export([init/1]).
-
-
 
 start_link() ->
 	supervisor:start_link({local, ?MODULE}, ?MODULE, []).

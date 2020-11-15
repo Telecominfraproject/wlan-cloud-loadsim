@@ -8,7 +8,7 @@ ERLC_OPTS += -I deps/gpb/include
 ERLC_OPTS += +'{parse_transform, lager_transform}'
 ERLC_OPTS += -Ddebug
 
-DIALYZER_OPTS +=
+PLT_APPS += ssl os_mon sasl crypto inets eunit
 
 dep_cowboy_commit = master
 dep_ranch_commit = master

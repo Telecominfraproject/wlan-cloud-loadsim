@@ -9,7 +9,7 @@
 -module(node_api_rest_handler).
 -author("stephb").
 
--include("../include/internal.hrl").
+-include("../include/common.hrl").
 -include("../include/mqtt_definitions.hrl").
 
 -define(HTTP_GET,<<"GET">>).

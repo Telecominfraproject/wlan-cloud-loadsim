@@ -12,7 +12,7 @@
 -behaviour(gen_server).
 
 -include("../include/mqtt_definitions.hrl").
--include("../include/internal.hrl").
+-include("../include/common.hrl").
 
 %% API
 -export([start_link/0,creation_info/0,increase_session/2,decrease_session/2,set_session_stats/4,delete_session_stats/3]).

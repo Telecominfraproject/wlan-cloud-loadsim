@@ -370,6 +370,9 @@
 		mqtt_pubcomp_variable_header_v4() | mqtt_pubcomp_variable_header_v5() | mqtt_subscribe_variable_header_v4() | mqtt_subscribe_variable_header_v5() | mqtt_suback_variable_header_v4() | mqtt_suback_variable_header_v5() | mqtt_unsubscribe_variable_header_v4() | mqtt_unsubscribe_variable_header_v5() | mqtt_unsuback_variable_header_v4() | mqtt_unsuback_variable_header_v5() | mqtt_disconnect_variable_header_v4() | mqtt_disconnect_variable_header_v5() |
 		mqtt_auth_variable_header_v4() | mqtt_auth_variable_header_v5() | mqtt_pingreq_variable_header_v4() | mqtt_pingreq_variable_header_v5() | mqtt_pingresp_variable_header_v4() | mqtt_pingresp_variable_header_v5().
 
+-type mqtt_answerable() :: mqtt_connect_variable_header() | mqtt_publish_variable_header_v4() | mqtt_pubrel_variable_header_v4() |
+	mqtt_subscribe_variable_header_v4() | mqtt_unsubscribe_variable_header_v4() | mqtt_pingreq_variable_header_v4() | mqtt_pingreq_variable_header_v5().
+
 -export_type([mqtt_connection_stats/0,mqtt_processor_state/0]).
 
 -export_type([mqtt_msg_any/0,mqtt_msg/0,mqtt_connect_variable_header/0,
@@ -386,6 +389,7 @@
 	mqtt_disconnect_variable_header_v4/0,mqtt_disconnect_variable_header_v5/0,
 	mqtt_auth_variable_header_v4/0,mqtt_auth_variable_header_v5/0,
 	mqtt_pingreq_variable_header_v4/0,mqtt_pingreq_variable_header_v5/0,
-	mqtt_pingresp_variable_header_v4/0,mqtt_pingresp_variable_header_v5/0]).
+	mqtt_pingresp_variable_header_v4/0,mqtt_pingresp_variable_header_v5/0,
+	mqtt_answerable/0]).
 
 -endif.

@@ -9,9 +9,10 @@
 -module(oui_server).
 -author("stephb").
 
+-dialyzer(no_match).
 -behaviour(gen_server).
 
--include("../include/internal.hrl").
+-include("../include/common.hrl").
 -include("../include/mqtt_definitions.hrl").
 -include_lib("stdlib/include/ms_transform.hrl").
 

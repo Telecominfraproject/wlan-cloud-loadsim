@@ -65,7 +65,7 @@ init([]) ->
 		]),
 	{ok, CB } = case Secure of
 		true ->
-			lager:info("Starting in secure mode."),
+			?L_I1("Starting in secure mode."),
 				PrivDir = code:priv_dir(?OWLS_APP),
 				cowboy:start_tls(
 				rest_http_listener,
@@ -77,7 +77,7 @@ init([]) ->
 				],
 				#{env => #{dispatch => Dispatch}} );
 		false ->
-			lager:info("Starting in clear mode."),
+			?L_I1("Starting in clear mode."),
 				cowboy:start_clear(
 				rest_http_listener,
 				[

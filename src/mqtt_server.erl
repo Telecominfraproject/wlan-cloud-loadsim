@@ -11,8 +11,8 @@
 
 -behaviour(gen_server).
 
--include("../include/mqtt_definitions.hrl").
 -include("../include/common.hrl").
+-include("../include/mqtt_definitions.hrl").
 
 %% API
 -export([start_link/0,creation_info/0,increase_session/2,decrease_session/2,set_session_stats/4,delete_session_stats/3]).
@@ -187,7 +187,7 @@ start_listeners_secure(NumListeners,ListenSock,Pids,ParentPid)->
 	start_listeners_secure(NumListeners-1,ListenSock,[Pid|Pids],ParentPid).
 
 mqttserver_worker(ListenSock,ParentPid)->
-	lager:info("Server ~p starting to listen.",[self()]),
+	?L_I2("Server ~p starting to listen.",[self()]),
 	case gen_tcp:accept(ListenSock) of
 		{ok,Socket} ->
 			mqtt_server:increase_session(ParentPid,ListenSock),
@@ -200,18 +200,18 @@ mqttserver_worker(ListenSock,ParentPid)->
 				socket = Socket,
 				version = undefined
 			}]),
-			gen_tcp:controlling_process(Socket,Pid),
+			_ = gen_tcp:controlling_process(Socket,Pid),
 			mqttserver_worker(ListenSock,ParentPid);
 		Error ->
-			lager:info("accept failed - server shutting down: ~p~n",[Error]),
+			?L_I2("accept failed - server shutting down: ~p~n",[Error]),
 			ok
 	end.
 
 mqttserver_worker_secure(ListenSock,ParentPid)->
-	lager:info("Server ~p starting to listen.",[self()]),
+	?L_I2("Server ~p starting to listen.",[self()]),
 	case ssl:transport_accept(ListenSock) of
 		{ok,Socket} ->
-			case ssl:handshake(Socket) of
+			_=case ssl:handshake(Socket) of
 				{ ok, SslSocket } ->
 					mqtt_server:increase_session(ParentPid,ListenSock),
 					Pid = spawn(?MODULE,mqttserver_processor_init,[SslSocket,#mqtt_processor_state{listener_pid = self(),
@@ -225,20 +225,20 @@ mqttserver_worker_secure(ListenSock,ParentPid)->
 						}]),
 					ssl:controlling_process(SslSocket,Pid);
 				Error ->
-					lager:info("SSL handshake failed. ~p",[Error]),
+					?L_I2("SSL handshake failed. ~p",[Error]),
 					ssl:close(Socket)
 			end,
 			mqttserver_worker_secure(ListenSock,ParentPid);
 		Error ->
-			lager:info("accept failed - server shutting down: ~p~n",[Error]),
+			?L_I2("accept failed - server shutting down: ~p~n",[Error]),
 			ok
 	end.
 
 mqttserver_processor_init(Socket,#mqtt_processor_state{ secure = false }=State)->
-	inet:setopts(Socket,[{active,true}]),
+	_=inet:setopts(Socket,[{active,true}]),
 	mqttserver_processor(Socket,State);
 mqttserver_processor_init(Socket,#mqtt_processor_state{ secure = true }=State)->
-	ssl:setopts(Socket,[{active,true}]),
+	_=ssl:setopts(Socket,[{active,true}]),
 	mqttserver_processor(Socket,State).
 
 mqttserver_processor(Socket,#mqtt_processor_state{ secure = false }=State)->
@@ -252,7 +252,7 @@ mqttserver_processor(Socket,#mqtt_processor_state{ secure = false }=State)->
 		{tcp_closed,Socket} ->
 			mqtt_server:increase_session(State#mqtt_processor_state.parent_pid,State#mqtt_processor_state.listener_pid),
 			delete_session_stats(State#mqtt_processor_state.parent_pid,State#mqtt_processor_state.listener_pid,self()),
-			lager:info("Socket ~w closed [~w]~n",[Socket,self()]),
+			?L_I2("Socket ~w closed [~w]~n",[Socket,self()]),
 			ok;
 		Anything ->
 			io:format("Anything(not secure): ~p~n",[Anything]),
@@ -269,7 +269,7 @@ mqttserver_processor(Socket,#mqtt_processor_state{ secure = true }=State)->
 		{ssl_closed,Socket} ->
 			mqtt_server:increase_session(State#mqtt_processor_state.parent_pid,State#mqtt_processor_state.listener_pid),
 			delete_session_stats(State#mqtt_processor_state.parent_pid,State#mqtt_processor_state.listener_pid,self()),
-			lager:info("Socket ~w closed [~w]~n",[Socket,self()]),
+			?L_I2("Socket ~w closed [~w]~n",[Socket,self()]),
 			ok;
 		Anything ->
 			io:format("Anything ->~p~n",[Anything]),

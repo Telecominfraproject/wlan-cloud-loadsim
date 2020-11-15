@@ -14,7 +14,6 @@
 
 -include("../include/common.hrl").
 -include("../include/mqtt_definitions.hrl").
--include_lib("stdlib/include/ms_transform.hrl").
 
 -define(OUI_LOOKUP_TABLE,oui_lookup_table).
 -define(MAKER_LOOKUP_TABLE,maker_lookup_table).
@@ -82,21 +81,21 @@ init([]) ->
 	process_flag(trap_exit, true),
 	OuiUri = application:get_env(?OWLS_APP,oui_uri,?OUI_DEFAULT_DOWNLOAD_LINK),
 
-	file:make_dir(filename:join([code:priv_dir(?OWLS_APP),"data"])),
+	ok = utils:make_dir(filename:join([code:priv_dir(?OWLS_APP),"data"])),
 
 	OuiTabFileName = filename:join([code:priv_dir(?OWLS_APP),"data",?OUI_LOOKUP_TABLE_FILENAME]),
 	MakerTabFileName = filename:join([code:priv_dir(?OWLS_APP),"data",?MAKER_LOOKUP_TABLE_FILENAME]),
 
 	{ AllOuis , AllMakers } = try
-		                            ets:file2tab(OuiTabFileName),
-		                            ets:file2tab(MakerTabFileName),
-		                            lager:info("OUI tables restored from disk."),
+		                            _=ets:file2tab(OuiTabFileName),
+		                            _=ets:file2tab(MakerTabFileName),
+		                            ?L_I1("OUI tables restored from disk."),
 																set_keys()
                             catch
 															_:_ ->
-																lager:info("No OUI tables on disk."),
-																ets:new(?OUI_LOOKUP_TABLE,[named_table,public,ordered_set]),
-																ets:new(?MAKER_LOOKUP_TABLE,[named_table,public,ordered_set]),
+																?L_I1("No OUI tables on disk."),
+																_=ets:new(?OUI_LOOKUP_TABLE,[named_table,public,ordered_set]),
+																_=ets:new(?MAKER_LOOKUP_TABLE,[named_table,public,ordered_set]),
 																{ [], [] }
 														end,
 	{ok, #oui_server_state{ uri = OuiUri ,
@@ -155,7 +154,7 @@ handle_call(_Request, _From, State = #oui_server_state{}) ->
 	{noreply, NewState :: #oui_server_state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), NewState :: #oui_server_state{}}).
 handle_cast({replace,AllOuis,AllMakers,_Pid}, State = #oui_server_state{}) ->
-	lager:info("New OUI DB in memory updated."),
+	?L_I1("New OUI DB in memory updated."),
 	{noreply, State#oui_server_state{ all_ouis = AllOuis, all_makers = AllMakers }};
 handle_cast(_Request, State = #oui_server_state{}) ->
 	{noreply, State}.
@@ -194,27 +193,25 @@ code_change(_OldVsn, State = #oui_server_state{}, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 get_latest_oui(State) ->
-	lager:info("Downloading latest OUI list."),
+	?L_I1("Downloading latest OUI list."),
 	FileName = latest_filename(),
 	case httpc:request( State#oui_server_state.uri ) of
 		{ ok , Result } ->
 			Res = case Result of
 				{ _Status , _Headers , Body } ->
-					file:write_file( FileName, Body ),
-					ok;
+					file:write_file( FileName, Body );
 				{ _Status , Body } ->
-					file:write_file( FileName, Body ),
-					ok;
+					file:write_file( FileName, Body );
 				_Id ->
 					{ error , incomplete }
 			end,
-			lager:info("Downloaded latest OUI list."),
+			?L_I1("Downloaded latest OUI list."),
 			Res;
 		{ error , Reason } ->
-			lager:info("Failed to download latest OUI list. Reason:~p",[Reason]),
+			?L_I2("Failed to download latest OUI list. Reason:~p",[Reason]),
 			{ error , Reason };
 		Result ->
-			lager:info("Failed to download latest OUI list. Reason:~p",[Result]),
+			?L_I2("Failed to download latest OUI list. Reason:~p",[Result]),
 			{ error , Result }
 	end.
 
@@ -233,7 +230,7 @@ skip_lines( _Io , 0 ) ->
 	ok;
 
 skip_lines( Io , Lines ) ->
-	file:read_line( Io ) ,
+	_=file:read_line( Io ) ,
 	skip_lines( Io , Lines-1 ).
 
 filter_oui([C1,C2,$-,C3,C4,$-,C5,C6|_]) -> [C1,C2,C3,C4,C5,C6];
@@ -255,7 +252,7 @@ process_oui_file() ->
 		{ ok , Io } ->
 			skip_lines( Io , 4 ) ,
 			M = process_record( Io , maps:new() ),
-			file:close( Io ),
+			_ = file:close( Io ),
 			M;
 		Error ->
 			Error
@@ -289,18 +286,18 @@ refresh(State,_Pid) ->
 		ok ->
 			case process_oui_file() of
 				M when is_map(M) ->
-					lager:info("Replacing memory copies of OUI data."),
+					?L_I1("Replacing memory copies of OUI data."),
 					create_oui_lookup_table(M),
 					create_maker_lookup_table(M),
-					ets:tab2file(?OUI_LOOKUP_TABLE,	State#oui_server_state.oui_tab_filename),
-					ets:tab2file(?MAKER_LOOKUP_TABLE,	State#oui_server_state.maker_tab_filename),
+					_ = ets:tab2file(?OUI_LOOKUP_TABLE,	State#oui_server_state.oui_tab_filename),
+					_ = ets:tab2file(?MAKER_LOOKUP_TABLE,	State#oui_server_state.maker_tab_filename),
 					{ AllOuis , AllMakers } = set_keys(),
 					gen_server:cast(State#oui_server_state.service_pid,{replace,AllOuis,AllMakers,self()});
 				Error ->
-					lager:info("Please refresh OUI lists later.",[Error])
+					?L_I2("Please refresh OUI lists later.",[Error])
 			end;
 		{ error, Error } ->
-			lager:info("Please refresh OUI lists later.",[Error])
+			?L_I2("Please refresh OUI lists later.",[Error])
 	end.
 
 -spec latest_filename() -> string().

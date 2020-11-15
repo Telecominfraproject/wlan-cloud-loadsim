@@ -10,8 +10,9 @@
 -author("stephb").
 
 -behaviour(gen_server).
--include("../include/mqtt_definitions.hrl").
+
 -include("../include/common.hrl").
+-include("../include/mqtt_definitions.hrl").
 
 -include("../include/inventory.hrl").
 
@@ -134,12 +135,17 @@ init([]) ->
 	{ok,ClientsTab} = dets:open_file(?CLIENTS_TABLE,[{file,ClientsDbFileName},{keypos,2}]),
 	{ok,ServersTab} = dets:open_file(?SERVERS_TABLE,[{file,ServersDbFileName},{keypos,2}]),
 
-	case filelib:is_file(CaDbFileName) of
+	_ = case filelib:is_file(CaDbFileName) of
 		true ->
-			ets:file2tab(CaDbFileName);
+			case ets:file2tab(CaDbFileName) of
+				{ok,_Tab} -> ok;
+				{error,_} ->
+					_ = ets:new(?CADB_TABLE,[named_table,public,{keypos,2}]),
+					_ = ets:tab2file(?CADB_TABLE,CaDbFileName)
+			end;
 		false->
-			ets:new(?CADB_TABLE,[named_table,public,{keypos,2}]),
-			ets:tab2file(?CADB_TABLE,CaDbFileName)
+			_ = ets:new(?CADB_TABLE,[named_table,public,{keypos,2}]),
+			_ = ets:tab2file(?CADB_TABLE,CaDbFileName)
 	end,
 	{ok, #inventory_state{
 		status = started,
@@ -285,10 +291,9 @@ handle_info(_Info, State = #inventory_state{}) ->
 		State :: #inventory_state{}) -> term()).
 terminate(Reason, State = #inventory_state{}) ->
 	update_disk_db(State),
-	dets:close(State#inventory_state.clients_tab),
-	dets:close(State#inventory_state.servers_tab),
-	lager:info("Inventory exiting (~p).",[Reason]),
-	ok.
+	ok = dets:close(State#inventory_state.clients_tab),
+	ok = dets:close(State#inventory_state.servers_tab),
+	?L_I2("Inventory exiting (~p).",[Reason]).
 
 %% @private
 %% @doc Convert process state when code is changed
@@ -304,17 +309,16 @@ code_change(_OldVsn, State = #inventory_state{}, _Extra) ->
 create_ca(CaName,Password,State,Pid)->
 	%% Make all the directories
 	CaDir = filename:join([State#inventory_state.cert_db_dir,CaName]),
-	file:make_dir(CaDir),
-
+	ok = utils:make_dir(CaDir),
 	CaClientsDir = filename:join([CaDir,"clients"]),
 	CaServersDir = filename:join([CaDir,"servers"]),
-	file:make_dir(CaClientsDir),
-	file:make_dir(CaServersDir),
+	ok = utils:make_dir(CaClientsDir),
+	ok = utils:make_dir(CaServersDir),
 
 	{ ok , TemplateConf } = file:read_file( filename:join([code:priv_dir(?OWLS_APP),"templates","ca.cnf.template"] )),
 	NewConf = string:replace(binary_to_list(TemplateConf),"$$DIR_ROOT$$",CaDir,all),
 	CaConfigFileName = filename:join([CaDir,CaName++".cnf"]),
-	file:write_file(CaConfigFileName , list_to_binary(NewConf)),
+	ok = file:write_file(CaConfigFileName , list_to_binary(NewConf)),
 
 	CaKeyFileName = filename:join([CaDir,CaName ++ "_key.pem"]),
 	CaKeyCertFileName = filename:join([CaDir,CaName ++ "_cert.pem"]),
@@ -322,7 +326,7 @@ create_ca(CaName,Password,State,Pid)->
 
 	Cmd0 = io_lib:format("openssl genrsa -passout pass:~s -aes256 -out ~s 4096",[Password,CaKeyFileName]),
 	CommandResult0 = os:cmd(Cmd0),
-	file:change_mode(CaKeyFileName,8#0400),
+	_ = file:change_mode(CaKeyFileName,8#0400),
 	io:format("~p> CMD0: ~s, RESULT: ~s~n~n",[Pid,Cmd0,CommandResult0]),
 	Cmd1 = io_lib:format("openssl req -config ~s -batch -new -x509 -days 3000 -sha256 -extensions v3_ca -passin pass:~s -key ~s -out ~s",
 		[ CaConfigFileName,
@@ -330,16 +334,16 @@ create_ca(CaName,Password,State,Pid)->
 			CaKeyFileName,
 			CaKeyCertFileName ]),
 	CommandResult1 = os:cmd(Cmd1),
-	file:change_mode(CaKeyCertFileName,8#0444),
+	_ = file:change_mode(CaKeyCertFileName,8#0444),
 	io:format("~p> CMD1: ~s, RESULT: ~s~n~n",[Pid,Cmd1,CommandResult1]),
 
-	file:write_file( filename:join([CaDir, "index.txt"]),<<>>),
-	file:write_file( filename:join([CaDir, "serial.txt"]),<<$0,$1>>),
+	ok = file:write_file( filename:join([CaDir, "index.txt"]),<<>>),
+	ok = file:write_file( filename:join([CaDir, "serial.txt"]),<<$0,$1>>),
 
-	utils:make_dir(filename:join([CaDir,"certs"])),
-	utils:make_dir(filename:join([CaDir,"newcerts"])),
-	utils:make_dir(filename:join([CaDir,"crl"])),
-	utils:make_dir(filename:join([CaDir,"private"])),
+	ok = utils:make_dir(filename:join([CaDir,"certs"])),
+	ok = utils:make_dir(filename:join([CaDir,"newcerts"])),
+	ok = utils:make_dir(filename:join([CaDir,"crl"])),
+	ok = utils:make_dir(filename:join([CaDir,"private"])),
 
 	{ok,CertData}=file:read_file(CaKeyCertFileName),
 
@@ -358,7 +362,7 @@ create_ca(CaName,Password,State,Pid)->
 	{ ok, State#inventory_state{ status = created } }.
 
 delete_ca(CAInfo,State,_Pid)->
-	file:del_dir_r(CAInfo#ca_info.dir_name),
+	_ = file:del_dir_r(CAInfo#ca_info.dir_name),
 	ets:delete(?CADB_TABLE,CAInfo#ca_info.name),
 	update_disk_db(State),
 	{ ok , State }.
@@ -399,7 +403,7 @@ create_server(CAInfo,Name,State,Pid)->
 create_servers(_CAInfo,[],State,_Pid)->
 	{ok,State};
 create_servers(CAInfo,[H|T],State,Pid)->
-	create_server(CAInfo,H,State,Pid),
+	_ = create_server(CAInfo,H,State,Pid),
 	create_servers(CAInfo,T,State,Pid).
 
 %% openssl req -batch -config openssl-client.cnf -newkey rsa:2048 -sha256 -out clientcert.csr -outform PEM -nodes
@@ -442,7 +446,7 @@ generate_client_batch(_CaInfo,Prefix,Done,0,Pid,ServicePid,_State)->
 generate_client_batch(CaInfo,Prefix,Index,Left,Pid,ServicePid,State)->
 	[X1,X2,X3,X4,X5,X6] = lists:flatten(string:pad(integer_to_list(Index,16),6,leading,$0)),
 	Name = Prefix ++ [X1,X2,$:,X3,X4,$:,X5,X6],
-	create_client(CaInfo,Name,State,self()),
+	_ = create_client(CaInfo,Name,State,self()),
 	generate_client_batch(CaInfo,Prefix,Index+1,Left-1,Pid,ServicePid,State).
 
 all_files_exist([])->
@@ -456,7 +460,7 @@ all_files_exist([H|T])->
 	end.
 
 update_disk_db(State)->
-	ets:tab2file(?CADB_TABLE,State#inventory_state.ca_db_filename),
+	_ = ets:tab2file(?CADB_TABLE,State#inventory_state.ca_db_filename),
 	ok.
 
 valid_ca_name(Name)->

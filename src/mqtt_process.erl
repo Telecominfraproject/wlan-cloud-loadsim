@@ -9,12 +9,10 @@
 -module(mqtt_process).
 -author("stephb").
 
--dialyzer(specdiffs).
+%% -dialyzer(specdiffs).
 
 -include("../include/common.hrl").
 -include("../include/mqtt_definitions.hrl").
-
--define(DBG,io:format("F=~p L=~p~n",[?FUNCTION_NAME,?LINE])).
 
 -define(INCREMENT_STATS1(X,Y),X#mqtt_connection_stats{ Y = X#mqtt_connection_stats.Y+1}).
 -define(INCREMENT_STATS2(X,Y,Z),X#mqtt_connection_stats{ Y = X#mqtt_connection_stats.Y+1, Z = X#mqtt_connection_stats.Z+1}).
@@ -26,7 +24,6 @@
 process(#mqtt_processor_state{ bytes_left = <<>> }=State) ->
 	{ ok , State };
 process(#mqtt_processor_state{ bytes_left = <<_Command:4,_Flags:4,1:1,V:15,Rest/binary>>}=State) ->
-?DBG,
 	{ RemainingLength , <<>> } = mqttlib:dec_varint(<<1:1,V:15>>),
 	io:format("Bytes left=~p  Remaining=~p~n",[size(State#mqtt_processor_state.bytes_left),RemainingLength]),
 	case size(Rest) >= RemainingLength of
@@ -100,7 +97,7 @@ answer_msg( #mqtt_publish_variable_header_v4{}=Msg, State )->
 		1 ->
 			VariableHeader = #mqtt_puback_variable_header_v4{ packet_identifier = Msg#mqtt_publish_variable_header_v4.packet_identifier , reason_code = ?MQTT_RC_SUCCESS },
 			Response = #mqtt_msg{ packet_type = ?MQTT_PUBACK , variable_header = VariableHeader },
-			Blob = mqtt_message:encode(Response),
+			Blob = mqtt_message:encode( Response ),
 			Result = (State#mqtt_processor_state.module):send(State#mqtt_processor_state.socket,Blob),
 			io:format("Sending PUBACK response(~p): ~p~n",[Result,Blob]),
 			Stats1 = State#mqtt_processor_state.stats,

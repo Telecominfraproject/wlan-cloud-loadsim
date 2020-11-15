@@ -365,14 +365,12 @@ decode_packet(#mqtt_msg{ packet_type = ?MQTT_AUTH }=Msg,Data, ?MQTT_PROTOCOL_VER
 	{ok,Msg#mqtt_msg{ variable_header = VariableHeader}}.
 
 
-%% -spec encode( Msg:: mqtt_msg() ) -> binary().
-%% encode(#mqtt_msg{} = Msg) ->
+-spec encode( Msg::#mqtt_msg{} ) -> binary().
 encode(#mqtt_msg{}=Msg)->
 	{ Command, Flags, Blob } = inner_encode( Msg#mqtt_msg.variable_header ),
 	Length = mqttlib:enc_varint(size(Blob)),
 	<<Command:4,Flags:4,Length/binary,Blob/binary>>.
 
-%% Complete
 -spec inner_encode( Msg::mqtt_msg_any() ) ->  { integer(), integer(), binary() }.
 inner_encode( #mqtt_connect_variable_header{} = Header )->
 	Flags = <<(Header#mqtt_connect_variable_header.username_flag):1,
@@ -399,11 +397,11 @@ inner_encode( #mqtt_connect_variable_header{} = Header )->
 	Blob = <<0:8,4:8,$M,$Q,$T,$T,(Header#mqtt_connect_variable_header.protocol_version):8,Flags/binary,(Header#mqtt_connect_variable_header.keep_alive):16,Payload/binary>>,
 	{?MQTT_CONNECT, 0, Blob};
 
-%% complete
 inner_encode( #mqtt_connack_variable_header_v4{} = Header )->
 	Blob =  << 0:7, (Header#mqtt_connack_variable_header_v4.connect_acknowledge_flag):1,
 							 (Header#mqtt_connack_variable_header_v4.connect_reason_code):8>>,
 	{?MQTT_CONNACK, 0, Blob};
+
 inner_encode( #mqtt_connack_variable_header_v5{} = Header )->
 	Blob = case Header#mqtt_connack_variable_header_v5.properties == [] of
 		       true ->
@@ -416,7 +414,6 @@ inner_encode( #mqtt_connack_variable_header_v5{} = Header )->
 	       end,
 	{?MQTT_CONNACK, 0, Blob};
 
-%% complete
 inner_encode( #mqtt_publish_variable_header_v4{}=Header )->
 	Flags = (Header#mqtt_publish_variable_header_v4.dup_flag bsl 3) bor
 					(Header#mqtt_publish_variable_header_v4.qos_level_flag bsl 1) bor
@@ -431,6 +428,7 @@ inner_encode( #mqtt_publish_variable_header_v4{}=Header )->
 							 (Header#mqtt_publish_variable_header_v4.payload)/binary>>
 	       end,
 	{?MQTT_PUBLISH, Flags, Blob};
+
 inner_encode( #mqtt_publish_variable_header_v5{}=Header )->
 	Flags = (Header#mqtt_publish_variable_header_v5.dup_flag bsl 3) bor
 		(Header#mqtt_publish_variable_header_v5.qos_level_flag bsl 1) bor
@@ -448,19 +446,17 @@ inner_encode( #mqtt_publish_variable_header_v5{}=Header )->
 	       end,
 	{?MQTT_PUBLISH, Flags, Blob};
 
-%% Complete
-inner_encode( #mqtt_puback_variable_header_v4{}=Header )->
-	Blob = << (Header#mqtt_puback_variable_header_v4.packet_identifier):16,
-		(Header#mqtt_puback_variable_header_v4.reason_code):8/binary>>,
-	{ ?MQTT_PUBACK, 0, Blob};
-
 inner_encode( #mqtt_puback_variable_header_v5{}=Header )->
 	Blob = << (Header#mqtt_puback_variable_header_v5.packet_identifier):16,
 		(Header#mqtt_puback_variable_header_v5.reason_code):8,
 		(set_properties_section(Header#mqtt_puback_variable_header_v5.properties))/binary>>,
 	{ ?MQTT_PUBACK, 0, Blob};
 
-%% complete
+inner_encode( #mqtt_puback_variable_header_v4{}=Header )->
+	Blob = << (Header#mqtt_puback_variable_header_v4.packet_identifier):16,
+	          (Header#mqtt_puback_variable_header_v4.reason_code):8/binary>>,
+	{ ?MQTT_PUBACK, 0, Blob};
+
 inner_encode( #mqtt_pubrec_variable_header_v4{}=Header )->
 	Blob = << (Header#mqtt_pubrec_variable_header_v4.packet_identifier):16,
 		(Header#mqtt_pubrec_variable_header_v4.reason_code):8>>,
@@ -472,7 +468,6 @@ inner_encode( #mqtt_pubrec_variable_header_v5{}=Header )->
 		(set_properties_section(Header#mqtt_pubrec_variable_header_v5.properties))/binary>>,
 	{ ?MQTT_PUBREC, 0, Blob};
 
-% complete
 inner_encode( #mqtt_pubrel_variable_header_v4{}=Header )->
 	Blob = << (Header#mqtt_pubrel_variable_header_v4.packet_identifier):16>>,
 	{ ?MQTT_PUBREL, 2, Blob};
@@ -483,7 +478,6 @@ inner_encode( #mqtt_pubrel_variable_header_v5{}=Header )->
 		(set_properties_section(Header#mqtt_pubrel_variable_header_v5.properties))/binary>>,
 	{ ?MQTT_PUBREL, 2, Blob};
 
-%% complete
 inner_encode( #mqtt_pubcomp_variable_header_v4{}=Header )->
 	Blob = << (Header#mqtt_pubcomp_variable_header_v4.packet_identifier):16>>,
 	{ ?MQTT_PUBCOMP, 0, Blob};
@@ -494,7 +488,6 @@ inner_encode( #mqtt_pubcomp_variable_header_v5{}=Header )->
 		(set_properties_section(Header#mqtt_pubcomp_variable_header_v5.properties))/binary>>,
 	{ ?MQTT_PUBCOMP, 0, Blob};
 
-%% complete
 inner_encode( #mqtt_subscribe_variable_header_v4{}=Header )->
 	Blob = << (Header#mqtt_subscribe_variable_header_v4.packet_identifier):16,
 		(set_topic_filter_list(Header#mqtt_subscribe_variable_header_v4.topic_filter_list))/binary>>,
@@ -506,7 +499,6 @@ inner_encode( #mqtt_subscribe_variable_header_v5{}=Header )->
 		(set_topic_filter_list(Header#mqtt_subscribe_variable_header_v5.topic_filter_list))/binary>>,
 	{ ?MQTT_SUBSCRIBE, 2, Blob};
 
-%% complete
 inner_encode( #mqtt_suback_variable_header_v4{}=Header )->
 	Blob = << (Header#mqtt_suback_variable_header_v4.packet_identifier):16,
 		(set_reason_code_list(Header#mqtt_suback_variable_header_v4.reason_codes))/binary>>,
@@ -518,7 +510,6 @@ inner_encode( #mqtt_suback_variable_header_v5{}=Header )->
 		(set_reason_code_list(Header#mqtt_suback_variable_header_v5.reason_codes))/binary>>,
 	{ ?MQTT_SUBACK, 0, Blob};
 
-%% complete
 inner_encode( #mqtt_unsubscribe_variable_header_v4{}=Header )->
 	Blob = << (Header#mqtt_unsubscribe_variable_header_v4.packet_identifier):16,
 		(set_string_list(Header#mqtt_unsubscribe_variable_header_v4.topic_list))/binary>>,
@@ -530,7 +521,6 @@ inner_encode( #mqtt_unsubscribe_variable_header_v5{}=Header )->
 		(set_string_list(Header#mqtt_unsubscribe_variable_header_v5.topic_list))/binary>>,
 	{ ?MQTT_UNSUBSCRIBE, 2, Blob};
 
-%% complete
 inner_encode( #mqtt_unsuback_variable_header_v4{}=Header )->
 	Blob = << (Header#mqtt_unsuback_variable_header_v4.packet_identifier):16 >>,
 	{ ?MQTT_UNSUBACK, 0, Blob};
@@ -541,19 +531,16 @@ inner_encode( #mqtt_unsuback_variable_header_v5{}=Header )->
 		(set_reason_code_list(Header#mqtt_unsuback_variable_header_v5.reason_codes))/binary>>,
 	{ ?MQTT_UNSUBACK, 0, Blob};
 
-%% Complete
 inner_encode( #mqtt_pingreq_variable_header_v4{}=_Header )->
 	{ ?MQTT_PINGREQ, 0, <<>>};
 inner_encode( #mqtt_pingreq_variable_header_v5{}=_Header )->
 	{ ?MQTT_PINGREQ, 0, <<>>};
 
-%% Complete
 inner_encode( #mqtt_pingresp_variable_header_v4{}=_Header )->
 	{ ?MQTT_PINGRESP, 0, <<>>};
 inner_encode( #mqtt_pingresp_variable_header_v5{}=_Header )->
 	{ ?MQTT_PINGRESP, 0, <<>>};
 
-%% Complete
 inner_encode( #mqtt_disconnect_variable_header_v4{}=_Header )->
 	{ ?MQTT_DISCONNECT, 0, <<>>};
 
@@ -567,7 +554,6 @@ inner_encode( #mqtt_disconnect_variable_header_v5{}=Header )->
 				 end,
 	{ ?MQTT_DISCONNECT, 0, Blob};
 
-%% complete
 inner_encode( #mqtt_auth_variable_header_v5{}=Header )->
 	Blob = case length(Header#mqtt_auth_variable_header_v5.properties) >0 of
 					 true ->

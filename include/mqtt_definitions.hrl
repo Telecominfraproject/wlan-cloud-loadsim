@@ -16,8 +16,6 @@
 -define(MQTT_PROTOCOL_VERSION_5,5).
 -define(MQTT_PROTOCOL_VERSION_3_11,4).
 
--define(MQTT_INVENTORY_FILENAME,"/inventory.dets").
-
 -define(OUI_FILENAME,"oui_db.txt").
 -define(OUI_DEFAULT_DOWNLOAD_LINK,"https://linuxnet.ca/ieee/oui.txt").
 
@@ -154,12 +152,6 @@
 -define(MQTT_PUB_RC_QUOTA_EXCEDDED,151).
 -define(MATT_PUB_RC_PAYLOAD_FORMAT_INVALID,153).
 
--record( mqtt_msg, {
-	packet_type = 0 :: integer(),
-	flags = 0 :: integer(),
-	remaining_length = 0 :: integer(),
-	variable_header = undefined :: undefined | mqtt_msg_any() }).
-
 -record( mqtt_connect_variable_header, {
 	protocol_name = <<0,4,$M:8,$Q:8,$T:8,$T:8>> :: binary(),
 	protocol_version = 0 :: integer(),
@@ -275,6 +267,12 @@
 	properties = [] :: list(),
 	reason_codes = [] :: [ integer() ]}).
 
+-record( mqtt_msg, {
+	packet_type = 0 :: integer(),
+	flags = 0 :: integer(),
+	remaining_length = 0 :: integer(),
+	variable_header }).
+
 -record(mqtt_connection_stats,{
 	client_identifier = <<>> :: binary(),
 	msg_connect = 0 :: integer(),
@@ -330,8 +328,8 @@
 -type mqtt_publish_variable_header_v4() :: #mqtt_publish_variable_header_v4{}.
 -type mqtt_publish_variable_header_v5() :: #mqtt_publish_variable_header_v5{}.
 
--type mqtt_puback_variable_header_v4() :: #mqtt_puback_variable_header_v4{}.
 -type mqtt_puback_variable_header_v5() :: #mqtt_puback_variable_header_v5{}.
+-type mqtt_puback_variable_header_v4() :: #mqtt_puback_variable_header_v4{}.
 
 -type mqtt_pubrec_variable_header_v4() :: #mqtt_pubrec_variable_header_v4{}.
 -type mqtt_pubrec_variable_header_v5() :: #mqtt_pubrec_variable_header_v5{}.

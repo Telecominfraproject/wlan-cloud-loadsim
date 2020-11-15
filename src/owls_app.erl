@@ -5,21 +5,19 @@
 -export([stop/1]).
 
 start(_Type, _Args) ->
-	app_settings(),
-	application:ensure_all_started(ssl),
+	ok = app_settings(),
 	owls_sup:start_link().
 
 stop(_State) ->
 	ok.
 
 start() ->
-	app_settings(),
-	application:ensure_all_started(ssl),
+	ok = app_settings(),
 	application:ensure_all_started(owls).
 
 load_cli()->
 	code:purge(user_default),
-	code:load_file(user_default),
+	_=code:load_file(user_default),
 	ok.
 
 app_settings()->
@@ -29,4 +27,6 @@ app_settings()->
 	ok = application:start(sasl),
 	ok = application:start(os_mon),
 	disksup:set_check_interval(5),
-	disksup:set_almost_full_threshold(0.90).
+	disksup:set_almost_full_threshold(0.90),
+	_ = application:ensure_all_started(ssl),
+	ok.

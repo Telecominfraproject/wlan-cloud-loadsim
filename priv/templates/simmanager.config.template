@@ -29,6 +29,7 @@
   {lager,
     [
       {log_root, "$$PROJECT_HOME$$/logs"},
+      {colored,true},
       {handlers,
         [
           {lager_console_backend, [{level,error}]},

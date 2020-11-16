@@ -1,6 +1,6 @@
 %%%-------------------------------------------------------------------
 %%% @author stephb
-%%% @copyright (C) 2020, <COMPANY>
+%%% @copyright (C) 2020, Arilia Wireless Inc.
 %%% @doc
 %%%
 %%% @end

@@ -20,7 +20,7 @@
     -define(DBGTRC(Msg), true).
 -endif.
 
-%% Locala logging shortcuts
+%% Local logging shortcuts
 -define(L_I(X),_=lager:info(X)).
 -define(L_IA(X,Y),_=lager:info(X,Y)).
 -define(L_E(X),_=lager:error(X)).

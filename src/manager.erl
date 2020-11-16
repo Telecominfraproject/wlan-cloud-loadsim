@@ -15,6 +15,7 @@
 
 %% API
 -export([start_link/0,creation_info/0,connect/0,disconnect/0,send_stats_report/0,connected_nodes/0]).
+-export([log_info/1,log_info/2,log_error/1,log_error/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -46,6 +47,18 @@ connected_nodes()->
 
 send_stats_report()->
 	gen_server:cast({global,?SERVER},{stats_report,node(),create_stats_report()}).
+
+log_info(Message)->
+	gen_server:cast({global,?SERVER},{log_info,node(),Message}).
+
+log_info(Message,Args)->
+	gen_server:cast({global,?SERVER},{log_info,node(),Message,Args}).
+
+log_error(Message)->
+	gen_server:cast({global,?SERVER},{log_error,node(),Message}).
+
+log_error(Message,Args)->
+	gen_server:cast({global,?SERVER},{log_error,node(),Message,Args}).
 
 %% @doc Spawns the server and registers the local name (unique)
 -spec(start_link() ->
@@ -110,6 +123,18 @@ handle_call(_Request, _From, State = #manager_state{}) ->
 handle_cast({stats_report,NodeName,Report},State=#manager_state{})->
 	%% io:format("Received stats from ~p.~n",[NodeName]),
 	{noreply,State#manager_state{ stats = maps:put(NodeName,Report,State#manager_state.stats)}};
+handle_cast({log_info,NodeName,Message}, State = #manager_state{}) ->
+	_=lager:info("~p: "++Message,[NodeName]),
+	{noreply, State};
+handle_cast({log_info,NodeName,Message,Args}, State = #manager_state{}) ->
+	_=lager:info("~p: "++Message,[NodeName|Args]),
+	{noreply, State};
+handle_cast({log_error,NodeName,Message}, State = #manager_state{}) ->
+	_=lager:error("~p: "++Message,[NodeName]),
+	{noreply, State};
+handle_cast({log_error,NodeName,Message,Args}, State = #manager_state{}) ->
+	_=lager:error("~p: "++Message,[NodeName|Args]),
+	{noreply, State};
 handle_cast(_Request, State = #manager_state{}) ->
 	{noreply, State}.
 

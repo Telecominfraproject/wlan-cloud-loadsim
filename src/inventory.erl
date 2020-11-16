@@ -293,7 +293,7 @@ terminate(Reason, State = #inventory_state{}) ->
 	update_disk_db(State),
 	ok = dets:close(State#inventory_state.clients_tab),
 	ok = dets:close(State#inventory_state.servers_tab),
-	?L_I2("Inventory exiting (~p).",[Reason]).
+	?L_IA("Inventory exiting (~p).",[Reason]).
 
 %% @private
 %% @doc Convert process state when code is changed

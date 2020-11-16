@@ -89,11 +89,11 @@ init([]) ->
 	{ AllOuis , AllMakers } = try
 		                            _=ets:file2tab(OuiTabFileName),
 		                            _=ets:file2tab(MakerTabFileName),
-		                            ?L_I1("OUI tables restored from disk."),
+		                            ?L_I("OUI tables restored from disk."),
 																set_keys()
                             catch
 															_:_ ->
-																?L_I1("No OUI tables on disk."),
+																?L_I("No OUI tables on disk."),
 																_=ets:new(?OUI_LOOKUP_TABLE,[named_table,public,ordered_set]),
 																_=ets:new(?MAKER_LOOKUP_TABLE,[named_table,public,ordered_set]),
 																{ [], [] }
@@ -154,7 +154,7 @@ handle_call(_Request, _From, State = #oui_server_state{}) ->
 	{noreply, NewState :: #oui_server_state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), NewState :: #oui_server_state{}}).
 handle_cast({replace,AllOuis,AllMakers,_Pid}, State = #oui_server_state{}) ->
-	?L_I1("New OUI DB in memory updated."),
+	?L_I("New OUI DB in memory updated."),
 	{noreply, State#oui_server_state{ all_ouis = AllOuis, all_makers = AllMakers }};
 handle_cast(_Request, State = #oui_server_state{}) ->
 	{noreply, State}.
@@ -193,7 +193,7 @@ code_change(_OldVsn, State = #oui_server_state{}, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 get_latest_oui(State) ->
-	?L_I1("Downloading latest OUI list."),
+	?L_I("Downloading latest OUI list."),
 	FileName = latest_filename(),
 	case httpc:request( State#oui_server_state.uri ) of
 		{ ok , Result } ->
@@ -205,13 +205,13 @@ get_latest_oui(State) ->
 				_Id ->
 					{ error , incomplete }
 			end,
-			?L_I1("Downloaded latest OUI list."),
+			?L_I("Downloaded latest OUI list."),
 			Res;
 		{ error , Reason } ->
-			?L_I2("Failed to download latest OUI list. Reason:~p",[Reason]),
+			?L_IA("Failed to download latest OUI list. Reason:~p",[Reason]),
 			{ error , Reason };
 		Result ->
-			?L_I2("Failed to download latest OUI list. Reason:~p",[Result]),
+			?L_IA("Failed to download latest OUI list. Reason:~p",[Result]),
 			{ error , Result }
 	end.
 
@@ -286,7 +286,7 @@ refresh(State,_Pid) ->
 		ok ->
 			case process_oui_file() of
 				M when is_map(M) ->
-					?L_I1("Replacing memory copies of OUI data."),
+					?L_I("Replacing memory copies of OUI data."),
 					create_oui_lookup_table(M),
 					create_maker_lookup_table(M),
 					_ = ets:tab2file(?OUI_LOOKUP_TABLE,	State#oui_server_state.oui_tab_filename),
@@ -294,10 +294,10 @@ refresh(State,_Pid) ->
 					{ AllOuis , AllMakers } = set_keys(),
 					gen_server:cast(State#oui_server_state.service_pid,{replace,AllOuis,AllMakers,self()});
 				Error ->
-					?L_I2("Please refresh OUI lists later.",[Error])
+					?L_IA("Please refresh OUI lists later.",[Error])
 			end;
 		{ error, Error } ->
-			?L_I2("Please refresh OUI lists later.",[Error])
+			?L_IA("Please refresh OUI lists later.",[Error])
 	end.
 
 -spec latest_filename() -> string().

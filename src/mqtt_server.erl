@@ -187,7 +187,7 @@ start_listeners_secure(NumListeners,ListenSock,Pids,ParentPid)->
 	start_listeners_secure(NumListeners-1,ListenSock,[Pid|Pids],ParentPid).
 
 mqttserver_worker(ListenSock,ParentPid)->
-	?L_I2("Server ~p starting to listen.",[self()]),
+	?L_IA("Server ~p starting to listen.",[self()]),
 	case gen_tcp:accept(ListenSock) of
 		{ok,Socket} ->
 			mqtt_server:increase_session(ParentPid,ListenSock),
@@ -203,12 +203,12 @@ mqttserver_worker(ListenSock,ParentPid)->
 			_ = gen_tcp:controlling_process(Socket,Pid),
 			mqttserver_worker(ListenSock,ParentPid);
 		Error ->
-			?L_I2("accept failed - server shutting down: ~p~n",[Error]),
+			?L_IA("accept failed - server shutting down: ~p~n",[Error]),
 			ok
 	end.
 
 mqttserver_worker_secure(ListenSock,ParentPid)->
-	?L_I2("Server ~p starting to listen.",[self()]),
+	?L_IA("Server ~p starting to listen.",[self()]),
 	case ssl:transport_accept(ListenSock) of
 		{ok,Socket} ->
 			_=case ssl:handshake(Socket) of
@@ -225,12 +225,12 @@ mqttserver_worker_secure(ListenSock,ParentPid)->
 						}]),
 					ssl:controlling_process(SslSocket,Pid);
 				Error ->
-					?L_I2("SSL handshake failed. ~p",[Error]),
+					?L_IA("SSL handshake failed. ~p",[Error]),
 					ssl:close(Socket)
 			end,
 			mqttserver_worker_secure(ListenSock,ParentPid);
 		Error ->
-			?L_I2("accept failed - server shutting down: ~p~n",[Error]),
+			?L_IA("accept failed - server shutting down: ~p~n",[Error]),
 			ok
 	end.
 
@@ -252,7 +252,7 @@ mqttserver_processor(Socket,#mqtt_processor_state{ secure = false }=State)->
 		{tcp_closed,Socket} ->
 			mqtt_server:increase_session(State#mqtt_processor_state.parent_pid,State#mqtt_processor_state.listener_pid),
 			delete_session_stats(State#mqtt_processor_state.parent_pid,State#mqtt_processor_state.listener_pid,self()),
-			?L_I2("Socket ~w closed [~w]~n",[Socket,self()]),
+			?L_IA("Socket ~w closed [~w]~n",[Socket,self()]),
 			ok;
 		Anything ->
 			io:format("Anything(not secure): ~p~n",[Anything]),
@@ -269,7 +269,7 @@ mqttserver_processor(Socket,#mqtt_processor_state{ secure = true }=State)->
 		{ssl_closed,Socket} ->
 			mqtt_server:increase_session(State#mqtt_processor_state.parent_pid,State#mqtt_processor_state.listener_pid),
 			delete_session_stats(State#mqtt_processor_state.parent_pid,State#mqtt_processor_state.listener_pid,self()),
-			?L_I2("Socket ~w closed [~w]~n",[Socket,self()]),
+			?L_IA("Socket ~w closed [~w]~n",[Socket,self()]),
 			ok;
 		Anything ->
 			io:format("Anything ->~p~n",[Anything]),

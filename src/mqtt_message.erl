@@ -21,74 +21,13 @@ decode(<<PacketType:4,Flags:4,Rest/binary>>,Version)->
 	{ RemainingLength, Blob } = mqttlib:dec_varint(Rest),
 	case size(Blob) == RemainingLength of
 		true ->
-			decode_packet(#mqtt_msg{ packet_type = PacketType, flags = Flags, remaining_length = RemainingLength },Blob,Version);
+			inner_decode(#mqtt_msg{ packet_type = PacketType, flags = Flags, remaining_length = RemainingLength },Blob,Version);
 		false ->
 			{ error , malformed_packet }
 	end.
 
-get_properties_section(<<>>)->
-	{[],<<>>};
-get_properties_section(Data) ->
-	{ PropertiesLength , Rest } = mqttlib:dec_varint(Data),
-	case PropertiesLength > 0 of
-		true->
-			<<PropertiesData:PropertiesLength/binary,Rest2/binary>> = Rest,
-			{ mqttlib:dec_properties( PropertiesData ), Rest2 };
-		false->
-			{[],<<>>}
-	end.
-
-set_properties_section(Properties)->
-	mqttlib:enc_properties(Properties).
-
-get_topic_filter_list(Data)->
-	get_topic_filter_list(Data,[]).
-get_topic_filter_list(<<>>,Topics)->
-	lists:reverse(Topics);
-get_topic_filter_list(Data,Topics)->
-	{ String, Rest } = mqttlib:dec_string(Data),
-	{ Byte, Rest2 } = mqttlib:dec_byte(Rest),
-	get_topic_filter_list(Rest2,[{String,Byte}|Topics]).
-
-set_topic_filter_list(List)->
-	set_topic_filter_list(List,<<>>).
-set_topic_filter_list([],Blob)->
-	Blob;
-set_topic_filter_list([{Topic,Filter}|Tail],Blob)->
-	set_topic_filter_list(Tail,<< Blob/binary, (mqttlib:enc_string(Topic))/binary, Filter:8>>).
-
-get_reason_code_list(Data)->
-	get_reason_code_list(Data,[]).
-get_reason_code_list(<<>>,List)->
-	lists:reverse(List);
-get_reason_code_list(<<V:8,Rest/binary>>,List)->
-	get_reason_code_list( Rest , [V|List]).
-
-set_reason_code_list(List)->
-	set_reason_code_list(List,<<>>).
-set_reason_code_list([],Blob)->
-	Blob;
-set_reason_code_list([H|Tail],Blob)->
-	set_reason_code_list( Tail , << Blob/binary, H:8>>).
-
-get_string_list(Data)->
-	get_string_list(Data,[]).
-get_string_list(<<>>,List)->
-	lists:reverse(List);
-get_string_list(Data,List)->
-	{ String, Rest} = mqttlib:dec_string(Data),
-	get_string_list(Rest,[String|List]).
-
-set_string_list(List)->
-	set_string_list(List,<<>>).
-set_string_list([],Blob)->
-	Blob;
-set_string_list([H|T],Blob)->
-	set_string_list(T,<<Blob/binary,(mqttlib:enc_string(H))/binary>>).
-
-%% Rules: payload required
-%% packet identifier = NO
-decode_packet(#mqtt_msg{ packet_type = ?MQTT_CONNECT } = Msg,
+-spec inner_decode( Msg::mqtt_msg(),Blob::binary(),ProtocolVersion::integer())-> {ok,Decoded_Message::mqtt_msg()}.
+inner_decode(#mqtt_msg{ packet_type = ?MQTT_CONNECT } = Msg,
 		<< 0:8 , 4:8 , $M:8, $Q:8 , $T:8, $T:8 , ProtocolLevel:8,
 			UserNameFlag:1,
 			PasswordFlag:1,
@@ -132,12 +71,13 @@ decode_packet(#mqtt_msg{ packet_type = ?MQTT_CONNECT } = Msg,
 
 %% Rules: payload none,
 %% packet identifier = NO
-decode_packet(#mqtt_msg{ packet_type = ?MQTT_CONNACK }=Msg,<<_:7,ConnectAcknowledgeFlag:1,ConnectReasonCode:8,_/binary>>, ?MQTT_PROTOCOL_VERSION_3_11 )->
+inner_decode(#mqtt_msg{ packet_type = ?MQTT_CONNACK }=Msg,<<_:7,ConnectAcknowledgeFlag:1,ConnectReasonCode:8,_/binary>>, ?MQTT_PROTOCOL_VERSION_3_11 )->
 	VariableHeader = #mqtt_connack_variable_header_v4{
 		connect_acknowledge_flag = ConnectAcknowledgeFlag ,
 		connect_reason_code = ConnectReasonCode },
 	{ok,Msg#mqtt_msg{variable_header = VariableHeader}};
-decode_packet(#mqtt_msg{ packet_type = ?MQTT_CONNACK }=Msg,<<_:7,ConnectAcknowledgeFlag:1,ConnectReasonCode:8,Rest/binary>>, ?MQTT_PROTOCOL_VERSION_5 )->
+
+inner_decode(#mqtt_msg{ packet_type = ?MQTT_CONNACK }=Msg,<<_:7,ConnectAcknowledgeFlag:1,ConnectReasonCode:8,Rest/binary>>, ?MQTT_PROTOCOL_VERSION_5 )->
 	{ Properties , <<>> } = get_properties_section(Rest),
 	VariableHeader = #mqtt_connack_variable_header_v5{ connect_acknowledge_flag = ConnectAcknowledgeFlag ,
 		connect_reason_code = ConnectReasonCode,
@@ -146,7 +86,7 @@ decode_packet(#mqtt_msg{ packet_type = ?MQTT_CONNACK }=Msg,<<_:7,ConnectAcknowle
 
 %% Rules: payload optional
 %% packet identifier = if QoS>0 YES
-decode_packet(#mqtt_msg{ packet_type = ?MQTT_PUBLISH }=Msg,Data, ?MQTT_PROTOCOL_VERSION_3_11)->
+inner_decode(#mqtt_msg{ packet_type = ?MQTT_PUBLISH }=Msg,Data, ?MQTT_PROTOCOL_VERSION_3_11)->
 	<< _:4,DUPFlag:1,QOSLevelFlag:2,RetainFlag:1>> = <<(Msg#mqtt_msg.flags)>>,
 	{ TopicName , Rest2 } = mqttlib:dec_string(Data),
 	{ PacketIdentifier, Payload } = case QOSLevelFlag =:= 0 of
@@ -154,8 +94,6 @@ decode_packet(#mqtt_msg{ packet_type = ?MQTT_PUBLISH }=Msg,Data, ?MQTT_PROTOCOL_
 																	false -> <<V:16,C1/binary>>=Rest2,
 																		{ V, C1 }
 	                              end,
-	%% io:format("TopicName=~p~nPI=~p~nR3=~p~n",[TopicName,PacketIdentifier,Payload]),
-
 	VariableHeader = #mqtt_publish_variable_header_v4{
 		dup_flag = DUPFlag ,
 		qos_level_flag = QOSLevelFlag ,
@@ -165,7 +103,7 @@ decode_packet(#mqtt_msg{ packet_type = ?MQTT_PUBLISH }=Msg,Data, ?MQTT_PROTOCOL_
 		payload = Payload},
 	{ok,Msg#mqtt_msg{ variable_header = VariableHeader}};
 
-decode_packet(#mqtt_msg{ packet_type = ?MQTT_PUBLISH }=Msg,Data, ?MQTT_PROTOCOL_VERSION_5)->
+inner_decode(#mqtt_msg{ packet_type = ?MQTT_PUBLISH }=Msg,Data, ?MQTT_PROTOCOL_VERSION_5)->
 	<< _:4,DUPFlag:1,QOSLevelFlag:2,RetainFlag:1>> = <<(Msg#mqtt_msg.flags)>>,
 	{ TopicName , Rest2 } = mqttlib:dec_string(Data),
 	{ PacketIdentifier, Rest3 } = case QOSLevelFlag =:= 0 of
@@ -188,11 +126,11 @@ decode_packet(#mqtt_msg{ packet_type = ?MQTT_PUBLISH }=Msg,Data, ?MQTT_PROTOCOL_
 
 %% Rules: payload none
 %% packet identifier = YES
-decode_packet(#mqtt_msg{ packet_type = ?MQTT_PUBACK }=Msg,<<PacketIdentifier:16,ReasonCode:8>>, ?MQTT_PROTOCOL_VERSION_3_11)->
+inner_decode(#mqtt_msg{ packet_type = ?MQTT_PUBACK }=Msg,<<PacketIdentifier:16,ReasonCode:8>>, ?MQTT_PROTOCOL_VERSION_3_11)->
 	VariableHeader = #mqtt_puback_variable_header_v4{ packet_identifier = PacketIdentifier , reason_code = ReasonCode },
 	{ok,Msg#mqtt_msg{ variable_header = VariableHeader}};
 
-decode_packet(#mqtt_msg{ packet_type = ?MQTT_PUBACK }=Msg,<<PacketIdentifier:16,ReasonCode:8,Rest/binary>>, ?MQTT_PROTOCOL_VERSION_5)->
+inner_decode(#mqtt_msg{ packet_type = ?MQTT_PUBACK }=Msg,<<PacketIdentifier:16,ReasonCode:8,Rest/binary>>, ?MQTT_PROTOCOL_VERSION_5)->
 	VariableHeader = case Msg#mqtt_msg.remaining_length > 3 of
 		                 true ->
 			                 { Properties , <<>> } = get_properties_section(Rest),
@@ -204,11 +142,11 @@ decode_packet(#mqtt_msg{ packet_type = ?MQTT_PUBACK }=Msg,<<PacketIdentifier:16,
 
 %% Rules: payload none
 %% packet identifier = YES
-decode_packet(#mqtt_msg{ packet_type = ?MQTT_PUBREC }=Msg,<<PacketIdentifier:16,ReasonCode:8>>, ?MQTT_PROTOCOL_VERSION_3_11)->
+inner_decode(#mqtt_msg{ packet_type = ?MQTT_PUBREC }=Msg,<<PacketIdentifier:16,ReasonCode:8>>, ?MQTT_PROTOCOL_VERSION_3_11)->
 	VariableHeader = #mqtt_pubrec_variable_header_v4{ packet_identifier = PacketIdentifier, reason_code = ReasonCode },
 	{ok,Msg#mqtt_msg{ variable_header = VariableHeader}};
 
-decode_packet(#mqtt_msg{ packet_type = ?MQTT_PUBREC }=Msg,<<PacketIdentifier:16,ReasonCode:8,Rest/binary>>, ?MQTT_PROTOCOL_VERSION_5)->
+inner_decode(#mqtt_msg{ packet_type = ?MQTT_PUBREC }=Msg,<<PacketIdentifier:16,ReasonCode:8,Rest/binary>>, ?MQTT_PROTOCOL_VERSION_5)->
 	VariableHeader = case Msg#mqtt_msg.remaining_length > 3 of
 		                 true ->
 			                 { Properties , _ } = get_properties_section(Rest),
@@ -220,11 +158,11 @@ decode_packet(#mqtt_msg{ packet_type = ?MQTT_PUBREC }=Msg,<<PacketIdentifier:16,
 
 %% Rules: payload none
 %% packet identifier = YES
-decode_packet(#mqtt_msg{ packet_type = ?MQTT_PUBREL , flags = 2 }=Msg,<<PacketIdentifier:16>>, ?MQTT_PROTOCOL_VERSION_3_11)->
+inner_decode(#mqtt_msg{ packet_type = ?MQTT_PUBREL , flags = 2 }=Msg,<<PacketIdentifier:16>>, ?MQTT_PROTOCOL_VERSION_3_11)->
 	VariableHeader = #mqtt_pubrel_variable_header_v4{ packet_identifier = PacketIdentifier },
 	{ok,Msg#mqtt_msg{ variable_header = VariableHeader}};
 
-decode_packet(#mqtt_msg{ packet_type = ?MQTT_PUBREL , flags = 2 }=Msg,<<PacketIdentifier:16,ReasonCode:8,Rest/binary>>, ?MQTT_PROTOCOL_VERSION_5)->
+inner_decode(#mqtt_msg{ packet_type = ?MQTT_PUBREL , flags = 2 }=Msg,<<PacketIdentifier:16,ReasonCode:8,Rest/binary>>, ?MQTT_PROTOCOL_VERSION_5)->
 	VariableHeader = case Msg#mqtt_msg.remaining_length > 3 of
 		                 true ->
 			                 { Properties , _ } = get_properties_section(Rest),
@@ -236,11 +174,11 @@ decode_packet(#mqtt_msg{ packet_type = ?MQTT_PUBREL , flags = 2 }=Msg,<<PacketId
 
 %% Rules: payload none
 %% packet identifier = YES
-decode_packet(#mqtt_msg{ packet_type = ?MQTT_PUBCOMP }=Msg,<<PacketIdentifier:16>>, ?MQTT_PROTOCOL_VERSION_3_11)->
+inner_decode(#mqtt_msg{ packet_type = ?MQTT_PUBCOMP }=Msg,<<PacketIdentifier:16>>, ?MQTT_PROTOCOL_VERSION_3_11)->
 	VariableHeader = #mqtt_pubcomp_variable_header_v4{ packet_identifier = PacketIdentifier },
 	{ok,Msg#mqtt_msg{ variable_header = VariableHeader}};
 
-decode_packet(#mqtt_msg{ packet_type = ?MQTT_PUBCOMP }=Msg,<<PacketIdentifier:16,ReasonCode:8,Rest/binary>>, ?MQTT_PROTOCOL_VERSION_5)->
+inner_decode(#mqtt_msg{ packet_type = ?MQTT_PUBCOMP }=Msg,<<PacketIdentifier:16,ReasonCode:8,Rest/binary>>, ?MQTT_PROTOCOL_VERSION_5)->
 	VariableHeader = case Msg#mqtt_msg.remaining_length > 3 of
 		                 true ->
 			                 { Properties , _ } = get_properties_section(Rest),
@@ -252,12 +190,12 @@ decode_packet(#mqtt_msg{ packet_type = ?MQTT_PUBCOMP }=Msg,<<PacketIdentifier:16
 
 %% Rules: payload required
 %% packet identifier = YES
-decode_packet(#mqtt_msg{ packet_type = ?MQTT_SUBSCRIBE , flags=2 }=Msg,<<PacketIdentifier:16,Payload/binary>>, ?MQTT_PROTOCOL_VERSION_3_11)->
+inner_decode(#mqtt_msg{ packet_type = ?MQTT_SUBSCRIBE , flags=2 }=Msg,<<PacketIdentifier:16,Payload/binary>>, ?MQTT_PROTOCOL_VERSION_3_11)->
 	TopicFilterList = get_topic_filter_list( Payload ),
 	VariableHeader = #mqtt_subscribe_variable_header_v4{ packet_identifier = PacketIdentifier, topic_filter_list = TopicFilterList },
 	{ok,Msg#mqtt_msg{ variable_header = VariableHeader}};
 
-decode_packet(#mqtt_msg{ packet_type = ?MQTT_SUBSCRIBE , flags=2 }=Msg,<<PacketIdentifier:16,Rest/binary>>, ?MQTT_PROTOCOL_VERSION_5)->
+inner_decode(#mqtt_msg{ packet_type = ?MQTT_SUBSCRIBE , flags=2 }=Msg,<<PacketIdentifier:16,Rest/binary>>, ?MQTT_PROTOCOL_VERSION_5)->
 	VariableHeader = case Msg#mqtt_msg.remaining_length > 2 of
 		                 true ->
 			                 { Properties , Payload } = get_properties_section(Rest),
@@ -268,14 +206,12 @@ decode_packet(#mqtt_msg{ packet_type = ?MQTT_SUBSCRIBE , flags=2 }=Msg,<<PacketI
 	                 end,
 	{ok,Msg#mqtt_msg{ variable_header = VariableHeader}};
 
-%% Rules: payload required
-%% packet identifier = YES
-decode_packet(#mqtt_msg{ packet_type = ?MQTT_SUBACK }=Msg,<<PacketIdentifier:16,Payload/binary>>, ?MQTT_PROTOCOL_VERSION_3_11)->
+inner_decode(#mqtt_msg{ packet_type = ?MQTT_SUBACK }=Msg,<<PacketIdentifier:16,Payload/binary>>, ?MQTT_PROTOCOL_VERSION_3_11)->
 	ReasonCodeList = get_reason_code_list(Payload),
 	VariableHeader = #mqtt_suback_variable_header_v4{ packet_identifier = PacketIdentifier,reason_codes = ReasonCodeList},
 	{ok,Msg#mqtt_msg{ variable_header = VariableHeader}};
 
-decode_packet(#mqtt_msg{ packet_type = ?MQTT_SUBACK }=Msg,<<PacketIdentifier:16,Data/binary>>, ?MQTT_PROTOCOL_VERSION_5)->
+inner_decode(#mqtt_msg{ packet_type = ?MQTT_SUBACK }=Msg,<<PacketIdentifier:16,Data/binary>>, ?MQTT_PROTOCOL_VERSION_5)->
 	{ Properties , Payload } = get_properties_section(Data),
 	ReasonCodeList = get_reason_code_list(Payload),
 	VariableHeader = #mqtt_suback_variable_header_v5{ packet_identifier = PacketIdentifier, properties = Properties, reason_codes = ReasonCodeList},
@@ -283,12 +219,12 @@ decode_packet(#mqtt_msg{ packet_type = ?MQTT_SUBACK }=Msg,<<PacketIdentifier:16,
 
 %% Rules: payload required
 %% packet identifier = YES
-decode_packet(#mqtt_msg{ packet_type = ?MQTT_UNSUBSCRIBE , flags = 2 }=Msg,<<PacketIdentifier:16,Payload/binary>>, ?MQTT_PROTOCOL_VERSION_3_11)->
+inner_decode(#mqtt_msg{ packet_type = ?MQTT_UNSUBSCRIBE , flags = 2 }=Msg,<<PacketIdentifier:16,Payload/binary>>, ?MQTT_PROTOCOL_VERSION_3_11)->
 	StringList = get_string_list(Payload),
 	VariableHeader = #mqtt_unsubscribe_variable_header_v4{ packet_identifier = PacketIdentifier, topic_list = StringList },
 	{ok,Msg#mqtt_msg{ variable_header = VariableHeader}};
 
-decode_packet(#mqtt_msg{ packet_type = ?MQTT_UNSUBSCRIBE , flags = 2 }=Msg,<<PacketIdentifier:16,Data/binary>>, ?MQTT_PROTOCOL_VERSION_5)->
+inner_decode(#mqtt_msg{ packet_type = ?MQTT_UNSUBSCRIBE , flags = 2 }=Msg,<<PacketIdentifier:16,Data/binary>>, ?MQTT_PROTOCOL_VERSION_5)->
 	{ Properties , Payload } = get_properties_section(Data),
 	StringList = get_string_list(Payload),
 	VariableHeader = #mqtt_unsubscribe_variable_header_v5{ packet_identifier = PacketIdentifier , properties = Properties, topic_list = StringList },
@@ -296,11 +232,11 @@ decode_packet(#mqtt_msg{ packet_type = ?MQTT_UNSUBSCRIBE , flags = 2 }=Msg,<<Pac
 
 %% Rules: payload required
 %% packet identifier = YES
-decode_packet(#mqtt_msg{ packet_type = ?MQTT_UNSUBACK }=Msg,<<PacketIdentifier:16>>, ?MQTT_PROTOCOL_VERSION_3_11)->
+inner_decode(#mqtt_msg{ packet_type = ?MQTT_UNSUBACK }=Msg,<<PacketIdentifier:16>>, ?MQTT_PROTOCOL_VERSION_3_11)->
 	VariableHeader = #mqtt_unsuback_variable_header_v4{ packet_identifier = PacketIdentifier },
 	{ok,Msg#mqtt_msg{ variable_header = VariableHeader}};
 
-decode_packet(#mqtt_msg{ packet_type = ?MQTT_UNSUBACK }=Msg,<<PacketIdentifier:16,Data/binary>>, ?MQTT_PROTOCOL_VERSION_5)->
+inner_decode(#mqtt_msg{ packet_type = ?MQTT_UNSUBACK }=Msg,<<PacketIdentifier:16,Data/binary>>, ?MQTT_PROTOCOL_VERSION_5)->
 	{ Properties , Payload } = get_properties_section(Data),
 	ReasonCodeList = get_reason_code_list(Payload),
 	VariableHeader = #mqtt_unsuback_variable_header_v5{ packet_identifier = PacketIdentifier , properties = Properties, reason_codes = ReasonCodeList },
@@ -308,27 +244,27 @@ decode_packet(#mqtt_msg{ packet_type = ?MQTT_UNSUBACK }=Msg,<<PacketIdentifier:1
 
 %% Rules: payload none
 %% packet identifier = NO
-decode_packet(#mqtt_msg{ packet_type = ?MQTT_PINGREQ }=Msg,_, ?MQTT_PROTOCOL_VERSION_3_11)->
+inner_decode(#mqtt_msg{ packet_type = ?MQTT_PINGREQ }=Msg,_, ?MQTT_PROTOCOL_VERSION_3_11)->
 	{ok,Msg#mqtt_msg{ variable_header = #mqtt_pingreq_variable_header_v4{ time=erlang:timestamp()}}};
 
-decode_packet(#mqtt_msg{ packet_type = ?MQTT_PINGREQ }=Msg,_, ?MQTT_PROTOCOL_VERSION_5)->
+inner_decode(#mqtt_msg{ packet_type = ?MQTT_PINGREQ }=Msg,_, ?MQTT_PROTOCOL_VERSION_5)->
 	{ok,Msg#mqtt_msg{ variable_header = #mqtt_pingreq_variable_header_v5{ time=erlang:timestamp()}}};
 
 %% Rules: payload none
 %% packet identifier = NO
-decode_packet(#mqtt_msg{ packet_type = ?MQTT_PINGRESP }=Msg,_, ?MQTT_PROTOCOL_VERSION_3_11)->
+inner_decode(#mqtt_msg{ packet_type = ?MQTT_PINGRESP }=Msg,_, ?MQTT_PROTOCOL_VERSION_3_11)->
 	{ok,Msg#mqtt_msg{ variable_header = #mqtt_pingresp_variable_header_v4{ time=erlang:timestamp()}}};
 
-decode_packet(#mqtt_msg{ packet_type = ?MQTT_PINGRESP }=Msg,_, ?MQTT_PROTOCOL_VERSION_5)->
+inner_decode(#mqtt_msg{ packet_type = ?MQTT_PINGRESP }=Msg,_, ?MQTT_PROTOCOL_VERSION_5)->
 	{ok,Msg#mqtt_msg{ variable_header = #mqtt_pingresp_variable_header_v5{ time=erlang:timestamp()}}};
 
 %% Rules: payload none
 %% packet identifier = NO
-decode_packet(#mqtt_msg{ packet_type = ?MQTT_DISCONNECT }=Msg,_, ?MQTT_PROTOCOL_VERSION_3_11)->
+inner_decode(#mqtt_msg{ packet_type = ?MQTT_DISCONNECT }=Msg,_, ?MQTT_PROTOCOL_VERSION_3_11)->
 	VariableHeader = #mqtt_disconnect_variable_header_v4{},
 	{ok,Msg#mqtt_msg{ variable_header = VariableHeader}};
 
-decode_packet(#mqtt_msg{ packet_type = ?MQTT_DISCONNECT }=Msg,Data, ?MQTT_PROTOCOL_VERSION_5)->
+inner_decode(#mqtt_msg{ packet_type = ?MQTT_DISCONNECT }=Msg,Data, ?MQTT_PROTOCOL_VERSION_5)->
 	{ ResultCode , Rest } = case Msg#mqtt_msg.remaining_length == 0 of
 		                        true ->
 			                        { ?MQTT_RC_SUCCESS, <<>> };
@@ -347,7 +283,7 @@ decode_packet(#mqtt_msg{ packet_type = ?MQTT_DISCONNECT }=Msg,Data, ?MQTT_PROTOC
 
 %% Rules: payload none
 %% packet identifier = NO
-decode_packet(#mqtt_msg{ packet_type = ?MQTT_AUTH }=Msg,Data, ?MQTT_PROTOCOL_VERSION_5)->
+inner_decode(#mqtt_msg{ packet_type = ?MQTT_AUTH }=Msg,Data, ?MQTT_PROTOCOL_VERSION_5)->
 	{ ResultCode , Rest } = case Msg#mqtt_msg.remaining_length == 0 of
 		                        true ->
 			                        { ?MQTT_RC_SUCCESS, <<>> };
@@ -454,12 +390,12 @@ inner_encode( #mqtt_puback_variable_header_v5{}=Header )->
 
 inner_encode( #mqtt_puback_variable_header_v4{}=Header )->
 	Blob = << (Header#mqtt_puback_variable_header_v4.packet_identifier):16,
-	          (Header#mqtt_puback_variable_header_v4.reason_code):8/binary>>,
+	          (Header#mqtt_puback_variable_header_v4.reason_code):8>>,
 	{ ?MQTT_PUBACK, 0, Blob};
 
 inner_encode( #mqtt_pubrec_variable_header_v4{}=Header )->
 	Blob = << (Header#mqtt_pubrec_variable_header_v4.packet_identifier):16,
-		(Header#mqtt_pubrec_variable_header_v4.reason_code):8>>,
+						(Header#mqtt_pubrec_variable_header_v4.reason_code):8>>,
 	{ ?MQTT_PUBREC, 0, Blob};
 
 inner_encode( #mqtt_pubrec_variable_header_v5{}=Header )->
@@ -563,3 +499,68 @@ inner_encode( #mqtt_auth_variable_header_v5{}=Header )->
 						 << (Header#mqtt_auth_variable_header_v5.reason_code):8 >>
 	       end,
 	{ ?MQTT_AUTH, 0, Blob}.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% local API
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+get_properties_section(<<>>)->
+	{[],<<>>};
+get_properties_section(Data) ->
+	{ PropertiesLength , Rest } = mqttlib:dec_varint(Data),
+	case PropertiesLength > 0 of
+		true->
+			<<PropertiesData:PropertiesLength/binary,Rest2/binary>> = Rest,
+			{ mqttlib:dec_properties( PropertiesData ), Rest2 };
+		false->
+			{[],<<>>}
+	end.
+
+set_properties_section(Properties)->
+	mqttlib:enc_properties(Properties).
+
+get_topic_filter_list(Data)->
+	get_topic_filter_list(Data,[]).
+get_topic_filter_list(<<>>,Topics)->
+	lists:reverse(Topics);
+get_topic_filter_list(Data,Topics)->
+	{ String, Rest } = mqttlib:dec_string(Data),
+	{ Byte, Rest2 } = mqttlib:dec_byte(Rest),
+	get_topic_filter_list(Rest2,[{String,Byte}|Topics]).
+
+set_topic_filter_list(List)->
+	set_topic_filter_list(List,<<>>).
+set_topic_filter_list([],Blob)->
+	Blob;
+set_topic_filter_list([{Topic,Filter}|Tail],Blob)->
+	set_topic_filter_list(Tail,<< Blob/binary, (mqttlib:enc_string(Topic))/binary, Filter:8>>).
+
+get_reason_code_list(Data)->
+	get_reason_code_list(Data,[]).
+get_reason_code_list(<<>>,List)->
+	lists:reverse(List);
+get_reason_code_list(<<V:8,Rest/binary>>,List)->
+	get_reason_code_list( Rest , [V|List]).
+
+set_reason_code_list(List)->
+	set_reason_code_list(List,<<>>).
+set_reason_code_list([],Blob)->
+	Blob;
+set_reason_code_list([H|Tail],Blob)->
+	set_reason_code_list( Tail , << Blob/binary, H:8>>).
+
+get_string_list(Data)->
+	get_string_list(Data,[]).
+get_string_list(<<>>,List)->
+	lists:reverse(List);
+get_string_list(Data,List)->
+	{ String, Rest} = mqttlib:dec_string(Data),
+	get_string_list(Rest,[String|List]).
+
+set_string_list(List)->
+	set_string_list(List,<<>>).
+set_string_list([],Blob)->
+	Blob;
+set_string_list([H|T],Blob)->
+	set_string_list(T,<<Blob/binary,(mqttlib:enc_string(H))/binary>>).
+

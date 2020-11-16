@@ -22,10 +22,10 @@ load_cli()->
 
 app_settings()->
 	ok = load_cli(),
-	ok = inets:start(),
+	_ = inets:start(),
 	lager:start(),
-	ok = application:start(sasl),
-	ok = application:start(os_mon),
+	_ = application:start(sasl),
+	_ = application:start(os_mon),
 	disksup:set_check_interval(5),
 	disksup:set_almost_full_threshold(0.90),
 	_ = application:ensure_all_started(ssl),

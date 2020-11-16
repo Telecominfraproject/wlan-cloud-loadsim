@@ -9,7 +9,7 @@
 -module(mqtt_process).
 -author("stephb").
 
-%% -dialyzer(specdiffs).
+-dialyzer(specdiffs).
 
 -include("../include/common.hrl").
 -include("../include/mqtt_definitions.hrl").
@@ -85,15 +85,6 @@ answer_msg( #mqtt_publish_variable_header_v4{}=Msg, State )->
 			Stats1 = State#mqtt_processor_state.stats,
 			Stats2 = ?INCREMENT_STATS1(Stats1,msg_publish),
 			{ ok , State#mqtt_processor_state{stats = Stats2}};
-		2 ->
-			VariableHeader = #mqtt_pubrec_variable_header_v4{ packet_identifier = Msg#mqtt_publish_variable_header_v4.packet_identifier , reason_code = ?MQTT_RC_SUCCESS },
-			Response = #mqtt_msg{ packet_type = ?MQTT_PUBREC , variable_header = VariableHeader },
-			Blob = mqtt_message:encode(Response),
-			Result = (State#mqtt_processor_state.module):send(State#mqtt_processor_state.socket,Blob),
-			io:format("Sending PUBREC response(~p): ~p~n",[Result,Blob]),
-			Stats1 = State#mqtt_processor_state.stats,
-			Stats2 = ?INCREMENT_STATS2(Stats1,msg_publish,msg_pubrec),
-			{ok,State#mqtt_processor_state{ stats = Stats2} };
 		1 ->
 			VariableHeader = #mqtt_puback_variable_header_v4{ packet_identifier = Msg#mqtt_publish_variable_header_v4.packet_identifier , reason_code = ?MQTT_RC_SUCCESS },
 			Response = #mqtt_msg{ packet_type = ?MQTT_PUBACK , variable_header = VariableHeader },
@@ -102,6 +93,15 @@ answer_msg( #mqtt_publish_variable_header_v4{}=Msg, State )->
 			io:format("Sending PUBACK response(~p): ~p~n",[Result,Blob]),
 			Stats1 = State#mqtt_processor_state.stats,
 			Stats2 = ?INCREMENT_STATS2(Stats1,msg_publish,msg_puback),
+			{ok,State#mqtt_processor_state{ stats = Stats2} };
+		2 ->
+			VariableHeader = #mqtt_pubrec_variable_header_v4{ packet_identifier = Msg#mqtt_publish_variable_header_v4.packet_identifier , reason_code = ?MQTT_RC_SUCCESS },
+			Response = #mqtt_msg{ packet_type = ?MQTT_PUBREC , variable_header = VariableHeader },
+			Blob = mqtt_message:encode(Response),
+			Result = (State#mqtt_processor_state.module):send(State#mqtt_processor_state.socket,Blob),
+			io:format("Sending PUBREC response(~p): ~p~n",[Result,Blob]),
+			Stats1 = State#mqtt_processor_state.stats,
+			Stats2 = ?INCREMENT_STATS2(Stats1,msg_publish,msg_pubrec),
 			{ok,State#mqtt_processor_state{ stats = Stats2} }
 	end;
 

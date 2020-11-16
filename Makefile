@@ -8,7 +8,7 @@ ERLC_OPTS += -I deps/gpb/include
 ERLC_OPTS += +'{parse_transform, lager_transform}'
 ERLC_OPTS += -Ddebug
 
-PLT_APPS += ssl os_mon sasl crypto inets eunit
+PLT_APPS += ssl os_mon sasl crypto inets eunit syntax_tools public_key mnesia tftp
 
 dep_cowboy_commit = master
 dep_ranch_commit = master

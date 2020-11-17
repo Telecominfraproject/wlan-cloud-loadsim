@@ -13,7 +13,6 @@
 
 -include("../include/common.hrl").
 -include("../include/mqtt_definitions.hrl").
-
 -include("../include/inventory.hrl").
 
 %% API
@@ -123,6 +122,7 @@ start_link() ->
 	{ok, State :: #inventory_state{}} | {ok, State :: #inventory_state{}, timeout() | hibernate} |
 	{stop, Reason :: term()} | ignore).
 init([]) ->
+	startdb(),
 	process_flag(trap_exit, true),
 	InventoryDbDir = application:get_env(?OWLS_APP,inventory_db_dir,""),
 	ok = utils:make_dir(InventoryDbDir),
@@ -293,6 +293,7 @@ terminate(Reason, State = #inventory_state{}) ->
 	update_disk_db(State),
 	ok = dets:close(State#inventory_state.clients_tab),
 	ok = dets:close(State#inventory_state.servers_tab),
+	%% _ = mnesia:stop(),
 	?L_IA("Inventory exiting (~p).",[Reason]).
 
 %% @private
@@ -484,3 +485,20 @@ valid_password([H|T],Pos) when (((H>=$0) and (H=<$9)) or ((H>=$a) and (H=<$z)) o
 	valid_password(T,Pos+1);
 valid_password(_,_) ->
 	false.
+
+startdb()->
+	_ = case filelib:is_file(filename:join([code:priv_dir(?OWLS_APP),"mnesia","schema.DAT"])) of
+		true ->
+			mnesia:start();
+		false ->
+			ok=mnesia:create_schema([node()]),
+			mnesia:start(),
+			create_tables()
+	end,
+	ok.
+
+create_tables()->
+	{atomic,ok}=mnesia:create_table(cas,[{attributes,record_info(fields,ca_info)}]),
+	{atomic,ok}=mnesia:create_table(clients,[{attributes,record_info(fields,client_info)}]),
+	{atomic,ok}=mnesia:create_table(servers,[{attributes,record_info(fields,server_info)}]),
+	ok.

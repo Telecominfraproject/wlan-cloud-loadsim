@@ -29,9 +29,9 @@ load_cli()->
 	ok.
 
 app_settings()->
+	lager:start(),
 	ok = load_cli(),
 	_ = inets:start(),
-	lager:start(),
 	_ = application:start(sasl),
 	_ = application:start(os_mon),
 	disksup:set_check_interval(5),

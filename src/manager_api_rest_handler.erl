@@ -143,6 +143,13 @@ do( ?HTTP_GET ,Req,#request_state{resource = <<"cas">>,id=nothing}=State)->
 	JSON = restutils:create_paginated_return("CAs",SubList,PaginationInfo),
 	{JSON,restutils:add_CORS(Req),State};
 
+do( ?HTTP_GET , Req , #request_state{ resource = <<"nodes">> , id = nothing } = State ) ->
+	PaginationParameters = restutils:get_pagination_parameters(Req),
+	{ok,Nodes}=manager:connected_nodes(),
+	{ SubList, PaginationInfo }  = restutils:paginate(PaginationParameters,Nodes),
+	JSON = restutils:create_paginated_return( "Nodes" , SubList, PaginationInfo),
+	{JSON,restutils:add_CORS(Req),State};
+
 do( ?HTTP_HEAD , Req , State) ->
 	io:format("HEAD~n"),
 	{<<>>,Req,State}.

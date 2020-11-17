@@ -8,6 +8,8 @@
 %%%-------------------------------------------------------------------
 -author("stephb").
 
+-include_lib("stdlib/include/qlc.hrl").
+
 -type attribute_list() :: [{string(),string()}].
 -type record_index() :: { string() , string() }.
 
@@ -27,9 +29,11 @@
 	attributes = [] :: attribute_list()
 }).
 
+-type client_role() :: none | mqtt | opensync.
+
 -record( client_info, {
 	index = {} :: record_index(),    %% should be a tuple { CA, Name }, must be in position 1
-	ca = "" :: string(),
+	cap = [] :: [client_role()],
 	name = "" :: string(),
 	mac = "" :: string(),
 	description = "" :: string(),
@@ -37,15 +41,18 @@
 	firmware = "" :: string(),
 	vendor = "" :: string(),
 	device_model = "" :: string(),
-	key = "" :: string(),
-	cert = "" :: string(),
-	decrypt = "" :: string(),
-	csr = "" :: string(),
+	key = <<>> :: binary(),
+	cert = <<>> :: binary(),
+	decrypt = <<>> :: binary(),
+	csr = <<>> :: binary(),
 	attributes = [] :: attribute_list()
 }).
 
+-type service_type() :: none | mqtt_server | opensync_server .
+
 -record( server_info, {
 	index = {} :: record_index(),    %% should be a tuple { CA, Name }, must be in position 1
+	service = none :: service_type(),
 	ca  = "" :: string(),
 	name  = "" :: string(),
 	description  = "" :: string(),
@@ -53,10 +60,10 @@
 	version  = "" :: string(),
 	ports = "" :: string(),
 	addresses = "" :: list(string()),
-	key = "" :: string(),
-	cert = "" :: string(),
-	decrypt = "" :: string(),
-	csr = "" :: string(),
+	key = <<>> :: binary(),
+	cert = <<>> :: binary(),
+	decrypt = <<>> :: binary(),
+	csr = <<>> :: binary(),
 	attributes = [] :: attribute_list()
 }).
 
@@ -64,4 +71,4 @@
 -type client_info() :: #client_info{}.
 -type server_info() :: #server_info{}.
 
--export_type([client_info/0,server_info/0,ca_info/0,record_index/0,attribute_list/0]).
+-export_type([client_info/0,server_info/0,ca_info/0,record_index/0,attribute_list/0,client_role/0,service_type/0]).

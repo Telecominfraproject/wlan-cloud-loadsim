@@ -10,6 +10,7 @@
 -author("stephb").
 
 -include("../include/common.hrl").
+-include("../include/sim_commands.hrl").
 
 -compile({parse_transform, lager_transform}).
 -dialyzer(no_match).
@@ -17,7 +18,9 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0,creation_info/0,connect/1,disconnect/0,find_manager/2,connected/0]).
+-export([start_link/0,creation_info/0,connect/1,disconnect/0,find_manager/2,connected/0,
+	set_configuration/1,reset_configuration/1,set_operation_state/2,execute/1,set_client/2,
+	get_configuration/0,set_configuration/2,get_configuration/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -25,7 +28,16 @@
 
 -define(SERVER, ?MODULE).
 
--record(simnode_state, { node_finder, stats_updater, node_id, manager }).
+-record(simnode_state, {
+	node_finder = none :: timer:tref(),
+	stats_updater = none :: timer:tref(),
+	node_id = 0 :: integer(),
+	manager = undefined :: atom(),
+	sim_configuration = #{} :: #{ atom() => string()},
+	seq_commands = [] :: list( sim_operation() ),
+	par_commands = #{} :: #{ string() => sim_operation() },
+	executing = #{} ::  #{ string() => sim_operation_state() },
+	client_pids = #{} :: #{ string() => pid() }}).
 
 %%%===================================================================
 %%% API
@@ -38,14 +50,47 @@ creation_info() ->
 		type => worker,
 		modules => [?MODULE]} ].
 
+-spec connect(NodeName::atom())-> {ok, none | node()}.
 connect(NodeName) ->
 	gen_server:call(?SERVER,{connect,NodeName}).
 
+-spec disconnect() -> ok.
 disconnect() ->
 	gen_server:call(?SERVER,{disconnect,node()}).
 
+-spec connected()->{ok,none|node()}.
 connected()->
 	gen_server:call(?SERVER,connected).
+
+set_configuration(Configuration)->
+	gen_server:call(?SERVER,{set_configuration,Configuration}).
+
+get_configuration()->
+	gen_server:call(?SERVER,get_configuration).
+
+-spec set_configuration(Node::node(),Configuration::term())->ok.
+set_configuration(Node,Configuration)->
+	gen_server:call({?SERVER,Node},{set_configuration,Configuration}).
+
+-spec get_configuration(Node::node())->{ok,Configuration::term()}.
+get_configuration(Node)->
+	gen_server:call({?SERVER,Node},get_configuration).
+
+reset_configuration(State)->
+	gen_server:call(?SERVER,{reset_configuration,State}).
+
+-spec execute( sim_operation() | [sim_operation()] ) -> ok | { error , Reason::term }.
+execute(Command) when is_record(Command,sim_operation)->
+	gen_server:call(?SERVER,{execute,[Command]});
+execute(Commands) when is_list(Commands)->
+	gen_server:call(?SERVER,{execute,Commands}).
+
+set_operation_state(Operation,NewState)->
+	gen_server:cast(?SERVER,{set_state,Operation,NewState}).
+
+-spec set_client( Client::string(), ClientPid:: none |  pid())->ok.
+set_client(Client,Pid)->
+	gen_server:cast(?SERVER,{set_client_pid,Client,Pid}).
 
 %% @doc Spawns the server and registers the local name (unique)
 -spec(start_link() ->
@@ -82,10 +127,33 @@ handle_call({disconnect,_},_From,State=#simnode_state{})->
 	manager:disconnect(),
 	{ reply, ok, State#simnode_state{ manager = none }};
 handle_call({connect,NodeName}, _From, State = #simnode_state{}) ->
-	NewState = try_connecting(NodeName,State),
-	{ reply, ok, NewState };
+	NewState = case State#simnode_state.manager of
+		none ->
+			try_connecting(NodeName,State);
+	  _ ->
+		  State
+	end,
+	{ reply, {ok,NewState#simnode_state.manager}, NewState };
 handle_call(connected, _From, State = #simnode_state{}) ->
 	{ reply, { ok, State#simnode_state.manager } , State };
+handle_call({set_configuration,Configuration}, _From, State = #simnode_state{}) ->
+	{ reply, ok , State#simnode_state{ sim_configuration = Configuration } };
+handle_call(get_configuration, _From, State = #simnode_state{}) ->
+	{ reply, {ok , State#simnode_state.sim_configuration} ,State };
+handle_call({reset_configuration,_NewAttributes}, _From, State = #simnode_state{}) ->
+	{ reply, ok , State };
+handle_call({execute,Commands}, _From, State = #simnode_state{}) ->
+	{NewSeq,NewPar,Rejected} = lists:foldl(fun(Element,{Seqs,Pars,Rejected}) ->
+													case Element#sim_operation.type of
+														parallel->
+															{ Seqs, maps:put(Element#sim_operation.uuid,Element,Pars),Rejected };
+														sequential ->
+															{ Seqs ++ [ Element ], Pars, Rejected};
+														_ ->
+															{ Seqs , Pars, Rejected ++ [Element]}
+													end
+												end,{State#simnode_state.seq_commands,State#simnode_state.par_commands,[]},Commands),
+	{ reply, { ok, Rejected } , State#simnode_state{ seq_commands = NewSeq, par_commands = NewPar } };
 handle_call(_Request, _From, State = #simnode_state{}) ->
 	{reply, ok, State}.
 
@@ -97,7 +165,16 @@ handle_call(_Request, _From, State = #simnode_state{}) ->
 	{stop, Reason :: term(), NewState :: #simnode_state{}}).
 handle_cast( {manager_found,NodeName}, State = #simnode_state{}) ->
 	NewState=try_connecting(NodeName,State),
-	{noreply,NewState};
+	{noreply, NewState};
+handle_cast({set_client_pid,Client,none}, State = #simnode_state{}) ->
+	NewPids = maps:remove(Client,State#simnode_state.client_pids),
+	{noreply, State#simnode_state{ client_pids = NewPids }};
+handle_cast({set_client_pid,Client,Pid}, State = #simnode_state{}) when is_pid(Pid)->
+	NewPids = maps:put(Client,Pid,State#simnode_state.client_pids),
+	{noreply, State#simnode_state{ client_pids = NewPids }};
+handle_cast({set_state,Operation,NewState}, State = #simnode_state{}) ->
+	NewOpStates = maps:put( Operation , NewState, State#simnode_state.executing ),
+	{noreply, State#simnode_state{ executing = NewOpStates}};
 handle_cast(_Request, State = #simnode_state{}) ->
 	{noreply, State}.
 

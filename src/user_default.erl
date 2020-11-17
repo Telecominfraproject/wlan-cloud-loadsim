@@ -56,10 +56,14 @@ logout()->
 connected()->
 	simnode:connected().
 
--spec connect(NodeName::string()) -> ok | { error , Reason::atom() }.
+-spec connect(NodeName::string()) -> { ok , none | node() }.
 connect(NodeName) ->
 	Node = list_to_atom(NodeName),
 	simnode:connect(Node).
+
+-spec configuration() -> { ok , Configuration::term() }.
+configuration()->
+	simnode:get_configuration().
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -81,4 +85,15 @@ refresh_ouis()->
 -spec connected_nodes() -> {ok,[node()]}.
 connected_nodes()->
 	manager:connected_nodes().
+
+-spec set_node_configuration( Node::node() , Configuration::term() ) -> ok.
+set_node_configuration( Node, Configuration ) ->
+	simnode:set_configuration(Node,Configuration).
+
+-spec get_node_configuration( Node::node() ) -> { ok, Configuration::term() }.
+get_node_configuration(Node) ->
+	simnode:get_configuration(Node).
+
+
+
 

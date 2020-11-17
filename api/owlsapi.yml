@@ -14,7 +14,7 @@ info:
     url: https://www.arilia.com/owlsapisupport
 
 servers:
-  - url: 'https://renegademac.local:9090/api/v1'
+  - url: 'http://renegademac.arilia.com:9090/api/v1'
   - url: 'http://localhost:9090/api/v1'
 
 security: 
@@ -26,7 +26,8 @@ paths:
       tags: [ OUIs ]
       summary: Get the list of all available OUIs as known by the system.
       operationId: getOUIs
-      parameters: 
+      description: test
+      parameters:
         - in: query
           description: Pagination start (starts at 1. If not specified, 1 is assumed)
           name: offset
@@ -81,7 +82,39 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         404:
           $ref: '#/components/responses/NotFound'
-
+          
+  /nodes:
+    get:
+      tags: [Nodes]
+      summary: Retrieve the list of nodes available for the simulation.
+      operationId: getNodeList
+      parameters:
+        - in: query
+          description: Pagination start (starts at 1. If not specified, 1 is assumed)
+          name: offset
+          schema:
+            type: integer
+          required: false
+        - in: query
+          description: Maximum number of entries to return (if absent, no limit is assumed) 
+          name: limit
+          schema:
+            type: integer
+          required: false
+        - in: query
+          description: Filter the results
+          name: filter
+          schema:
+            type: string
+          required: false      
+      responses:
+        200:
+          description: The list of Nodes Currently connected.
+          content: 
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeList'
+                
   /makers:
     get:
       tags: [ Manufacturers ]
@@ -682,6 +715,17 @@ components:
           $ref: '#/components/schemas/OUIList'
         Meta:
           $ref: '#/components/schemas/PaginationInfo'
-        
+          
+    NodeList:
+      description: List of nodes.
+      readOnly: true
+      properties:
+        Nodes:
+          description: Node list
+          type: array
+          items:
+            type: string      
+        Meta:
+          $ref: '#/components/schemas/PaginationInfo'        
               
 

@@ -492,7 +492,7 @@ startdb()->
 			mnesia:start();
 		false ->
 			ok=mnesia:create_schema([node()]),
-			mnesia:start(),
+			_ = mnesia:start(),
 			create_tables()
 	end,
 	ok.

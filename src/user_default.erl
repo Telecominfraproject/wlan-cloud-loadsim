@@ -56,7 +56,7 @@ logout()->
 connected()->
 	simnode:connected().
 
--spec connect(NodeName::string()) -> ok | { error , Reason::atom() }.
+-spec connect(NodeName::string()) -> { ok , none | node() }.
 connect(NodeName) ->
 	Node = list_to_atom(NodeName),
 	simnode:connect(Node).

@@ -48,7 +48,7 @@
 	attributes = [] :: attribute_list()
 }).
 
--type service_type() :: none | mqtt | opensync .
+-type service_type() :: none | mqtt_server | opensync_server .
 
 -record( server_info, {
 	index = {} :: record_index(),    %% should be a tuple { CA, Name }, must be in position 1
@@ -71,4 +71,4 @@
 -type client_info() :: #client_info{}.
 -type server_info() :: #server_info{}.
 
--export_type([client_info/0,server_info/0,ca_info/0,record_index/0,attribute_list/0,client_role/0]).
+-export_type([client_info/0,server_info/0,ca_info/0,record_index/0,attribute_list/0,client_role/0,service_type/0]).

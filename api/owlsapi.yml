@@ -26,7 +26,8 @@ paths:
       tags: [ OUIs ]
       summary: Get the list of all available OUIs as known by the system.
       operationId: getOUIs
-      parameters: 
+      description: test
+      parameters:
         - in: query
           description: Pagination start (starts at 1. If not specified, 1 is assumed)
           name: offset

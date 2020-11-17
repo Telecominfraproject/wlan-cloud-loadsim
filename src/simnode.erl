@@ -20,7 +20,7 @@
 %% API
 -export([start_link/0,creation_info/0,connect/1,disconnect/0,find_manager/2,connected/0,
 	set_configuration/1,reset_configuration/1,set_operation_state/2,execute/1,set_client/2,
-	get_configuration/0]).
+	get_configuration/0,set_configuration/2,get_configuration/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -67,6 +67,14 @@ set_configuration(Configuration)->
 
 get_configuration()->
 	gen_server:call(?SERVER,get_configuration).
+
+-spec set_configuration(Node::node(),Configuration::term())->ok.
+set_configuration(Node,Configuration)->
+	gen_server:call({?SERVER,Node},{set_configuration,Configuration}).
+
+-spec get_configuration(Node::node())->{ok,Configuration::term()}.
+get_configuration(Node)->
+	gen_server:call({?SERVER,Node},get_configuration).
 
 reset_configuration(State)->
 	gen_server:call(?SERVER,{reset_configuration,State}).

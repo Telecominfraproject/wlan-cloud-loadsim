@@ -124,6 +124,5 @@ prepare_state (Node,Spec) ->
 		sim_manager = proplists:get_value(manager,Spec,Node),
 		serial = proplists:get_value(ap_serial,Spec,"1P000000000"),
 		type = proplists:get_value(ap_type,Spec,<<"EA8300">>),
-		timer = owls_timers:new()
+		timer = owls_timers:new(millisecond)
 	}.
-

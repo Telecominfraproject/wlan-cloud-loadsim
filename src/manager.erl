@@ -14,7 +14,7 @@
 -include("../include/common.hrl").
 
 %% API
--export([start_link/0,creation_info/0,connect/0,disconnect/0,send_stats_report/0,connected_nodes/0]).
+-export([start_link/0,creation_info/0,connect/0,disconnect/0,send_os_stats_report/0,connected_nodes/0]).
 -export([log_info/1,log_info/2,log_error/1,log_error/2]).
 
 %% gen_server callbacks
@@ -45,8 +45,8 @@ disconnect()->
 connected_nodes()->
 	gen_server:call({global,?SERVER},connected_nodes).
 
-send_stats_report()->
-	gen_server:cast({global,?SERVER},{stats_report,node(),create_stats_report()}).
+send_os_stats_report()->
+	gen_server:cast({global,?SERVER},{stats_report,node(),create_os_stats_report()}).
 
 log_info(Message)->
 	gen_server:cast({global,?SERVER},{log_info,node(),Message}).
@@ -173,7 +173,7 @@ code_change(_OldVsn, State = #manager_state{}, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-create_stats_report() ->
+create_os_stats_report() ->
 	CpuSup = #{ avg1 => cpu_sup:avg1() , avg5 => cpu_sup:avg5(), avg15 => cpu_sup:avg15(),
 		nprocs => cpu_sup:nprocs(), util => cpu_sup:util(), detailed => cpu_sup:util([detailed]), per_cpu => cpu_sup:util([per_cpu])},
 	DiskSup = #{ disk_data => disksup:get_disk_data(), check_interval => disksup:get_check_interval(),

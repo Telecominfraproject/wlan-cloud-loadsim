@@ -76,7 +76,9 @@ configuration()->
 -spec manager_help() -> ok.
 manager_help()->
 	io:format("refresh_ouis().~n"),
-	io:format("connected_nodes().~n").
+	io:format("connected_nodes().~n"),
+	io:format("get_node_configuration( Node ).~n"),
+	io:format("set_node_configuration( Node, Configuration ).~n").
 
 -spec refresh_ouis()-> ok.
 refresh_ouis()->

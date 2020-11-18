@@ -15,7 +15,7 @@
 	uuid = "" :: string(),
 	type = sequential :: sim_operation_type(),
 	command = none :: none | sim_command(),
-	clients_types = all :: all | inventory:client_role() | inventory:service_type(),
+	clients_types = all :: all | inventory:client_role() | inventory:service_role(),
 	clients = all :: all | [string()],
 	all_commands = [] :: [pid()],
 	call_back = none :: mfa() }).

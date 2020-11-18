@@ -10,6 +10,7 @@
 -author("stephb").
 
 -include("../include/common.hrl").
+-include("../include/inventory.hrl").
 -include("../include/sim_commands.hrl").
 
 -compile({parse_transform, lager_transform}).
@@ -20,7 +21,8 @@
 %% API
 -export([start_link/0,creation_info/0,connect/1,disconnect/0,find_manager/2,connected/0,
 	set_configuration/1,reset_configuration/1,set_operation_state/2,execute/1,set_client/2,
-	get_configuration/0,set_configuration/2,get_configuration/1]).
+	get_configuration/0,set_configuration/2,get_configuration/1,register_handler/2,
+	update_stats/3]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -30,7 +32,11 @@
 
 -record(simnode_state, {
 	node_finder = none :: timer:tref(),
-	stats_updater = none :: timer:tref(),
+	os_stats_updater = none :: timer:tref(),
+	mqtt_client_handler,
+	ovsdb_client_handler,
+	mqtt_server_handler,
+	ovsdb_server_handler,
 	node_id = 0 :: integer(),
 	manager = undefined :: atom(),
 	sim_configuration = #{} :: #{ atom() => string()},
@@ -85,6 +91,10 @@ execute(Command) when is_record(Command,sim_operation)->
 execute(Commands) when is_list(Commands)->
 	gen_server:call(?SERVER,{execute,Commands}).
 
+-spec register_handler( ClientType::any_role() , Module::module() ) -> ok.
+register_handler( ClientType, Module )->
+	gen_server:call(?SERVER,{register_handle,ClientType,Module}).
+
 set_operation_state(Operation,NewState)->
 	gen_server:cast(?SERVER,{set_state,Operation,NewState}).
 
@@ -98,6 +108,10 @@ set_client(Client,Pid)->
 start_link() ->
 	gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
+-spec update_stats( Client::any_role(), Role::any_role(), Stats::#{})-> ok.
+update_stats(Client,Role,Stats)->
+	gen_server:cast(?SERVER,{update_stats,Client,Role,Stats}).
+
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
@@ -110,8 +124,8 @@ start_link() ->
 init([]) ->
 	NodeId = application:get_env(?OWLS_APP,node_id,1),
 	{ok,NodeFinder} = timer:apply_interval(20000,?MODULE,find_manager,[self(),NodeId]),
-	{ok,StatsUpdater} = timer:apply_interval(5000,manager,send_stats_report,[]),
-	{ok,#simnode_state{ node_finder = NodeFinder, stats_updater = StatsUpdater , node_id = NodeId, manager = none }}.
+	{ok,StatsUpdater} = timer:apply_interval(5000,manager,send_os_stats_report,[]),
+	{ok,#simnode_state{ node_finder = NodeFinder, os_stats_updater = StatsUpdater , node_id = NodeId, manager = none }}.
 
 %% @private
 %% @doc Handling call messages
@@ -140,6 +154,14 @@ handle_call({set_configuration,Configuration}, _From, State = #simnode_state{}) 
 	{ reply, ok , State#simnode_state{ sim_configuration = Configuration } };
 handle_call(get_configuration, _From, State = #simnode_state{}) ->
 	{ reply, {ok , State#simnode_state.sim_configuration} ,State };
+handle_call({register_handle,ClientType,Module}, _From, State = #simnode_state{}) ->
+	NewState = case ClientType of
+		           mqtt_client -> State#simnode_state{ mqtt_client_handler = Module };
+							 ovsdb_client -> State#simnode_state{ ovsdb_client_handler = Module };
+							 mqtt_server -> State#simnode_state{ mqtt_server_handler = Module };
+							 ovsdb_server -> State#simnode_state{ ovsdb_server_handler = Module }
+	end,
+	{ reply, ok , NewState };
 handle_call({reset_configuration,_NewAttributes}, _From, State = #simnode_state{}) ->
 	{ reply, ok , State };
 handle_call({execute,Commands}, _From, State = #simnode_state{}) ->
@@ -175,6 +197,8 @@ handle_cast({set_client_pid,Client,Pid}, State = #simnode_state{}) when is_pid(P
 handle_cast({set_state,Operation,NewState}, State = #simnode_state{}) ->
 	NewOpStates = maps:put( Operation , NewState, State#simnode_state.executing ),
 	{noreply, State#simnode_state{ executing = NewOpStates}};
+handle_cast({update_stats,_Client,_Role,_Stats}, State = #simnode_state{}) ->
+	{noreply,State};
 handle_cast(_Request, State = #simnode_state{}) ->
 	{noreply, State}.
 
@@ -199,7 +223,7 @@ handle_info(_Info, State = #simnode_state{}) ->
 -spec(terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
 		State :: #simnode_state{}) -> term()).
 terminate(_Reason, State = #simnode_state{}) ->
-	_=timer:cancel(State#simnode_state.stats_updater),
+	_=timer:cancel(State#simnode_state.os_stats_updater),
 	_=timer:cancel(State#simnode_state.node_finder),
 	ok.
 

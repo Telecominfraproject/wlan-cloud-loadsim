@@ -20,7 +20,7 @@
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
          code_change/3]).
--export([set_configuration/1,start/1,stop/1,cancel/1,pause/1]).
+-export([set_configuration/1,start/1,stop/1,cancel/1,pause/1,resume/1]).
 
 -define(SERVER, ?MODULE).
 
@@ -35,6 +35,10 @@ set_configuration( _Configuration ) ->
 
 -spec pause( all | [UUID::string()]) -> ok | { error, Reason::term() }.
 pause( _UIDS ) ->
+	ok.
+
+-spec resume( all | [UUID::string()]) -> ok | { error, Reason::term() }.
+resume( _UIDS ) ->
 	ok.
 
 -spec start( all | [UUID::string()]) -> ok | { error, Reason::term() }.

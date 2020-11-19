@@ -14,6 +14,7 @@
 
 -callback set_configuration( Configuration :: #{} ) -> ok | { error, Reason::term() }.
 -callback pause( all | [UUID::string()]) -> ok | { error, Reason::term() }.
+-callback resume( all | [UUID::string()]) -> ok | { error, Reason::term() }.
 -callback start( all | [UUID::string()]) -> ok | { error, Reason::term() }.
 -callback stop( all | [UUID::string()]) -> ok | { error, Reason::term() }.
 -callback cancel( all | [UUID::string()]) -> ok | { error, Reason::term() }.

@@ -24,6 +24,7 @@
 	config_file_name = "" :: string(),
 	cert_data = <<>> :: binary(),
 	key_data = <<>> :: binary(),
+	decrypt_data = <<>> :: binary(),
 	config_data = <<>> :: binary(),
 	password = "" :: string(),
 	attributes = [] :: attribute_list()
@@ -36,6 +37,7 @@
 	cap = [] :: [client_role()],
 	name = "" :: string(),
 	mac = "" :: string(),
+	serial = "" :: string(),
 	description = "" :: string(),
 	type = "" :: string(),
 	firmware = "" :: string(),

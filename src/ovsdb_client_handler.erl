@@ -10,12 +10,13 @@
 -author("helge").
 
 -behaviour(gen_server).
+-behaviour(gen_sim_client).
 
 -define(SERVER, ?MODULE).
 
 %% API
 -export([start_link/0]).
--export([set_configuration/1, start/0, stop/0, pause/0, resume/0, cancel/0, report/0]).
+-export([set_configuration/1, start/1, stop/1, pause/1, resume/1, cancel/1, report/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_cast/2, handle_call/3, handle_info/2, terminate/2, code_change/3]).
@@ -26,7 +27,7 @@
 
 -record(hdl_state, {
 	clients = [] :: [{Id::term(),pid()}],
-	config :: term()
+	config = #{} :: #{}
 }).
 
 
@@ -45,8 +46,8 @@ start_link () ->
 
 
 
--spec set_configuration (Cfg) -> {ok, set} | {error, Reason} when
-		Cfg :: term(),
+-spec set_configuration (Cfg) -> ok | {error, Reason} when
+		Cfg :: #{},
 		Reason :: term().
 
 set_configuration (Cfg) ->
@@ -54,42 +55,48 @@ set_configuration (Cfg) ->
 
 
 
--spec start () -> {ok, started} | {timeout, Reason} | {error, Reason} when
+-spec start (What) -> ok | {error, Reason} when
+		What :: all | [UUID::string()],
 		Reason :: term().
 
-start () ->
-	gen_server:call(?SERVER,start_sim).
+start (What) ->
+	gen_server:call(?SERVER,{start_sim, What}).
 
 
 
--spec stop () -> ok.
-
-stop () ->
-	gen_server:cast(?SERVER,stop_sim).
-
-
-
--spec pause () -> {ok, paused} | {timeout, Reason} | {error, Reason} when
+-spec stop (What) -> ok | {error, Reason} when 
+		What :: all | [UUID::string()],
 		Reason :: term().
 
-pause () ->
-	gen_server:call(?SERVER,pause_sim).
+stop (What) ->
+	gen_server:call(?SERVER,{stop_sim, What}).
 
 
 
--spec resume () -> {ok, resumed} | {timeout, Reason} | {error, Reason} when
+-spec pause (What) -> ok | {error, Reason} when 
+		What :: all | [UUID::string()],
 		Reason :: term().
 
-resume () ->
-	gen_server:call(?SERVER,resume_sim).
+pause (What) ->
+	gen_server:call(?SERVER,{pause_sim, What}).
 
 
 
--spec cancel () -> {ok, cancelled} | {timeout, Reason} | {error, Reason} when
+-spec resume (What) -> ok | {error, Reason} when 
+		What :: all | [UUID::string()],
 		Reason :: term().
 
-cancel () ->
-	gen_server:call(?SERVER,cancel_sim).
+resume (What) ->
+	gen_server:call(?SERVER,{resume_sim, What}).
+
+
+
+-spec cancel (What) -> ok | {error, Reason} when 
+		What :: all | [UUID::string()],
+		Reason :: term().
+
+cancel (What) ->
+	gen_server:call(?SERVER,{cancel_sim, What}).
 
 
 

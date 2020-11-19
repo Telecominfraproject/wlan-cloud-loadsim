@@ -25,8 +25,13 @@
 
 %% data structures
 
+-type client_ref() :: {UUID::string(), available | dead | pid()}.
+
 -record(hdl_state, {
-	clients = [] :: [{Id::term(),pid()}],
+	clients_avail = [] :: [client_ref()],
+	clients_started = [] :: [client_ref()],
+	clients_running = [] :: [client_ref()],
+	clients_paused = [] :: [client_ref()],
 	config = #{} :: #{}
 }).
 
@@ -118,6 +123,7 @@ report () ->
 		State :: #hdl_state{}.
 
 init (_) ->
+	process_flag(trap_exit, true),
 	{ok, #hdl_state{}}.
 
 
@@ -142,6 +148,18 @@ handle_cast (_,State) ->
 		Reply :: term(),
 		Reason :: term(),
 		NewState :: #hdl_state{}.
+
+handle_call ({set_config, Cfg},_,State) ->
+	NewState = apply_config(State,Cfg),
+	{reply, ok, NewState};
+	
+handle_call ({start_sim, How},_,State) ->
+	case start_simulation(State,How) of
+		{ok, NewState} ->
+			{reply, ok, NewState};
+		Error ->
+			{reply, Error, State}
+	end;
 
 handle_call (_, _, State) ->
 	{reply, invalid, State}.
@@ -186,3 +204,32 @@ code_change (_,OldState,_) ->
 %%% internal functions
 %%%============================================================================
 
+%--------apply_config/2------------------translates configuration into state
+
+-spec apply_config (State, Cfg) -> NewState when
+		State :: #hdl_state{},
+		Cfg :: #{},
+		NewState :: #hdl_state{}.
+
+apply_config (State, _Cfg) ->
+	State#hdl_state{clients_avail=[{"a68d41fa-dd12-4fb7-bc44-e834667280b4",available}]}.
+
+
+
+
+%--------start_simulation/2--------------start a simulation of designated clients
+
+-spec start_simulation (State, How) -> {ok, NewState} | {error, Reason} when
+		State :: #hdl_state{},
+		How :: all | [UUID::string()],
+		NewState :: #hdl_state{},
+		Reason :: string().
+
+start_simulation (#hdl_state{clients_avail=[]}, _) ->
+	{error, "no clients available"};
+
+start_simulation (#hdl_state{clients_avail=Cl} = State, all) ->
+	start_simulation(State,Cl);
+
+start_simulation (State, _Clients) ->
+	{ok, State}.

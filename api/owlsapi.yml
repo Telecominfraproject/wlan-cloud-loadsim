@@ -593,6 +593,10 @@ components:
           description: The certificate for the CA
           type: string
           format: byte
+        Decrypt:
+          description: The certificate decryption key
+          type: string
+          format: byte
         Password:
           description: The password for the CA information
           type: string
@@ -621,6 +625,12 @@ components:
         Name:
           description: Device identifier
           type: string
+        MAC:
+          description: MAC Address
+          type: string
+        Serial:
+          description: Device serial identifier
+          type: string
         Description:
           description: Device description if available
           type: string
@@ -645,6 +655,10 @@ components:
           type: string
           format: byte
         Decrypt:
+          description: Decrypt key
+          type: string
+          format: byte
+        CSR:
           description: Decrypt key
           type: string
           format: byte

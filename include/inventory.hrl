@@ -14,6 +14,7 @@
 -type record_index() :: { string() , string() }.
 
 -record(ca_info,{
+	uuid = "" :: string(),
 	name = "" :: string(),   %% You must leave the NAME field first - do not move it...
 	description = "" :: string(),
 	dir_name = "" :: string(),
@@ -33,9 +34,10 @@
 -type client_role() :: none | mqtt_client | ovsdb_client.
 
 -record( client_info, {
+	uuid = "" :: string(),
 	index = {} :: record_index(),    %% should be a tuple { CA, Name }, must be in position 1
-	cap = [] :: [client_role()],
 	name = "" :: string(),
+	cap = [] :: [client_role()],
 	mac = "" :: string(),
 	serial = "" :: string(),
 	description = "" :: string(),
@@ -53,10 +55,11 @@
 -type service_role() :: none | mqtt_server | ovsdb_server .
 
 -record( server_info, {
+	uuid = "" :: string(),
 	index = {} :: record_index(),    %% should be a tuple { CA, Name }, must be in position 1
+	name  = "" :: string(),
 	service = none :: service_role(),
 	ca  = "" :: string(),
-	name  = "" :: string(),
 	description  = "" :: string(),
 	type  = "" :: string(),
 	version  = "" :: string(),

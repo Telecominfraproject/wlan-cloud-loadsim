@@ -96,6 +96,8 @@ handle_call({connect,NodeName}, _From, State = #manager_state{}) ->
 			NewNodes = sets:add_element(NodeName,State#manager_state.nodes),
 			erlang:monitor_node(NodeName,true),
 			?L_IA("Node ~p is connecting.",[NodeName]),
+			Result = rpc:call(NodeName,utils,get_addr2,[]),
+			io:format(">>Node ~p at address ~p~n",[NodeName,Result]),
 			{reply, ok, State#manager_state{ nodes = NewNodes }}
 	end;
 handle_call({disconnect,NodeName}, _From, State = #manager_state{}) ->

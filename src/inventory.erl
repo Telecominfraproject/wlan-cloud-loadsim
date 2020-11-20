@@ -498,7 +498,7 @@ startdb()->
 	ok.
 
 create_tables()->
-	{atomic,ok}=mnesia:create_table(cas,[{attributes,record_info(fields,ca_info)}]),
-	{atomic,ok}=mnesia:create_table(clients,[{attributes,record_info(fields,client_info)}]),
-	{atomic,ok}=mnesia:create_table(servers,[{attributes,record_info(fields,server_info)}]),
+	{atomic,ok} = mnesia:create_table(cas,    [{record_name,ca_info},    {index,[name]},  {attributes,record_info(fields,ca_info)}]),
+	{atomic,ok} = mnesia:create_table(clients,[{record_name,client_info},{index,[index,serial]},{attributes,record_info(fields,client_info)}]),
+	{atomic,ok} = mnesia:create_table(servers,[{record_name,server_info},{index,[index,name]},  {attributes,record_info(fields,server_info)}]),
 	ok.

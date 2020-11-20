@@ -37,7 +37,7 @@
 
 new (R) ->
 	Ups = erlang:convert_time_unit(1, second, native),
-	#tms{resolution=R,stamps=[{"start",os:system_time()}],units_per_sec=Ups}.
+	#tms{resolution=R,stamps=[{"*start*",os:system_time()}],units_per_sec=Ups}.
 
 
 
@@ -53,28 +53,49 @@ mark (Name,Timer) ->
 
 
 %--------stamp/2-----------------------get the value of a specific stamp in units of resolution
--spec stamp (Name, Timer) -> Stamp when
+-spec stamp (Name, Timer) -> invalid | Stamp when
 		Name :: string(),
 		Timer :: tms(),
 		Stamp :: integer().
 
 stamp (Name,Timer) ->
-	{ok, Ts, _} = get_stamp(Name,Timer#tms.stamps),
-	erlang:convert_time_unit(Ts, native, Timer#tms.resolution).
+	case get_stamp(Name,Timer#tms.stamps) of
+		{ok, Ts, _} ->
+			erlang:convert_time_unit(Ts, native, Timer#tms.resolution);
+		_ ->
+			invalid
+	end.
 
 
 
 %--------delta/3-------------------------gets time difference between two stamps in units of resolution
 -spec delta (Earlier, Later, Timer) -> Delta when
-		Earlier :: string(),		% Earlier must have been added before Later or in other words
-		Later :: string(),			% Later must have occured after Earlier in the timeline 
+		Earlier :: default | string(),		% Earlier must have been added before Later (default means start) or in other words 
+		Later :: default |string(),			% Later must have occured after Earlier in the timeline (default means now)
 		Timer :: tms(),
-		Delta :: integer().
+		Delta :: invalid | integer().
+
+delta (default,L,T) ->
+	delta("*start*",L,T);
+
+delta (E,default,T) ->
+	delta(E,"now",T);
+
+delta (default,default,T) ->
+	delta("start","now",T);
 
 delta (E,L,T) ->
-	{ok, T2, R} = get_stamp(L,T#tms.stamps),
-	{ok, T1, _} = get_stamp(E,R),
-	erlang:convert_time_unit(T2 - T1, native, T#tms.resolution).
+	case get_stamp(L,T#tms.stamps) of
+		{ok, T2, R} ->
+			case get_stamp(E,R) of
+				{ok, T1, _} ->
+					erlang:convert_time_unit(T2 - T1, native, T#tms.resolution);
+				_ ->
+					invalid
+			end;
+		_ ->
+			invalid
+	end.
 
 
 
@@ -153,6 +174,9 @@ fmt_duration (Delta,Timer) ->
 
 get_stamp (_,[]) ->
 	invalid;
+
+get_stamp ("now",T) ->
+	{ok, os:system_time(), T};
 
 get_stamp (Stamp,[{Stamp,Value}|T]) ->
 	{ok, Value, T};

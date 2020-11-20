@@ -12,7 +12,10 @@
 -behaviour(gen_server).
 -behaviour(gen_sim_client).
 
+-include("../include/common.hrl").
+
 -define(SERVER, ?MODULE).
+-define(MAX_STARTUP_TIME,10000).
 
 %% API
 -export([start_link/0]).
@@ -25,14 +28,22 @@
 
 %% data structures
 
--type client_ref() :: {UUID::string(), available | dead | pid()}.
+-type client_states() :: #{UUID::string() := available | ovsdb_ap:ap_status()}.
+-type client_refs() :: #{pid() := UUID::string()}.
 
--record(hdl_state, {
-	clients_avail = [] :: [client_ref()],
-	clients_started = [] :: [client_ref()],
-	clients_running = [] :: [client_ref()],
-	clients_paused = [] :: [client_ref()],
-	config = #{} :: #{}
+-record (command,{
+	cmd :: start | stop | pause | cancel,
+	refs :: [UUID::string()]
+}).
+
+-type command() :: #command{}.
+
+-record (hdl_state, {
+	client_states = #{} :: client_states(),
+	client_pids = #{} :: client_refs(),
+	cmd_queue = [] :: [command()],
+	config = #{} :: #{},
+	timer :: owls_timers:tms()
 }).
 
 
@@ -65,7 +76,7 @@ set_configuration (Cfg) ->
 		Reason :: term().
 
 start (What) ->
-	gen_server:call(?SERVER,{start_sim, What}).
+	gen_server:call(?SERVER,{cmd_start, What}).
 
 
 
@@ -124,7 +135,7 @@ report () ->
 
 init (_) ->
 	process_flag(trap_exit, true),
-	{ok, #hdl_state{}}.
+	{ok, #hdl_state{timer=owls_timers:new(millisecond)}}.
 
 
 
@@ -134,6 +145,9 @@ init (_) ->
 		State :: #hdl_state{},
 		NewState :: #hdl_state{},
 		Reason :: term().
+
+handle_cast (execute, State) ->
+	{noreply, execute_cmd(State)};
 
 handle_cast (_,State) ->
 	{noreply, State}.
@@ -150,16 +164,10 @@ handle_cast (_,State) ->
 		NewState :: #hdl_state{}.
 
 handle_call ({set_config, Cfg},_,State) ->
-	NewState = apply_config(State,Cfg),
-	{reply, ok, NewState};
+	{reply, ok, apply_config(State,Cfg)};
 	
-handle_call ({start_sim, How},_,State) ->
-	case start_simulation(State,How) of
-		{ok, NewState} ->
-			{reply, ok, NewState};
-		Error ->
-			{reply, Error, State}
-	end;
+handle_call ({cmd_start, How},_,State) ->
+	{reply, ok, cmd_startup_sim(State,How)};
 
 handle_call (_, _, State) ->
 	{reply, invalid, State}.
@@ -212,24 +220,144 @@ code_change (_,OldState,_) ->
 		NewState :: #hdl_state{}.
 
 apply_config (State, _Cfg) ->
-	State#hdl_state{clients_avail=[{"a68d41fa-dd12-4fb7-bc44-e834667280b4",available}]}.
+	State#hdl_state{client_states=#{"a68d41fa-dd12-4fb7-bc44-e834667280b4" => available}}.
 
 
 
 
-%--------start_simulation/2--------------start a simulation of designated clients
+%--------get_clients_in_state/3----------filter all clients with state
 
--spec start_simulation (State, How) -> {ok, NewState} | {error, Reason} when
+-spec get_clients_in_state (State, Clients, Candidates) -> Available when
+		State :: available | ovsdb_ap:ap_status(),
+		Clients :: client_states(),
+		Candidates :: all | [UUID::string()],
+		Available :: [UUID::string()].
+
+get_clients_in_state (State, Clients, all) ->
+	[K || {K,V} <- maps:to_list(Clients), (V=:=State)];
+
+get_clients_in_state (State, Clients, Candidates) ->
+	[K || {K,V} <- maps:to_list(Clients), (V=:=State) and lists:member(K,Candidates)].
+
+
+
+%%-----------------------------------------------------------------------------
+%% command queue handling
+
+
+%--------execute_cmd/1-------------------executes the first command in queue
+
+-spec execute_cmd (State) -> NewState when
+		State :: #hdl_state{},
+		NewState :: #hdl_state{}.
+
+execute_cmd (#hdl_state{cmd_queue=[]}=State) ->
+	State;
+
+execute_cmd (#hdl_state{cmd_queue=Q}=State) ->
+	[Cmd|RemCmds] = lists:reverse(Q),
+	AltState = State#hdl_state{cmd_queue=lists:reverse(RemCmds)},
+	case Cmd of	
+		#command{cmd=start, refs=R} ->
+			cmd_start_clients(R, AltState);
+
+		#command{cmd=Ukn} ->
+			?L_E(?DBGSTR("Unknown command '~s' in queue",[Ukn])),
+			AltState
+	end.
+	
+
+
+
+%--------cmd_startup_sim/2--------------lauches the start-up sequence of simulation clients
+
+-spec cmd_startup_sim (State, How) -> NewState when
 		State :: #hdl_state{},
 		How :: all | [UUID::string()],
-		NewState :: #hdl_state{},
-		Reason :: string().
+		NewState :: #hdl_state{}.
 
-start_simulation (#hdl_state{clients_avail=[]}, _) ->
-	{error, "no clients available"};
+cmd_startup_sim (State, How) ->
+	NewState = #hdl_state{timer=owls_timers:mark("startup",State#hdl_state.timer)},
+	ToLaunch = get_clients_in_state (available,State#hdl_state.client_states, How),
+	ToStart = get_clients_in_state (ready,State#hdl_state.client_states, How),
+	if
+		length(ToLaunch) + length(ToStart) > 0 ->
+			gen_server:cast(self(),execute),
+			Cmds = [#command{cmd=start,refs=ToStart ++ ToLaunch} | NewState#hdl_state.cmd_queue],
+			cmd_lauch(ToLaunch,NewState#hdl_state{cmd_queue=Cmds});
+		true ->
+			?L_E(?DBGSTR("start command issued with no clients available or ready to start")),
+			NewState
+	end.
 
-start_simulation (#hdl_state{clients_avail=Cl} = State, all) ->
-	start_simulation(State,Cl);
 
-start_simulation (State, _Clients) ->
-	{ok, State}.
+
+
+%--------cmd_launch/2--------------------lauch processes for clients (synchrounsly)
+
+-spec cmd_lauch (ToLauch,State) -> NewState when
+		ToLauch :: [UUID::string()],
+		State :: #hdl_state{},
+		NewState :: #hdl_state{}.
+
+cmd_lauch (ToLauch, State) ->
+	%% @TODO: pass in the real manager
+	L = [ {V, ovsdb_ap:start_link(self(),V,self())} || V <- ToLauch],
+	C = maps:merge(State#hdl_state.client_states,maps:from_list([{V,init} || {V, {ok, _}} <- L])),
+	P = maps:from_list([{Pid,Uuid}||{Uuid,Pid}<-[{V,P} || {V, {ok, P}} <- L]]),
+	T = owls_timers:mark("launched",State#hdl_state.timer),
+	State#hdl_state{client_states=C,client_pids=P,timer=T}.
+
+
+
+
+%--------cmd_start_clients/2-------------starts the simulation of the cliens (in ready state)
+
+-spec cmd_start_clients (Refs, State) -> NewState when
+		Refs :: [UUID::string()],
+		State :: #hdl_state{},
+		NewState :: #hdl_state{}.
+
+cmd_start_clients (Refs, #hdl_state{timer=T,cmd_queue=Q}=State) ->	 
+	{Elapsed, T2} = get_elapsed("start_sim",T),
+	if
+		Elapsed > ?MAX_STARTUP_TIME * length(Refs) ->
+			?L_E(?DBGSTR("Getting ~B clients ready took too long (~s)",[length(Refs),owls_timers:fmt_duration(Elapsed,T)])),
+			?L_I(?DBGSTR("Cancelling simulation start request")),
+			Cmds = lists:reverse([#command{cmd=cancel, refs=Refs}|lists:reverse(Q)]),
+			gen_server:cast(self(),execute),
+			State#hdl_state{cmd_queue=Cmds, timer=T2};
+		true ->
+			Ready = get_clients_in_state (ready,State#hdl_state.client_states,Refs),
+			check_client_startup(Ready,Refs,State#hdl_state{timer=T2})
+	end.
+
+	
+
+
+-spec check_client_startup (Ready, ToStart, State) -> NewState when
+		Ready :: [UUID::string()],
+		ToStart :: [UUID::string()],
+		State :: #hdl_state{},
+		NewState :: #hdl_state{}.
+
+check_client_startup (_Ready, _ToStart, State) ->
+	State.
+
+
+
+-spec get_elapsed (Mark,Timer) -> {Elapsed,NewTimer} when
+		Mark :: string(),
+		Timer :: owls_timers:tms(),
+		Elapsed :: integer(),
+		NewTimer :: owls_timers:tms().
+
+get_elapsed (Mark,T) ->
+	case owls_timers:delta(Mark,default,T) of
+		invalid ->
+			{0,owls_timers:mark("start_sim",T)};
+		Stamp ->
+			{Stamp,T}
+	end.
+
+			

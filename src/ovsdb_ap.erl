@@ -29,7 +29,7 @@
 
 
 %% API
--export([start/2]).
+-export([start_link/3]).
 -export([uuid/1]).
 
 
@@ -40,14 +40,17 @@
 
 %% data structures
 
+-type ap_status() :: init | ready | running | paused | stopped.
+-export_type([ap_status/0]).
+
 -record(ap_state, { 
 	sim_node :: pid(),  	% controlling simnode
 	sim_manager :: pid(), 	% manager to be contacted to get configuration
-	serial :: string(),		% serial number of the access point
-	type :: binary(),		% device type e.g. EA8300
-	uuid :: term(),			% unique ID for this AP node
+	serial = "" :: string(),		% serial number of the access point
+	type = <<"">> :: binary(),		% device type e.g. EA8300
+	uuid :: string(),			% unique ID for this AP node
 	timer :: owls_timers:tms(),
-	status = init :: init | ready | running | stopped,	% internal status
+	status = init :: ap_status(),	% internal status
 	config = #{} :: map(),
 	statistics = #{} :: map()
 }).
@@ -60,14 +63,15 @@
 %%%============================================================================
 
 
--spec start (Handler, Spec) -> {ok, Pid} | {error, Reason} when
+-spec start_link (Handler, Id, SimMan) -> {ok, Pid} | {error, Reason} when
 		Handler :: pid(),
-		Spec :: proplists:proplist(),
+		Id :: UUID::string(),
+		SimMan :: pid(),
 		Pid :: pid(),
 		Reason :: term().
 
-start (Handler, Spec) ->
-	gen_server:start(?MODULE, {Handler, Spec}, []).
+start_link (Handler, Id, SimMan) ->
+	gen_server:start_link(?MODULE, {Handler, Id, SimMan}, []).
 
 
 
@@ -86,14 +90,15 @@ uuid (Node) ->
 %%% GEN_SERVER callbacks
 %%%============================================================================
 
--spec init ({Handler, Spec}) -> {ok, State}  when
+-spec init ({Handler, Id, SimMan}) -> {ok, State}  when
 		Handler :: pid(),
-		Spec :: proplists:proplist(),
+		Id :: UUID::string(),
+		SimMan :: pid(),
 		State :: #ap_state{}.
 
-init ({Handler,Spec}) ->
+init ({Handler,Id,SimMan}) ->
 	process_flag(trap_exit, true),
-	InitialState = prepare_state(Handler,Spec),
+	InitialState = prepare_state(Handler,Id,SimMan),
 	gen_server:cast(self(),start_up),
 	{ok, InitialState}.
 
@@ -181,20 +186,19 @@ code_change (_,OldState,_) ->
 %%%============================================================================
 
 
-%---------prepare_state/2----------------convert Spec proplist into internal state 
+%---------prepare_state/3----------------convert Spec proplist into internal state 
 
--spec prepare_state (Node, Spec) -> State when
-		Node :: pid(),
-		Spec :: proplists:proplist(),
+-spec prepare_state (Handler, ID, SimMan) -> State when
+		Handler :: pid(),
+		ID :: UUID::string(),
+		SimMan :: pid(),
 		State :: #ap_state{}.
 
-prepare_state (Node,Spec) ->
+prepare_state (Handler, ID, SimMan) ->
 	#ap_state{
-		sim_node = Node,
-		sim_manager = proplists:get_value(manager,Spec,Node),
-		serial = proplists:get_value(ap_serial,Spec,"1P000000000"),
-		type = proplists:get_value(ap_type,Spec,<<"EA8300">>),
-		uuid = proplists:get_value(uuid,Spec,erlang:phash2({node(),erlang:system_time()})),
+		sim_node = Handler,
+		sim_manager = SimMan,
+		uuid = ID,
 		timer = owls_timers:new(millisecond)
 	}.
 

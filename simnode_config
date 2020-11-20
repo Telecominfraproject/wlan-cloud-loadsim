@@ -31,8 +31,9 @@ usage() ->
 
 find_hostname()->
     {ok,Hostname}=inet:gethostname(),
-    {ok,{hostent,RealHostname,_,inet,4,_}}=inet:gethostbyname(Hostname),
-    RealHostname.
+    {ok,{hostent,_RealHostname,_,inet,4,[A|_]}}=inet_res:gethostbyname(Hostname),
+    {ok,{hostent,VerifiedHostName,_,inet,4,_}}=inet_res:gethostbyaddr(A),
+    VerifiedHostName.
 
 make_nodename(Id)->
     "simnode" ++ integer_to_list(Id) ++ "@" ++ find_hostname().

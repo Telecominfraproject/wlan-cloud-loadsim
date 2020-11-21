@@ -30,7 +30,7 @@
 
 %% API
 -export([start_link/3]).
--export([uuid/1]).
+-export([uuid/1,start_ap/1]).
 
 
 %% gen_server callbacks
@@ -82,6 +82,14 @@ start_link (Handler, Id, SimMan) ->
 
 uuid (Node) ->
 	gen_server:call(Node,ap_uuid).
+
+
+
+-spec start_ap (Node) -> ok when
+		Node :: pid().
+
+start_ap (Node) ->
+	gen_server:cast(Node,ap_start).
 
 
 

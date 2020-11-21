@@ -28,8 +28,7 @@
 
 %% data structures
 
--type client_states() :: #{UUID::string() := available | ovsdb_ap:ap_status()}.
--type client_refs() :: #{pid() := UUID::string()}.
+-type client_states() :: #{UUID::string() := {available | ovsdb_ap:ap_status(), none | pid()}}.
 
 -record (command,{
 	cmd :: start | stop | pause | cancel,
@@ -39,8 +38,7 @@
 -type command() :: #command{}.
 
 -record (hdl_state, {
-	client_states = #{} :: client_states(),
-	client_pids = #{} :: client_refs(),
+	clients = #{} :: client_states(),
 	cmd_queue = [] :: [command()],
 	config = #{} :: #{},
 	timer :: owls_timers:tms()
@@ -180,6 +178,12 @@ handle_call (_, _, State) ->
 		State :: #hdl_state{},
 		NewState :: #hdl_state{}.
 
+handle_info({ready, {_,Id}}, State) ->
+	update_client_state(ready,Id,State);
+
+handle_info({running, {_,Id}}, State) ->
+	update_client_state(running,Id,State);
+	
 handle_info(_, State) ->
 	{noreply, State}.
 
@@ -220,7 +224,26 @@ code_change (_,OldState,_) ->
 		NewState :: #hdl_state{}.
 
 apply_config (State, _Cfg) ->
-	State#hdl_state{client_states=#{"a68d41fa-dd12-4fb7-bc44-e834667280b4" => available}}.
+	State#hdl_state{clients=#{"a68d41fa-dd12-4fb7-bc44-e834667280b4" => {available,none}}}.
+
+
+
+
+%--------update_client_state/3-----------update the state of a client in the clients map
+
+-spec update_client_state (ClientState, ClientId, HandlerState) -> {noreply, NewHandlerSate} when
+		ClientState :: available | ovsdb_ap:ap_status(),
+		ClientId :: string(),
+		HandlerState :: #hdl_state{},
+		NewHandlerSate :: #hdl_state{}.
+
+update_client_state (ClS, Id, #hdl_state{clients=C}=State) ->
+	case maps:find(Id,C) of
+		{ok, {_,P}} ->
+			{noreply, State#hdl_state{clients=C#{Id:={ClS,P}}}};
+		error ->
+			{noreply, State}
+	end.
 
 
 
@@ -234,10 +257,10 @@ apply_config (State, _Cfg) ->
 		Available :: [UUID::string()].
 
 get_clients_in_state (State, Clients, all) ->
-	[K || {K,V} <- maps:to_list(Clients), (V=:=State)];
+	[K || {K,{V,_}} <- maps:to_list(Clients), (V=:=State)];
 
 get_clients_in_state (State, Clients, Candidates) ->
-	[K || {K,V} <- maps:to_list(Clients), (V=:=State) and lists:member(K,Candidates)].
+	[K || {K,{V,_}} <- maps:to_list(Clients), (V=:=State) and lists:member(K,Candidates)].
 
 
 
@@ -278,8 +301,8 @@ execute_cmd (#hdl_state{cmd_queue=Q}=State) ->
 
 cmd_startup_sim (State, How) ->
 	NewState = #hdl_state{timer=owls_timers:mark("startup",State#hdl_state.timer)},
-	ToLaunch = get_clients_in_state (available,State#hdl_state.client_states, How),
-	ToStart = get_clients_in_state (ready,State#hdl_state.client_states, How),
+	ToLaunch = get_clients_in_state (available,State#hdl_state.clients, How),
+	ToStart = get_clients_in_state (ready,State#hdl_state.clients, How),
 	if
 		length(ToLaunch) + length(ToStart) > 0 ->
 			gen_server:cast(self(),execute),
@@ -303,10 +326,9 @@ cmd_startup_sim (State, How) ->
 cmd_lauch (ToLauch, State) ->
 	%% @TODO: pass in the real manager
 	L = [ {V, ovsdb_ap:start_link(self(),V,self())} || V <- ToLauch],
-	C = maps:merge(State#hdl_state.client_states,maps:from_list([{V,init} || {V, {ok, _}} <- L])),
-	P = maps:from_list([{Pid,Uuid}||{Uuid,Pid}<-[{V,P} || {V, {ok, P}} <- L]]),
+	C = maps:merge(State#hdl_state.clients,maps:from_list([{V,{init,P}} || {V, {ok, P}} <- L])),
 	T = owls_timers:mark("launched",State#hdl_state.timer),
-	State#hdl_state{client_states=C,client_pids=P,timer=T}.
+	State#hdl_state{clients=C,timer=T}.
 
 
 
@@ -319,17 +341,17 @@ cmd_lauch (ToLauch, State) ->
 		NewState :: #hdl_state{}.
 
 cmd_start_clients (Refs, #hdl_state{timer=T,cmd_queue=Q}=State) ->	 
-	{Elapsed, T2} = get_elapsed("start_sim",T),
+	Elapsed = owls_timers:delta("launched",T),
 	if
 		Elapsed > ?MAX_STARTUP_TIME * length(Refs) ->
 			?L_E(?DBGSTR("Getting ~B clients ready took too long (~s)",[length(Refs),owls_timers:fmt_duration(Elapsed,T)])),
 			?L_I(?DBGSTR("Cancelling simulation start request")),
 			Cmds = lists:reverse([#command{cmd=cancel, refs=Refs}|lists:reverse(Q)]),
 			gen_server:cast(self(),execute),
-			State#hdl_state{cmd_queue=Cmds, timer=T2};
+			State#hdl_state{cmd_queue=Cmds};
 		true ->
-			Ready = get_clients_in_state (ready,State#hdl_state.client_states,Refs),
-			check_client_startup(Ready,Refs,State#hdl_state{timer=T2})
+			Ready = get_clients_in_state (ready,State#hdl_state.clients,Refs),
+			check_client_startup(Ready,Refs,State)
 	end.
 
 	
@@ -341,23 +363,15 @@ cmd_start_clients (Refs, #hdl_state{timer=T,cmd_queue=Q}=State) ->
 		State :: #hdl_state{},
 		NewState :: #hdl_state{}.
 
-check_client_startup (_Ready, _ToStart, State) ->
-	State.
-
-
-
--spec get_elapsed (Mark,Timer) -> {Elapsed,NewTimer} when
-		Mark :: string(),
-		Timer :: owls_timers:tms(),
-		Elapsed :: integer(),
-		NewTimer :: owls_timers:tms().
-
-get_elapsed (Mark,T) ->
-	case owls_timers:delta(Mark,default,T) of
-		invalid ->
-			{0,owls_timers:mark("start_sim",T)};
-		Stamp ->
-			{Stamp,T}
+check_client_startup (Ready, ToStart, #hdl_state{clients=C,timer=T,cmd_queue=Q}=State) ->
+	io:format("checking for ready clients~n"),
+	if
+		length(Ready) == length(ToStart) ->
+			lists:foreach(fun(I) -> #{I:={ready,P}}=C, ovsdb_ap:start_ap(P) end, Ready),
+			State#hdl_state{timer=owls_timers:mark("sim_started",T)};
+		true ->
+			Cmds = lists:reverse([#command{cmd=start, refs=ToStart}|lists:reverse(Q)]),
+			{ok, _} = timer:apply_after(1000,gen_server,cast,[self(),execute]),
+			State#hdl_state{cmd_queue=Cmds}
 	end.
 
-			

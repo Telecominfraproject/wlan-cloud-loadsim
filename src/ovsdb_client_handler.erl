@@ -20,6 +20,8 @@
 %% API
 -export([start_link/0]).
 -export([set_configuration/1, start/1, stop/1, pause/1, resume/1, cancel/1, report/0]).
+-export([ap_status/2]).
+
 
 %% gen_server callbacks
 -export([init/1, handle_cast/2, handle_call/3, handle_info/2, terminate/2, code_change/3]).
@@ -28,7 +30,7 @@
 
 %% data structures
 
--type client_states() :: #{UUID::string() := {available | ovsdb_ap:ap_status(), none | pid()}}.
+-type client_states() :: #{UUID::string() := {available | dead | ovsdb_ap:ap_status(), none | pid()}}.
 
 -record (command,{
 	cmd :: start | stop | pause | cancel,
@@ -39,6 +41,7 @@
 
 -record (hdl_state, {
 	clients = #{} :: client_states(),
+	client_pid_map = #{} :: #{pid() := UUID::string()},
 	cmd_queue = [] :: [command()],
 	config = #{} :: #{},
 	timer :: owls_timers:tms()
@@ -47,7 +50,7 @@
 
 
 %%%============================================================================
-%%% API
+%%% HANDLER - API
 %%%============================================================================
 
 
@@ -124,6 +127,20 @@ report () ->
 
 
 %%%============================================================================
+%%% CLIENT CALLBACK API
+%%%============================================================================
+
+-spec ap_status (Status, Id) -> ok when
+		Status :: ovsdb_ap:ap_status(),
+		Id :: UUID::string().
+
+ap_status (Status, Id) ->
+	gen_server:cast(?SERVER,{status,Status,Id}).
+
+
+
+
+%%%============================================================================
 %%% GEN_SERVER callbacks
 %%%============================================================================
 
@@ -146,6 +163,9 @@ init (_) ->
 
 handle_cast (execute, State) ->
 	{noreply, execute_cmd(State)};
+
+handle_cast ({status,Status,Id}, State) ->
+	{noreply, update_client_status(Status,Id,State)};
 
 handle_cast (_,State) ->
 	{noreply, State}.
@@ -178,11 +198,23 @@ handle_call (_, _, State) ->
 		State :: #hdl_state{},
 		NewState :: #hdl_state{}.
 
-handle_info({ready, {_,Id}}, State) ->
-	update_client_state(ready,Id,State);
+handle_info({'EXIT',From,normal},State) ->
+	case maps:find(From,State#hdl_state.client_pid_map) of
+		{ok, Id} ->
+			Cpm = maps:remove(From,State#hdl_state.client_pid_map),
+			{noreply, update_client_status(available,Id,State#hdl_state{client_pid_map=Cpm})};
+		error ->
+			State
+	end;
 
-handle_info({running, {_,Id}}, State) ->
-	update_client_state(running,Id,State);
+handle_info({'EXIT',From,_},State) ->
+	case maps:find(From,State#hdl_state.client_pid_map) of
+		{ok, Id} ->
+			Cpm = maps:remove(From,State#hdl_state.client_pid_map),
+			{noreply, update_client_status(dead,Id,State#hdl_state{client_pid_map=Cpm})};
+		error ->
+			State
+	end;
 	
 handle_info(_, State) ->
 	{noreply, State}.
@@ -229,20 +261,20 @@ apply_config (State, _Cfg) ->
 
 
 
-%--------update_client_state/3-----------update the state of a client in the clients map
+%--------update_client_status/3-----------update the state of a client in the clients map
 
--spec update_client_state (ClientState, ClientId, HandlerState) -> {noreply, NewHandlerSate} when
-		ClientState :: available | ovsdb_ap:ap_status(),
+-spec update_client_status (ClientState, ClientId, HandlerState) -> NewHandlerSate when
+		ClientState :: available | dead | ovsdb_ap:ap_status(),
 		ClientId :: string(),
 		HandlerState :: #hdl_state{},
 		NewHandlerSate :: #hdl_state{}.
 
-update_client_state (ClS, Id, #hdl_state{clients=C}=State) ->
+update_client_status (ClS, Id, #hdl_state{clients=C}=State) ->
 	case maps:find(Id,C) of
 		{ok, {_,P}} ->
-			{noreply, State#hdl_state{clients=C#{Id:={ClS,P}}}};
+			State#hdl_state{clients=C#{Id:={ClS,P}}};
 		error ->
-			{noreply, State}
+			State
 	end.
 
 
@@ -251,7 +283,7 @@ update_client_state (ClS, Id, #hdl_state{clients=C}=State) ->
 %--------get_clients_in_state/3----------filter all clients with state
 
 -spec get_clients_in_state (State, Clients, Candidates) -> Available when
-		State :: available | ovsdb_ap:ap_status(),
+		State :: available | dead | ovsdb_ap:ap_status(),
 		Clients :: client_states(),
 		Candidates :: all | [UUID::string()],
 		Available :: [UUID::string()].
@@ -301,7 +333,8 @@ execute_cmd (#hdl_state{cmd_queue=Q}=State) ->
 
 cmd_startup_sim (State, How) ->
 	NewState = #hdl_state{timer=owls_timers:mark("startup",State#hdl_state.timer)},
-	ToLaunch = get_clients_in_state (available,State#hdl_state.clients, How),
+	ToLaunch = get_clients_in_state (available,State#hdl_state.clients, How) ++ 
+				get_clients_in_state (dead,State#hdl_state.clients, How),
 	ToStart = get_clients_in_state (ready,State#hdl_state.clients, How),
 	if
 		length(ToLaunch) + length(ToStart) > 0 ->
@@ -325,10 +358,11 @@ cmd_startup_sim (State, How) ->
 
 cmd_lauch (ToLauch, State) ->
 	%% @TODO: pass in the real manager
-	L = [ {V, ovsdb_ap:start_link(self(),V,self())} || V <- ToLauch],
-	C = maps:merge(State#hdl_state.clients,maps:from_list([{V,{init,P}} || {V, {ok, P}} <- L])),
+	L = [ {V, ovsdb_ap:launch(V,self())} || V <- ToLauch],
+	Pm = maps:merge(State#hdl_state.client_pid_map, maps:from_list([{P,Id} || {Id, {ok, P}} <- L])),
+	C = maps:merge(State#hdl_state.clients, maps:from_list([{V,{init,P}} || {V, {ok, P}} <- L])),
 	T = owls_timers:mark("launched",State#hdl_state.timer),
-	State#hdl_state{clients=C,timer=T}.
+	State#hdl_state{clients=C, client_pid_map=Pm, timer=T}.
 
 
 

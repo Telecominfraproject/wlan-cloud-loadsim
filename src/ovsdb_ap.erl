@@ -29,7 +29,7 @@
 
 
 %% API
--export([start_link/3]).
+-export([launch/2]).
 -export([uuid/1,start_ap/1]).
 
 
@@ -43,8 +43,7 @@
 -type ap_status() :: init | ready | running | paused | stopped.
 -export_type([ap_status/0]).
 
--record(ap_state, { 
-	sim_node :: pid(),  	% controlling simnode
+-record(ap_state, { 	
 	sim_manager :: pid(), 	% manager to be contacted to get configuration
 	serial = "" :: string(),		% serial number of the access point
 	type = <<"">> :: binary(),		% device type e.g. EA8300
@@ -63,15 +62,14 @@
 %%%============================================================================
 
 
--spec start_link (Handler, Id, SimMan) -> {ok, Pid} | {error, Reason} when
-		Handler :: pid(),
+-spec launch (Id, SimMan) -> {ok, Pid} | {error, Reason} when
 		Id :: UUID::string(),
 		SimMan :: pid(),
 		Pid :: pid(),
 		Reason :: term().
 
-start_link (Handler, Id, SimMan) ->
-	gen_server:start_link(?MODULE, {Handler, Id, SimMan}, []).
+launch (Id, SimMan) ->
+	gen_server:start_link(?MODULE, {Id, SimMan}, []).
 
 
 
@@ -98,15 +96,14 @@ start_ap (Node) ->
 %%% GEN_SERVER callbacks
 %%%============================================================================
 
--spec init ({Handler, Id, SimMan}) -> {ok, State}  when
-		Handler :: pid(),
+-spec init ({Id, SimMan}) -> {ok, State}  when
 		Id :: UUID::string(),
 		SimMan :: pid(),
 		State :: #ap_state{}.
 
-init ({Handler,Id,SimMan}) ->
+init ({Id,SimMan}) ->
 	process_flag(trap_exit, true),
-	InitialState = prepare_state(Handler,Id,SimMan),
+	InitialState = prepare_state(Id,SimMan),
 	gen_server:cast(self(),start_up),
 	{ok, InitialState}.
 
@@ -120,9 +117,11 @@ init ({Handler,Id,SimMan}) ->
 		Reason :: string().
 
 handle_cast (start_up, State) ->
-	{ok, NewState} = startup_ap(State),
-	State#ap_state.sim_node ! {ready, {self(), State#ap_state.uuid}},
-	{noreply, NewState};
+	{noreply, startup_ap(State)};
+
+handle_cast (ap_start, State) ->
+	{noreply, run_simulation(State)};
+
 
 handle_cast (R,State) ->
 	?L_E(?DBGSTR("got unknown request: ~p",[R])),
@@ -194,17 +193,15 @@ code_change (_,OldState,_) ->
 %%%============================================================================
 
 
-%---------prepare_state/3----------------convert Spec proplist into internal state 
+%---------prepare_state/2----------------convert Spec proplist into internal state 
 
--spec prepare_state (Handler, ID, SimMan) -> State when
-		Handler :: pid(),
+-spec prepare_state (ID, SimMan) -> State when
 		ID :: UUID::string(),
 		SimMan :: pid(),
 		State :: #ap_state{}.
 
-prepare_state (Handler, ID, SimMan) ->
+prepare_state (ID, SimMan) ->
 	#ap_state{
-		sim_node = Handler,
 		sim_manager = SimMan,
 		uuid = ID,
 		timer = owls_timers:new(millisecond)
@@ -213,14 +210,37 @@ prepare_state (Handler, ID, SimMan) ->
 
 
 
-%--------startup_ap/1--------------------initiate startup sequence
--spec startup_ap (State) -> {ok, NewState} | {error, Reason} when
+%--------set_status/1--------------------sets internal status + broadcast status to handler
+
+-spec set_status (Status, State) -> NewState when
+		Status :: ap_status(),
 		State :: #ap_state{},
-		NewState :: #ap_state{},
-		Reason :: string().
+		NewState :: #ap_state{}.
+
+set_status (Status, #ap_state{uuid=Id}=State) ->
+	ovsdb_client_handler:ap_status(Status,Id),
+	State#ap_state{status=Status}.
+
+
+
+
+%--------startup_ap/1--------------------initiate startup sequence
+
+-spec startup_ap (State :: #ap_state{}) -> NewState :: #ap_state{}.
 
 startup_ap (#ap_state{status=init}=State) ->
-	{ok,State#ap_state{status=ready}};
+	set_status(ready,State);
 
-startup_ap (_) ->
-	{error,"not in initial state, cant start-up"}.
+startup_ap (State) ->
+	?L_E(?DBGSTR("can nott start_up client if not in init state")),
+	State.
+
+
+
+
+%--------run_simulation/1----------------start or resume simulation
+
+-spec run_simulation (State :: #ap_state{}) -> NewState :: #ap_state{}.
+
+run_simulation (State) ->
+	set_status(running,State).

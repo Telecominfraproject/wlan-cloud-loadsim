@@ -37,4 +37,5 @@ app_settings()->
 	disksup:set_check_interval(5),
 	disksup:set_almost_full_threshold(0.90),
 	_ = application:ensure_all_started(ssl),
+	application:start(yamerl),
 	ok.

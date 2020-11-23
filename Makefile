@@ -2,7 +2,7 @@ PROJECT = owls
 PROJECT_DESCRIPTION = OpenWiFi Load Simulator (OWLS)
 PROJECT_VERSION = 0.1.0
 
-DEPS = lager gpb jiffy cowlib ranch gun cowboy rec2json uuid
+DEPS = lager gpb jiffy cowlib ranch gun cowboy rec2json uuid yamerl
 
 ERLC_OPTS += -I deps/gpb/include
 ERLC_OPTS += +'{parse_transform, lager_transform}'

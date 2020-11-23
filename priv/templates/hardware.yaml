@@ -1,0 +1,20 @@
+Version: 1.0
+
+Devices:
+  - Id : tp_link_ea8300_a
+    Description: TP Link Home Gateway
+    Vendor: TP Link
+    Model: ea8300
+    Cap:
+      - mqtt_client
+      - ovsdb_client
+    Firmware: 1.0.2.3.4
+  - Id : tp_link_ea8300_b
+    Description: TP Link Home Gateway
+    Vendor: TP Link
+    Model: ea8301
+    Cap:
+      - mqtt_client
+      - ovsdb_client
+    Firmware: 1.0.2.3.5
+

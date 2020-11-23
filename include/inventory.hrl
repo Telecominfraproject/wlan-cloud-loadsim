@@ -10,41 +10,38 @@
 
 -include_lib("stdlib/include/qlc.hrl").
 
--type attribute_list() :: [{string(),string()}].
--type record_index() :: { string() , string() }.
+-type attribute_list() :: [{binary(),binary()}].
 
 -record(ca_info,{
-	uuid = "" :: string(),
-	name = "" :: string(),   %% You must leave the NAME field first - do not move it...
-	description = "" :: string(),
-	dir_name = "" :: string(),
-	clients_dir_name = "" :: string(),
-	servers_dir_name = "" :: string(),
-	cert_file_name = "" :: string(),
-	key_file_name = "" :: string(),
-	config_file_name = "" :: string(),
+	name = <<>> :: binary(),   %% You must leave the NAME field first - do not move it...
+	description = <<>> :: binary(),
+	dir_name = <<>> :: binary(),
+	clients_dir_name = <<>> :: binary(),
+	servers_dir_name = <<>> :: binary(),
+	cert_file_name = <<>> :: binary(),
+	key_file_name = <<>> :: binary(),
+	config_file_name = <<>> :: binary(),
 	cert_data = <<>> :: binary(),
 	key_data = <<>> :: binary(),
 	decrypt_data = <<>> :: binary(),
 	config_data = <<>> :: binary(),
-	password = "" :: string(),
+	password = <<>> :: binary(),
 	attributes = [] :: attribute_list()
 }).
 
 -type client_role() :: none | mqtt_client | ovsdb_client.
 
 -record( client_info, {
-	uuid = "" :: string(),
-	index = {} :: record_index(),    %% should be a tuple { CA, Name }, must be in position 1
-	name = "" :: string(),
+	name = <<>> :: binary(),
+	ca  = <<>> :: binary(),
 	cap = [] :: [client_role()],
-	mac = "" :: string(),
-	serial = "" :: string(),
-	description = "" :: string(),
-	type = "" :: string(),
-	firmware = "" :: string(),
-	vendor = "" :: string(),
-	device_model = "" :: string(),
+	mac = <<>> :: binary(),
+	serial = <<>> :: binary(),
+	description = <<>> :: binary(),
+	type = <<>> :: binary(),
+	firmware = <<>> :: binary(),
+	vendor = <<>> :: binary(),
+	model = <<>> :: binary(),
 	key = <<>> :: binary(),
 	cert = <<>> :: binary(),
 	decrypt = <<>> :: binary(),
@@ -55,16 +52,14 @@
 -type service_role() :: none | mqtt_server | ovsdb_server .
 
 -record( server_info, {
-	uuid = "" :: string(),
-	index = {} :: record_index(),    %% should be a tuple { CA, Name }, must be in position 1
-	name  = "" :: string(),
+	name  = <<>> :: binary(),
 	service = none :: service_role(),
-	ca  = "" :: string(),
-	description  = "" :: string(),
-	type  = "" :: string(),
-	version  = "" :: string(),
-	ports = "" :: string(),
-	addresses = "" :: list(string()),
+	ca  = <<>> :: binary(),
+	description  = <<>> :: binary(),
+	type  = <<>> :: binary(),
+	version  = <<>> :: binary(),
+	ports = [] :: [integer()],
+	addresses = [] :: [inet:ip_address()],
 	key = <<>> :: binary(),
 	cert = <<>> :: binary(),
 	decrypt = <<>> :: binary(),
@@ -77,5 +72,5 @@
 -type client_info() :: #client_info{}.
 -type server_info() :: #server_info{}.
 
--export_type([client_info/0,server_info/0,ca_info/0,record_index/0,attribute_list/0,client_role/0,service_role/0,
+-export_type([client_info/0,server_info/0,ca_info/0,attribute_list/0,client_role/0,service_role/0,
 	any_role/0]).

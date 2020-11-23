@@ -66,6 +66,8 @@ strip_ifs([{_IfName,Ifprops}|Tail],Addrs)->
 
 good_address([])->
 	none;
+good_address([{addr,{127,_,_,_}}|T]) ->
+	good_address(T);
 good_address([{addr,{A,B,C,D}}|_Tail]) when A=/=127 ->
 	{A,B,C,D};
 good_address([_|T])->

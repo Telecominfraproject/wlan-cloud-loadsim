@@ -11,6 +11,8 @@
 
 -behaviour(gen_server).
 
+-include_lib("stdlib/include/qlc.hrl").
+
 -include("../include/common.hrl").
 -include("../include/mqtt_definitions.hrl").
 -include("../include/inventory.hrl").
@@ -18,9 +20,10 @@
 %% API
 -export([start_link/0,creation_info/0,
 	make_ca/2,get_ca/1,get_cas/0,delete_ca/1,
-	make_server/2,get_server/2,make_servers/2,
+	make_server/3,get_server/2,make_servers/3,
 	make_client/2,make_clients/3,generate_client_batch/6,get_client/2,
-	all_files_exist/1,valid_ca_name/1,valid_password/1]).
+	all_files_exist/1,valid_ca_name/1,valid_password/1,
+	delete_server/2,import_ca/5]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -70,6 +73,10 @@ make_ca(Name,Password)->
 			{error,invalid_ca_name_or_password}
 	end.
 
+-spec import_ca(Name::string(),Password::string(),Cert::binary(),Key::binary(),Decrypt::binary()) -> {ok,ca_info()} | {error,Reason::term()}.
+import_ca(Name,Password,Cert,Key,Decrypt)->
+	gen_server:call(?MODULE,{import_ca,Name,Password,Cert,Key,Decrypt,self()}).
+
 -spec get_ca( Name::string() )-> {ok,ca_info()} | {error,Reason::term()}.
 get_ca(Name)->
 	gen_server:call(?MODULE,{get_ca,Name,self()}).
@@ -82,17 +89,25 @@ delete_ca(Name)->
 get_cas()->
 	gen_server:call(?MODULE,{get_cas,self()}).
 
--spec make_server(Ca::string(),Id::string())-> { ok , SI::server_info() } | { error, Reason::term()}.
-make_server(Ca,Id)->
-	gen_server:call(?MODULE,{make_server,Ca,Id,self()}).
+-spec make_server(Ca::string(),Id::string(),Type::service_role())-> { ok , SI::server_info() } | { error, Reason::term()}.
+make_server(Ca,Id, mqtt_server )->
+	gen_server:call(?MODULE,{make_server,Ca,Id,mqtt_server,self()});
+make_server(Ca,Id, ovsdb_server )->
+	gen_server:call(?MODULE,{make_server,Ca,Id,ovsdb_server,self()}).
 
--spec make_servers(Ca::string(),Servers::list(ServerName::string()))-> { ok, list({ ServerName::string(),SI::server_info()})} | { error, Reason::term() }.
-make_servers(Ca,ServerList)->
-	gen_server:call(?MODULE,{make_servers,Ca,ServerList,self()}).
+-spec make_servers(Ca::string(),Servers::list(ServerName::string()),Type::service_role())-> { ok, list({ ServerName::string(),SI::server_info()})} | { error, Reason::term() }.
+make_servers(Ca,ServerList,mqtt_server)->
+	gen_server:call(?MODULE,{make_servers,Ca,ServerList,mqtt_server,self()});
+make_servers(Ca,ServerList,ovsdb_server)->
+	gen_server:call(?MODULE,{make_servers,Ca,ServerList,ovsdb_server,self()}).
 
 -spec get_server(Ca::string(),Id::string())-> { ok, SI::server_info()} | { error, Reason::term() }.
 get_server(Ca,Id)->
 	gen_server:call(?MODULE,{get_server,Ca,Id,self()}).
+
+-spec delete_server(Ca::string(),Id::string())-> { ok, SI::server_info()} | { error, Reason::term() }.
+delete_server(Ca,Id)->
+	gen_server:call(?MODULE,{delete_server,Ca,Id,self()}).
 
 -spec make_client(Ca::string(),Id::string())-> {ok,Client::client_info()} | {error,Reason::term()}.
 make_client(Ca,Id)->
@@ -176,6 +191,16 @@ handle_call({make_ca,Ca,Password,Pid}, _From, State = #inventory_state{}) ->
 		[_CAInfo]->
 			{reply,{error,ca_already_exists},State}
 	end;
+
+handle_call({import_ca,Ca,Password,Cert,Key,Decrypt,Pid}, _From, State = #inventory_state{}) ->
+	case ets:lookup(?CADB_TABLE,Ca) of
+		[]->
+			{ok,NewState}=create_ca(Ca,Password,State,Pid),
+			{reply, ok, NewState};
+		[_CAInfo]->
+			{reply,{error,ca_already_exists},State}
+	end;
+
 handle_call({delete_ca,Ca,Pid}, _From, State = #inventory_state{}) ->
 	case ets:lookup(?CADB_TABLE,Ca) of
 		[]->
@@ -184,81 +209,143 @@ handle_call({delete_ca,Ca,Pid}, _From, State = #inventory_state{}) ->
 			{ok,NewState}=delete_ca(CAInfo,State,Pid),
 			{reply, ok, NewState}
 	end;
+
 handle_call({get_ca,Ca,_Pid}, _From, State = #inventory_state{}) ->
 	case ets:lookup(?CADB_TABLE,Ca) of
 		[]->
 			{reply,{error,unknown_ca},State};
 		[CAInfo]->
 			try
-				Attributes = [{key_pem,CAInfo#ca_info.key_data},
-					{cert_pem,CAInfo#ca_info.cert_data},
-					{config,CAInfo#ca_info.config_data}],
-				{ reply, {ok,Attributes}, State }
+				case get_record(CAInfo) of
+					{atomic,[Record]} ->
+						{reply, {ok,Record}, State};
+					_ ->
+						{reply, {error,unknown_ca}, State}
+				end
 			catch
 				_:_ ->
 					{reply,{error,unknown_error},State}
 			end
 	end;
+
 handle_call({get_cas,_Pid}, _From, State = #inventory_state{}) ->
 	CAs = ets:foldr(fun(E,A)-> [ E#ca_info.name | A ] end,[],?CADB_TABLE),
 	{ reply, { ok,CAs}, State};
 
-handle_call({get_client,Ca,Id}, _From, State = #inventory_state{}) ->
-	case ets:lookup(?CADB_TABLE,Ca) of
-		[] ->
-			{reply,{error,unknown_ca},State};
-		[_CAInfo] ->
-			case dets:lookup(State#inventory_state.clients_tab,{Ca,Id}) of
-				[ClientInfo] ->
-					{ reply, {ok,ClientInfo}, State };
-				_ ->
-					{reply,{error,unknown_client},State}
-			end
-	end;
-handle_call({make_server,Ca,Id,Pid}, _From, State = #inventory_state{}) ->
-	case ets:lookup(?CADB_TABLE,Ca) of
+handle_call({make_server,Ca,Id,Type,Pid}, _From, State = #inventory_state{}) ->
+	case ets:lookup(?CADB_TABLE,list_to_binary(Ca)) of
 		[] ->
 			{reply,{error,unknown_ca},State};
 		[CAInfo] ->
-			{ok , NewState}=create_server(CAInfo,Id,State,Pid),
+			{ok , NewState}=create_server(CAInfo,Id,Type,State,Pid),
 			{reply, ok, NewState}
 	end;
-handle_call({make_servers,Ca,ServerList,Pid}, _From, State = #inventory_state{}) ->
-	case ets:lookup(?CADB_TABLE,Ca) of
+
+handle_call({make_servers,Ca,ServerList,Type,Pid}, _From, State = #inventory_state{}) ->
+	case ets:lookup(?CADB_TABLE,list_to_binary(Ca)) of
 		[] ->
 			{reply,{error,unknown_ca},State};
 		[CAInfo] ->
-			{ok , NewState}=create_servers(CAInfo,ServerList,State,Pid),
+			{ok , NewState}=create_servers(CAInfo,ServerList,Type,State,Pid),
 			{reply, ok, NewState}
 	end;
+
 handle_call({get_server,Ca,Id,_Pid}, _From, State = #inventory_state{}) ->
-	case ets:lookup(?CADB_TABLE,Ca) of
-		[] ->
-			{reply,{error,unknown_ca},State};
-		[_CAInfo] ->
-			case dets:lookup(State#inventory_state.servers_tab,{Ca,Id}) of
-				[] ->
-					{reply, {error,server_not_find}, State };
-				[ServerInfo]->
-					{reply, {ok,ServerInfo},State}
-			end
-	end;
-handle_call({make_client,Ca,Name,Pid}, _From, State = #inventory_state{}) ->
-	case ets:lookup(?CADB_TABLE,Ca) of
+	case ets:lookup(?CADB_TABLE,list_to_binary(Ca)) of
 		[] ->
 			{reply,{error,unknown_ca},State};
 		[CAInfo] ->
-			{ok , NewState}=create_client(CAInfo,Name,State,Pid),
+			Server = #server_info{ name = list_to_binary(Id) },
+			case get_record(Server) of
+				{atomic,[Record]} ->
+					case Record#client_info.ca == CAInfo#ca_info.name of
+						true ->
+							{ reply, {ok,Record},State};
+						false ->
+							{ reply , {error, unknown_client},State}
+					end;
+				Error ->
+					{ reply, {error, Error}, State}
+			end
+	end;
+
+handle_call({delete_server,Ca,Id,_ParentPid}, _From, State = #inventory_state{}) ->
+	case ets:lookup(?CADB_TABLE,list_to_binary(Ca)) of
+		[] ->
+			{reply,{error,unknown_ca},State};
+		[CAInfo] ->
+			Server = #server_info{ name = list_to_binary(Id) },
+			case get_record(Server) of
+				{atomic,[Record]} ->
+					case Record#server_info.ca == CAInfo#ca_info.name of
+						true ->
+							_ = del_record(Record),
+							{ reply, ok,State};
+						false ->
+							{ reply , {error, unknown_server},State}
+					end;
+				Error ->
+					{ reply, {error, Error}, State}
+			end
+	end;
+
+handle_call({make_client,Ca,Name,Pid}, _From, State = #inventory_state{}) ->
+	case ets:lookup(?CADB_TABLE,list_to_binary(Ca)) of
+		[] ->
+			{reply,{error,unknown_ca},State};
+		[CAInfo] ->
+			{ok , NewState}=create_client(CAInfo,Name,Name,"002",State,Pid),
 			{reply, ok, NewState}
 	end;
+
 handle_call({make_many_clients,Ca,OuiBase,HowMany,Pid}, _From, State = #inventory_state{}) ->
-	case ets:lookup(?CADB_TABLE,Ca) of
+	case ets:lookup(?CADB_TABLE,list_to_binary(Ca)) of
 		[] ->
 			{reply,{error,unknown_ca},State};
 		[CAInfo] ->
 			JobPid = spawn(?MODULE,generate_client_batch,[CAInfo,OuiBase,HowMany,Pid,self(),State]),
 			{ reply, ok , State#inventory_state{batch_generation_pid = JobPid} }
 	end;
+
+handle_call({get_client,Ca,Id}, _From, State = #inventory_state{}) ->
+	case ets:lookup(?CADB_TABLE,list_to_binary(Ca)) of
+		[] ->
+			{reply,{error,unknown_ca},State};
+		[CAInfo] ->
+			Client = #client_info{ name = list_to_binary(Id) },
+			case get_record(Client) of
+				{atomic,[Record]} ->
+					case Record#client_info.ca == CAInfo#ca_info.name of
+						true ->
+							{ reply, {ok,Record},State};
+						false ->
+							{ reply , {error, unknown_client},State}
+					end;
+				Error ->
+					{ reply, {error, Error}, State}
+			end
+	end;
+
+handle_call({delete_client,Ca,Id}, _From, State = #inventory_state{}) ->
+	case ets:lookup(?CADB_TABLE,list_to_binary(Ca)) of
+		[] ->
+			{reply,{error,unknown_ca},State};
+		[CAInfo] ->
+			Client = #client_info{ name = list_to_binary(Id) },
+			case get_record(Client) of
+				{atomic,[Record]} ->
+					case Record#client_info.ca == CAInfo#ca_info.name of
+						true ->
+							_ = del_record(Record),
+							{ reply, ok,State};
+						false ->
+							{ reply , {error, unknown_client},State}
+					end;
+				Error ->
+					{ reply, {error, Error}, State}
+			end
+	end;
+
 handle_call(_Request, _From, State = #inventory_state{}) ->
 	{reply, ok, State}.
 
@@ -347,22 +434,28 @@ create_ca(CaName,Password,State,Pid)->
 	ok = utils:make_dir(filename:join([CaDir,"private"])),
 
 	{ok,CertData}=file:read_file(CaKeyCertFileName),
+	{ok,KeyData}=file:read_file(CaKeyFileName),
 
-	NewCa = #ca_info{ name = CaName,
-		dir_name = CaDir,
-		clients_dir_name = CaClientsDir,
-		servers_dir_name = CaServersDir,
-		cert_file_name = CaKeyCertFileName,
-		key_file_name =  CaKeyFileName,
-		config_file_name = CaConfigFileName,
-		cert_data = CertData,
-		password = Password
-		},
+	NewCa = #ca_info{ name = list_to_binary(CaName),
+										dir_name = list_to_binary(CaDir),
+										clients_dir_name = list_to_binary(CaClientsDir),
+										servers_dir_name = list_to_binary(CaServersDir),
+										cert_file_name = list_to_binary(CaKeyCertFileName),
+										key_file_name =  list_to_binary(CaKeyFileName),
+										config_file_name = list_to_binary(CaConfigFileName),
+										cert_data = CertData,
+	                  key_data = KeyData,
+										password = list_to_binary(Password),
+								    config_data = list_to_binary(NewConf)
+			},
+	_ = add_record(NewCa),
 	ets:insert(?CADB_TABLE,NewCa),
 	update_disk_db(State),
+
 	{ ok, State#inventory_state{ status = created } }.
 
 delete_ca(CAInfo,State,_Pid)->
+	_ = del_record(CAInfo),
 	_ = file:del_dir_r(CAInfo#ca_info.dir_name),
 	ets:delete(?CADB_TABLE,CAInfo#ca_info.name),
 	update_disk_db(State),
@@ -373,11 +466,13 @@ delete_ca(CAInfo,State,_Pid)->
 %% openssl req -batch -config mqtt-server.cnf -newkey rsa:2048 -sha256 -out mqttservercert.csr -outform PEM
 %% openssl ca -batch -key apassword -config openssl-ca.cnf -policy signing_policy -extensions signing_req_server -out mqttservercert.pem -infiles mqttservercert.csr
 %% openssl rsa -passin pass:apassword -in mqttserverkey.pem -out mqttserverkey_dec.pem
-create_server(CAInfo,Name,State,Pid)->
-	ServerKeyPem = filename:join([CAInfo#ca_info.servers_dir_name,"server-" ++ Name ++ "-key.pem"]),
-	ServerKeyDec = filename:join([CAInfo#ca_info.servers_dir_name,"server-" ++ Name ++ "-key_dec.pem"]),
-	ServerCertCsr = filename:join([CAInfo#ca_info.servers_dir_name,"server-" ++ Name ++ "-cert.csr"]),
-	ServerCertPem = filename:join([CAInfo#ca_info.servers_dir_name,"server-" ++ Name ++ "-cert.pem"]),
+-spec create_server(CAInfo::ca_info(),Name::string(),Type::service_role(),State::#inventory_state{},ParentPid::pid()) -> { ok , NewState::#inventory_state{} } | {error, Reason::term() }.
+create_server(CAInfo,Name,Type,State,Pid)->
+	BaseDir = binary_to_list(CAInfo#ca_info.servers_dir_name),
+	ServerKeyPem = filename:join([BaseDir,"server-" ++ Name ++ "-key.pem"]),
+	ServerKeyDec = filename:join([BaseDir,"server-" ++ Name ++ "-key_dec.pem"]),
+	ServerCertCsr = filename:join([BaseDir,"server-" ++ Name ++ "-cert.csr"]),
+	ServerCertPem = filename:join([BaseDir,"server-" ++ Name ++ "-cert.pem"]),
 	Subject = "\"/C=CA/ST=BC/L=Vancouver/O=Arilia Wireless Inc./OU=Servers/CN=" ++ Name ++ "\"",
 	Cmd1 = io_lib:format("openssl req -config ~s -batch -passout pass:~s -newkey rsa:2048 -sha256 -keyout ~s -out ~s -outform PEM",
 		[ CAInfo#ca_info.config_file_name,
@@ -399,22 +494,43 @@ create_server(CAInfo,Name,State,Pid)->
 		[	CAInfo#ca_info.password, ServerKeyPem, ServerKeyDec]),
 	CommandResult3 = os:cmd(Cmd3),
 	io:format("~p> CMD3: ~s, RESULT: ~s~n~n",[Pid,Cmd3,CommandResult3]),
+
+	{ok,KeyPemData} = file:read_file(ServerKeyPem),
+	{ok,ServerKeyDecPemData} = file:read_file(ServerKeyDec),
+	{ok,ServerCertCsrPemData} = file:read_file(ServerCertCsr),
+	{ok,ServerCertPemData} = file:read_file(ServerCertPem),
+
+	NewServerInfo = #server_info{
+		name = list_to_binary(Name),
+		service = Type,
+		ca = CAInfo#ca_info.name,
+		key = KeyPemData,
+		cert = ServerCertPemData,
+		decrypt = ServerKeyDecPemData,
+		csr = ServerCertCsrPemData
+	},
+
+	_ = add_record(NewServerInfo),
+
 	{ ok, State }.
 
-create_servers(_CAInfo,[],State,_Pid)->
+create_servers(_CAInfo,[],_,State,_Pid)->
 	{ok,State};
-create_servers(CAInfo,[H|T],State,Pid)->
-	_ = create_server(CAInfo,H,State,Pid),
-	create_servers(CAInfo,T,State,Pid).
+create_servers(CAInfo,[H|T],Type,State,Pid)->
+	_ = create_server(CAInfo,H,Type,State,Pid),
+	create_servers(CAInfo,T,Type,State,Pid).
 
 %% openssl req -batch -config openssl-client.cnf -newkey rsa:2048 -sha256 -out clientcert.csr -outform PEM -nodes
 %% openssl ca -batch -key apassword -config openssl-ca.cnf -policy signing_policy -extensions signing_req_client -out clientcert.pem -infiles clientcert.csr
 %% openssl rsa -passin pass:apassword -in clientkey.pem -out clientkey_dec.pem
-create_client(CAInfo,Name,State,Pid)->
-	ClientKeyPem = filename:join([CAInfo#ca_info.clients_dir_name,"client-" ++ Name ++ "-key.pem"]),
-	ClientKeyDec = filename:join([CAInfo#ca_info.clients_dir_name,"client-" ++ Name ++ "-key_dec.pem"]),
-	ClientCertCsr = filename:join([CAInfo#ca_info.clients_dir_name,"client-" ++ Name ++ "-cert.csr"]),
-	ClientCertPem = filename:join([CAInfo#ca_info.clients_dir_name,"client-" ++ Name ++ "-cert.pem"]),
+-spec create_client( CAInfo :: ca_info(), Name::string(), Mac::string(), Serial::string(), State::#inventory_state{} ,ParentPid::pid() ) ->
+			{ ok , NewState::#inventory_state{} } | { error , Reason :: term()}.
+create_client(CAInfo,Name,Mac,Serial,State,Pid)->
+	BaseDir = binary_to_list(CAInfo#ca_info.clients_dir_name),
+	ClientKeyPem = filename:join([BaseDir,"client-" ++ Name ++ "-key.pem"]),
+	ClientKeyDec = filename:join([BaseDir,"client-" ++ Name ++ "-key_dec.pem"]),
+	ClientCertCsr = filename:join([BaseDir,"client-" ++ Name ++ "-cert.csr"]),
+	ClientCertPem = filename:join([BaseDir,"client-" ++ Name ++ "-cert.pem"]),
 	Subject = "\"/C=CA/ST=BC/L=Vancouver/O=Arilia Wireless Inc./OU=Clients/CN=" ++ Name ++ "\"",
 	Cmd1 = io_lib:format("openssl req -config ~s -batch -passout pass:~s -newkey rsa:2048 -sha256 -keyout ~s -out ~s -outform PEM -nodes",
 		[ CAInfo#ca_info.config_file_name, CAInfo#ca_info.password, ClientKeyPem,ClientCertCsr]),
@@ -435,6 +551,27 @@ create_client(CAInfo,Name,State,Pid)->
 		[	CAInfo#ca_info.password, ClientKeyPem, ClientKeyDec]),
 	CommandResult3 = os:cmd(Cmd3),
 	io:format("~p> CMD3: ~s, RESULT: ~s~n~n",[Pid,Cmd3,CommandResult3]),
+
+	{ok,ClientKeyPemData} = file:read_file(ClientKeyPem),
+	{ok,ClientKeyDecData} = file:read_file(ClientKeyDec),
+	{ok,ClientCertCsrData} = file:read_file(ClientCertCsr),
+	{ok,ClientCertPemData} = file:read_file(ClientCertPem),
+
+	Client = #client_info{
+		name = list_to_binary(Name),
+		ca = CAInfo#ca_info.name,
+		cap = [ mqtt_client , ovsdb_client ],
+		mac = list_to_binary(Mac),
+		serial = list_to_binary(Serial),
+		key = ClientKeyPemData,
+		cert = ClientCertPemData,
+		decrypt = ClientKeyDecData,
+		csr = ClientCertCsrData
+	},
+
+	R = add_record(Client),
+	io:format("RESULT>>>=~p~n",[R]),
+
 	{ ok, State }.
 
 generate_client_batch(CaInfo,[X1,X2,X3,X4,X5,X6],HowMany,Pid,ServicePid,State)->
@@ -447,7 +584,7 @@ generate_client_batch(_CaInfo,Prefix,Done,0,Pid,ServicePid,_State)->
 generate_client_batch(CaInfo,Prefix,Index,Left,Pid,ServicePid,State)->
 	[X1,X2,X3,X4,X5,X6] = lists:flatten(string:pad(integer_to_list(Index,16),6,leading,$0)),
 	Name = Prefix ++ [X1,X2,$:,X3,X4,$:,X5,X6],
-	_ = create_client(CaInfo,Name,State,self()),
+	_ = create_client(CaInfo,Name,Name,"001",State,self()),
 	generate_client_batch(CaInfo,Prefix,Index+1,Left-1,Pid,ServicePid,State).
 
 all_files_exist([])->
@@ -489,8 +626,10 @@ valid_password(_,_) ->
 startdb()->
 	_ = case filelib:is_file(filename:join([code:priv_dir(?OWLS_APP),"mnesia","schema.DAT"])) of
 		true ->
-			mnesia:start();
+			_ = mnesia:start(),
+	    io:format("Reloading MNESIA...~n");
 		false ->
+			io:format("Starting MNESIA from scratch...~n"),
 			ok=mnesia:create_schema([node()]),
 			_ = mnesia:start(),
 			create_tables()
@@ -498,7 +637,46 @@ startdb()->
 	ok.
 
 create_tables()->
-	{atomic,ok} = mnesia:create_table(cas,    [{record_name,ca_info},    {index,[name]},  {attributes,record_info(fields,ca_info)}]),
-	{atomic,ok} = mnesia:create_table(clients,[{record_name,client_info},{index,[index,serial]},{attributes,record_info(fields,client_info)}]),
-	{atomic,ok} = mnesia:create_table(servers,[{record_name,server_info},{index,[index,name]},  {attributes,record_info(fields,server_info)}]),
+	{atomic,ok} = mnesia:create_table(cas,    [{disc_copies,[node()]}, {record_name,ca_info},     {attributes,record_info(fields,ca_info)}]),
+	{atomic,ok} = mnesia:create_table(clients,[{disc_copies,[node()]}, {record_name,client_info}, {index,[mac,serial]},{attributes,record_info(fields,client_info)}]),
+	{atomic,ok} = mnesia:create_table(servers,[{disc_copies,[node()]}, {record_name,server_info}, {attributes,record_info(fields,server_info)}]),
 	ok.
+
+add_record(R) when is_record(R,ca_info) ->
+	mnesia:transaction( fun() ->
+												mnesia:dirty_write(cas,R)
+											end );
+add_record(R) when is_record(R,server_info) ->
+	mnesia:transaction( fun() ->
+												mnesia:dirty_write(servers,R)
+	                    end);
+add_record(R) when is_record(R,client_info) ->
+	mnesia:transaction( fun() ->
+												mnesia:dirty_write(clients,R)
+	                    end).
+
+del_record(R) when is_record(R,ca_info) ->
+	mnesia:transaction(   fun() ->
+													mnesia:dirty_delete(cas,R#ca_info.name)
+	                      end);
+del_record(R) when is_record(R,server_info) ->
+	mnesia:transaction(   fun() ->
+													mnesia:dirty_delete(servers,R#server_info.name)
+	                      end);
+del_record(R) when is_record(R,client_info) ->
+	mnesia:transaction( fun() ->
+													mnesia:dirty_delete(clients,R#client_info.name)
+	                    end).
+
+get_record(R) when is_record(R,ca_info)->
+	mnesia:transaction( fun() ->
+												mnesia:read(cas,R#ca_info.name)
+	                    end);
+get_record(R) when is_record(R,server_info)->
+	mnesia:transaction( fun() ->
+												mnesia:read(servers,R#server_info.name)
+	                    end);
+get_record(R) when is_record(R,client_info)->
+	mnesia:transaction( fun() ->
+												mnesia:read(clients,R#client_info.name)
+	                    end).

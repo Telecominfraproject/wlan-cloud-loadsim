@@ -4,9 +4,9 @@
 %%% @doc
 %%%
 %%% @end
-%%% Created : 31. Oct 2020 12:18 p.m.
+%%% Created : 31. Oct 2020 12:19 p.m.
 %%%-------------------------------------------------------------------
--module(server_info).
+-module(js_client_info).
 -author("stephb").
 
 -include("../include/inventory.hrl").

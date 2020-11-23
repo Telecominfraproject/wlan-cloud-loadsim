@@ -70,19 +70,10 @@ stamp (Name,Timer) ->
 
 %--------delta/3-------------------------gets time difference between two stamps in units of resolution
 -spec delta (Earlier, Later, Timer) -> Delta when
-		Earlier :: default | string(),		% Earlier must have been added before Later (default means start) or in other words 
-		Later :: default |string(),			% Later must have occured after Earlier in the timeline (default means now)
+		Earlier :: string(),		% Earlier must have been added before Later or in other words 
+		Later :: string(),			% Later must have occured after Earlier in the timeline 
 		Timer :: tms(),
 		Delta :: invalid | integer().
-
-delta (default,L,T) ->
-	delta("*start*",L,T);
-
-delta (E,default,T) ->
-	delta(E,"now",T);
-
-delta (default,default,T) ->
-	delta("start","now",T);
 
 delta (E,L,T) ->
 	case get_stamp(L,T#tms.stamps) of
@@ -175,7 +166,7 @@ fmt_duration (Delta,Timer) ->
 get_stamp (_,[]) ->
 	invalid;
 
-get_stamp ("now",T) ->
+get_stamp ("*now*",T) ->
 	{ok, os:system_time(), T};
 
 get_stamp (Stamp,[{Stamp,Value}|T]) ->

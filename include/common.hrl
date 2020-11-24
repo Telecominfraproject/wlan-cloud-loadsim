@@ -16,10 +16,12 @@
 
 -ifdef(debug).
     -define(DBGTRC(Msg), io:format("~s:~s (~p) => ~s~n",[?MODULE,?FUNCTION_NAME,?LINE,Msg])).
+	-define(DBGTRC(FMsg,Args), io:format("~s:~s (~B) => " FMsg "~n",[?MODULE,?FUNCTION_NAME,?LINE] ++ Args)).
 	-define(DBGSTR(Msg), io_lib:format("~s:~s (~B) => ~s~n",[?MODULE,?FUNCTION_NAME,?LINE,Msg])).
 	-define(DBGSTR(FMsg,Args), io_lib:format("~s:~s (~B) => " FMsg "~n",[?MODULE,?FUNCTION_NAME,?LINE] ++ Args)).
 -else.
     -define(DBGTRC(Msg), true).
+	-define(DBGTRC(FMsg,Args), true).
 	-define(DBGSTR(Msg), Msg).
 	-define(DBGSTR(FMsg,Args), io_lib:format(FMsg,Args)).
 -endif.

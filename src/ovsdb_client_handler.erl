@@ -16,6 +16,7 @@
 
 -define(SERVER, ?MODULE).
 -define(MAX_STARTUP_TIME,10000).
+-define(STATS_INTERVAL,30000).
 
 %% API
 -export([start_link/0]).
@@ -50,6 +51,17 @@
 	timer :: owls_timers:tms()
 }).
 
+
+-record (statistics, {
+	seq :: non_neg_integer(),				%% sequence number of record
+	stamp :: integer(), 					%% os timestmap
+	configured :: non_neg_integer(),		%% configured clients
+	running :: non_neg_integer(),			%% actively running clients
+	paused :: non_neg_integer(),			%% currently paused clients
+	dropped :: non_neg_integer(),			%% number of dropped connections since last interval
+	avg_latency :: non_neg_integer(),		%% avg. latency in last interval
+	avg_speed :: non_neg_integer()			%% avg. communication speed during last interval
+}).
 
 
 %%%============================================================================
@@ -150,13 +162,20 @@ ap_status (Status, Id) ->
 %%% GEN_SERVER callbacks
 %%%============================================================================
 
--spec init (Args) -> {ok, State} when
+-spec init (Args) -> {ok, State} | {stop, Reason} when
 		Args :: term(),
-		State :: #hdl_state{}.
+		State :: #hdl_state{},
+		Reason :: term().
 
 init (_) ->
 	process_flag(trap_exit, true),
-	{ok, #hdl_state{timer=owls_timers:new(millisecond)}}.
+	case prepare_statistics() of
+		{error, Reason} ->
+			{stop, Reason};
+		ok ->
+			{ok, _} = timer:apply_after(?STATS_INTERVAL,gen_server,call,[self(),update_stats]),
+			{ok, #hdl_state{timer=owls_timers:new(millisecond)}}
+	end.
 
 
 
@@ -188,7 +207,7 @@ handle_cast (_,State) ->
 		NewState :: #hdl_state{}.
 
 handle_call ({set_config, Cfg},_,State) ->
-	{reply, ok, apply_config(State,Cfg)};
+	{reply, ok, apply_config(Cfg, State)};
 	
 handle_call ({api_cmd_start, Which},_,State) ->
 	{reply, ok, cmd_startup_sim(State,Which)};
@@ -209,6 +228,10 @@ handle_call ({api_cmd_cancel, Which},_,State) ->
 	NewState = trigger_execute (0, queue_command (clients_cancel, Which,State)),
 	{reply, ok, NewState};
 
+handle_call (update_stats, _From, State) ->
+	NewState = update_client_statistics(State),
+	{reply, ok, NewState};
+
 handle_call (_, _, State) ->
 	{reply, invalid, State}.
 
@@ -224,11 +247,11 @@ handle_info({'EXIT',From,Reason}, #hdl_state{clients=C, client_trans=T, client_p
 	#{From := Id} = M,
 	#{Id := L} = T,
 	Cpm = maps:remove(From,M),
-	Cl = case Reason of
-			normal -> C#{Id := {available, none}};
-			_ -> C#{Id := {dead, none}}
+	{Cl, R} = case Reason of
+			normal	-> {C#{Id := {available, none}}, cancelled};
+				_ 	-> {C#{Id := {dead, none}}, crashed}
 	end,
-	{noreply, State#hdl_state{client_pid_map=Cpm, clients=Cl, client_trans=T#{Id := [{shutdown,os:system_time()}|L]}}};
+	{noreply, State#hdl_state{client_pid_map=Cpm, clients=Cl, client_trans=T#{Id := [{R,os:system_time()}|L]}}};
 
 	
 handle_info(_, State) ->
@@ -242,6 +265,7 @@ handle_info(_, State) ->
 		State :: #hdl_state{}.
 
 terminate (_Reason, _State) ->
+	ok = dets:close(?MODULE),
 	ok.
 
 
@@ -309,17 +333,41 @@ queue_command (Where,Cmd,Refs,#hdl_state{cmd_queue=Q}=State) ->
 queue_command (Command, Refs, State) ->
 	queue_command (back,Command, Refs, State).
 
+
+
+
+
 %--------apply_config/2------------------translates configuration into state
 
--spec apply_config (State, Cfg) -> NewState when
+-spec apply_config (Cfg, State) -> NewState when
 		State :: #hdl_state{},
 		Cfg :: #{},
 		NewState :: #hdl_state{}.
 
-apply_config (State, _Cfg) ->
+apply_config (Cfg, State) when is_map_key(file,Cfg) ->
+	#{file := CfgFile} = Cfg,
+	Path = case filelib:is_regular(CfgFile) of
+		true -> CfgFile;
+		_ -> filename:join([code:priv_dir(?OWLS_APP),CfgFile])
+	end,
+	case file:consult(Path) of
+		{ok, [ClientIds|_]} ->
+			Clients = maps:from_list([{X,{available,none}}||X<-ClientIds]),
+			Transitions = maps:from_list([{X,{available,os:system_time()}}||X<-ClientIds]),
+			State#hdl_state{clients=Clients, client_trans=Transitions};
+
+		{error, Err} ->
+			?L_E(?DBGSTR("invalid config file at '~s' with error: '~p'",[Path,Err])),
+			State
+	end;
+
+apply_config (Cfg, State) when is_map_key(internal,Cfg) ->
 	Clients = #{"a68d41fa-dd12-4fb7-bc44-e834667280b4" => {available,none}},
 	Transitions = #{"a68d41fa-dd12-4fb7-bc44-e834667280b4" => [{available,os:system_time()}]},
-	State#hdl_state{clients=Clients, client_trans=Transitions}.
+	State#hdl_state{clients=Clients, client_trans=Transitions};
+
+apply_config (_Cfg, State) ->
+	State.
 
 
 
@@ -531,3 +579,47 @@ clients_cancel (Refs, #hdl_state{clients=C, timer=T}=State) ->
 	ToCancel = get_clients_with_sate_pred (fun(X) -> (X=/=available) and (X=/=dead) end, C, Refs),
 	lists:foreach(fun(I) -> #{I:={_,P}}=C, ovsdb_ap:cancel_ap(P) end, ToCancel),
 	State#hdl_state{timer=owls_timers:mark("cancel_executed",T2)}.
+
+
+
+
+
+%%-----------------------------------------------------------------------------
+%% handling statistics
+
+-spec prepare_statistics () -> ok | {error, Reason::term()}.
+
+prepare_statistics () ->
+	File = filename:join([code:priv_dir(?OWLS_APP),"ovsdb","handler_stats.dets"]),
+	Exists = filelib:is_file(File),
+	case dets:open_file(?MODULE,[{file,File},{type,set},{keypos,2}]) of
+		{ok, ?MODULE} ->
+			case Exists of
+				true -> ok;
+				false -> ok = dets:insert(?MODULE,{seq,seq,0})
+			end;
+		{error, Reason} ->
+			?L_E(?DBGSTR("Can't open statistics table: '~p'",[File])),
+			{error, Reason}
+	end.
+
+
+-spec update_client_statistics (State) -> NewState  when
+		State :: #hdl_state{},
+		NewState :: #hdl_state{}.
+
+update_client_statistics (#hdl_state{clients=C}=State) ->
+	[{_,_,Seq}] = dets:lookup(?MODULE,seq),
+	Stats = #statistics{
+			seq = Seq + 1,
+			stamp = os:system_time(),
+			configured = maps:size(C),
+			running = length(get_clients_in_state(running,C,all)),
+			paused = length(get_clients_in_state(paused,C,all)),
+			dropped = 0,
+			avg_latency = 0,
+			avg_speed = 0
+		},
+	ok = dets:insert(?MODULE,[{seq,seq,Seq+1},Stats]),
+	{ok, _} = timer:apply_after(?STATS_INTERVAL,gen_server,call,[self(),update_stats]),
+	State.

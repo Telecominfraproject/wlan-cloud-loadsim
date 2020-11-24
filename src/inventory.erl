@@ -21,7 +21,7 @@
 -export([start_link/0,creation_info/0,
 	make_ca/2,get_ca/1,get_cas/0,delete_ca/1,
 	make_server/3,get_server/2,make_servers/3,
-	make_client/2,make_clients/3,generate_client_batch/6,get_client/2,
+	make_client/2,make_clients/5,generate_client_batch/8,get_client/2,
 	all_files_exist/1,valid_ca_name/1,valid_password/1,
 	delete_server/2,import_ca/5]).
 
@@ -109,13 +109,21 @@ get_server(Ca,Id)->
 delete_server(Ca,Id)->
 	gen_server:call(?MODULE,{delete_server,Ca,Id,self()}).
 
--spec make_client(Ca::string(),Id::string())-> {ok,Client::client_info()} | {error,Reason::term()}.
-make_client(Ca,Id)->
-	gen_server:call(?MODULE,{make_client,Ca,Id,self()}).
+-spec make_client(Ca::string(),Attributes::#{ atom() => term() })-> {ok,Client::client_info()} | {error,Reason::term()}.
+make_client(Ca,Attributes)->
+	case validate_attributes(Attributes) of
+		true ->
+			gen_server:call(?MODULE,{make_client,Ca,Attributes,self()});
+		false ->
+			{error,missing_attributes}
+	end.
 
--spec make_clients(Ca::string(),OUIBase::string(),HowMany::integer()) -> {ok,HowManyDone::integer()} | {error,Reason::term()}.
-make_clients(Ca,OuiBase,HowMany) when is_list(OuiBase), HowMany >= 1 ->
-	gen_server:call(?MODULE,{make_many_clients,Ca,OuiBase,HowMany,self()}).
+-spec make_clients(Ca::string(),OUIBase::string(),Start::integer,HowMany::integer(),Attributes::#{ atom() => term() }) -> {ok,HowManyDone::integer()} | {error,Reason::term()}.
+make_clients(Ca,OuiBase,Start,HowMany,Attributes) ->
+	case validate_attributes(Attributes) of
+		true -> gen_server:call(?MODULE,{make_many_clients,Ca,OuiBase,Start,HowMany,Attributes,self()});
+		false -> { error, missing_attributes}
+	end.
 
 -spec get_client(Ca::string(),Id::string())-> { ok , Client::client_info() } | {error,Reason::term()}.
 get_client(Ca,Id)->
@@ -289,21 +297,21 @@ handle_call({delete_server,Ca,Id,_ParentPid}, _From, State = #inventory_state{})
 			end
 	end;
 
-handle_call({make_client,Ca,Name,Pid}, _From, State = #inventory_state{}) ->
+handle_call({make_client,Ca,Attributes,Pid}, _From, State = #inventory_state{}) ->
 	case ets:lookup(?CADB_TABLE,list_to_binary(Ca)) of
 		[] ->
 			{reply,{error,unknown_ca},State};
 		[CAInfo] ->
-			{ok , NewState}=create_client(CAInfo,Name,Name,"002",State,Pid),
+			{ok , NewState}=create_client(CAInfo,Attributes,State,Pid),
 			{reply, ok, NewState}
 	end;
 
-handle_call({make_many_clients,Ca,OuiBase,HowMany,Pid}, _From, State = #inventory_state{}) ->
+handle_call({make_many_clients,Ca,OuiBase,Start,HowMany,Attributes,Pid}, _From, State = #inventory_state{}) ->
 	case ets:lookup(?CADB_TABLE,list_to_binary(Ca)) of
 		[] ->
 			{reply,{error,unknown_ca},State};
 		[CAInfo] ->
-			JobPid = spawn(?MODULE,generate_client_batch,[CAInfo,OuiBase,HowMany,Pid,self(),State]),
+			JobPid = spawn(?MODULE,generate_client_batch,[CAInfo,OuiBase,Start,HowMany,Attributes,Pid,self(),State]),
 			{ reply, ok , State#inventory_state{batch_generation_pid = JobPid} }
 	end;
 
@@ -523,10 +531,12 @@ create_servers(CAInfo,[H|T],Type,State,Pid)->
 %% openssl req -batch -config openssl-client.cnf -newkey rsa:2048 -sha256 -out clientcert.csr -outform PEM -nodes
 %% openssl ca -batch -key apassword -config openssl-ca.cnf -policy signing_policy -extensions signing_req_client -out clientcert.pem -infiles clientcert.csr
 %% openssl rsa -passin pass:apassword -in clientkey.pem -out clientkey_dec.pem
--spec create_client( CAInfo :: ca_info(), Name::string(), Mac::string(), Serial::string(), State::#inventory_state{} ,ParentPid::pid() ) ->
+%% create_client(CaInfo,Name,HardwareId,State,self())
+-spec create_client( CAInfo :: ca_info(), Attributes::#{ atom() => term() }, State::#inventory_state{} ,ParentPid::pid() ) ->
 			{ ok , NewState::#inventory_state{} } | { error , Reason :: term()}.
-create_client(CAInfo,Name,Mac,Serial,State,Pid)->
+create_client(CAInfo,Attributes,State,Pid)->
 	BaseDir = binary_to_list(CAInfo#ca_info.clients_dir_name),
+	#{ mac := Mac, serial := Serial, name := Name } = Attributes,
 	ClientKeyPem = filename:join([BaseDir,"client-" ++ Name ++ "-key.pem"]),
 	ClientKeyDec = filename:join([BaseDir,"client-" ++ Name ++ "-key_dec.pem"]),
 	ClientCertCsr = filename:join([BaseDir,"client-" ++ Name ++ "-cert.csr"]),
@@ -574,18 +584,20 @@ create_client(CAInfo,Name,Mac,Serial,State,Pid)->
 
 	{ ok, State }.
 
-generate_client_batch(CaInfo,[X1,X2,X3,X4,X5,X6],HowMany,Pid,ServicePid,State)->
+generate_client_batch(CaInfo,[X1,X2,X3,X4,X5,X6],Start,HowMany,Attributes,Pid,ServicePid,State)->
 	Prefix = [ X1,X2,":",X3,X4,":",X5,X6] ++ ":",
-	generate_client_batch(CaInfo,Prefix,1,HowMany,Pid,ServicePid,State).
+	generate_client_batch(CaInfo,Prefix,1,Start,HowMany,Attributes,Pid,ServicePid,State).
 
-generate_client_batch(_CaInfo,Prefix,Done,0,Pid,ServicePid,_State)->
+generate_client_batch(_CaInfo,Prefix,Current,_Start,0,_Attributes,Pid,ServicePid,_State)->
 	gen_server:cast(ServicePid,{batch_generation_done,self()}),
-	Pid ! { make_clients , done , Prefix, Done };
-generate_client_batch(CaInfo,Prefix,Index,Left,Pid,ServicePid,State)->
-	[X1,X2,X3,X4,X5,X6] = lists:flatten(string:pad(integer_to_list(Index,16),6,leading,$0)),
+	Pid ! { make_clients , done , Prefix, Current };
+generate_client_batch(CaInfo,Prefix,Current,Start,Left,Attributes,Pid,ServicePid,State)->
+	[X1,X2,X3,X4,X5,X6] = lists:flatten(string:pad(integer_to_list(Current,16),6,leading,$0)),
 	Name = Prefix ++ [X1,X2,$:,X3,X4,$:,X5,X6],
-	_ = create_client(CaInfo,Name,Name,"001",State,self()),
-	generate_client_batch(CaInfo,Prefix,Index+1,Left-1,Pid,ServicePid,State).
+	#{ serial := Serial }=Attributes,
+	RealSerial = Serial ++ [X1,X2,X3,X4,X5,X6],
+	_ = create_client(CaInfo,Attributes#{ name => Name, mac => Name, serial => RealSerial },State,self()),
+	generate_client_batch(CaInfo,Prefix,Current+1,Start,Left-1,Attributes,Pid,ServicePid,State).
 
 all_files_exist([])->
 	true;
@@ -680,3 +692,6 @@ get_record(R) when is_record(R,client_info)->
 	mnesia:transaction( fun() ->
 												mnesia:read(clients,R#client_info.name)
 	                    end).
+
+validate_attributes(Attrs)->
+	maps:is_key(serial,Attrs) and maps:is_key(name,Attrs) and maps:is_key(mac,Attrs).

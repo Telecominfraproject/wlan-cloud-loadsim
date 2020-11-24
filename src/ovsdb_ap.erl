@@ -30,7 +30,7 @@
 
 %% API
 -export([launch/2]).
--export([uuid/1,start_ap/1]).
+-export([uuid/1,start_ap/1,stop_ap/1,pause_ap/1,cancel_ap/1]).
 
 
 %% gen_server callbacks
@@ -82,12 +82,32 @@ uuid (Node) ->
 	gen_server:call(Node,ap_uuid).
 
 
+%%%============================================================================
+%%% HANDLER API Implementation
+%%%============================================================================
 
--spec start_ap (Node) -> ok when
-		Node :: pid().
+-spec start_ap (Node :: pid()) -> ok.
 
-start_ap (Node) ->
+start_ap (Node) -> 
 	gen_server:cast(Node,ap_start).
+
+
+-spec stop_ap (Node :: pid()) -> ok.
+
+stop_ap (Node) -> 
+	gen_server:cast(Node,ap_stop).
+
+
+-spec pause_ap (Node :: pid()) -> ok.
+
+pause_ap (Node) -> 
+	gen_server:cast(Node,ap_pause).
+
+
+-spec cancel_ap (Node :: pid()) -> ok.
+
+cancel_ap (Node) -> 
+	gen_server:cast(Node,ap_cancel).
 
 
 
@@ -116,12 +136,43 @@ init ({Id,SimMan}) ->
 		NewState :: #ap_state{},
 		Reason :: string().
 
-handle_cast (start_up, State) ->
+handle_cast (start_up, #ap_state{status=init}=State) ->
 	{noreply, startup_ap(State)};
 
-handle_cast (ap_start, State) ->
+handle_cast (start_up, State) ->
+	?L_E(?DBGSTR("can not start up client if not in init state")),	
+	{noreply, State};
+
+handle_cast (ap_start, #ap_state{status=ready}=State) ->
 	{noreply, run_simulation(State)};
 
+handle_cast (ap_start, #ap_state{status=paused}=State) ->
+	{noreply, run_simulation(State)};
+
+handle_cast (ap_start, State) ->
+	?L_E(?DBGSTR("can not run simulation if not in ready or paused state")),
+	{noreply, State};
+
+handle_cast (ap_stop, #ap_state{status=paused}=State) ->
+	{noreply, stop_simulation(State)};
+
+handle_cast (ap_stop, #ap_state{status=running}=State) ->
+	{noreply, stop_simulation(State)};
+
+handle_cast (ap_stop, State) ->
+	?L_E(?DBGSTR("can not stop simulation that is not running or paused")),
+	{noreply, State};
+
+handle_cast (ap_pause, #ap_state{status=running}=State) ->
+	{noreply, pause_simulation(State)};
+
+handle_cast (ap_pause, State) ->
+	?L_E(?DBGSTR("can not pause simulation that is not running")),
+	{noreply, State};
+
+handle_cast (ap_cancel, State) ->	
+	_ = cancel_simulation(State),
+	{stop, normal, State};
 
 handle_cast (R,State) ->
 	?L_E(?DBGSTR("got unknown request: ~p",[R])),
@@ -148,10 +199,12 @@ handle_call (Request, From, State) ->
 
 
 
--spec handle_info (Msg, State) -> {noreply, NewState} when
+-spec handle_info (Msg, State) -> {noreply, NewState} | {stop, Reason, NewState} when
 		Msg :: term(),
 		State :: #ap_state{},
+		Reason :: term(),
 		NewState :: #ap_state{}.
+
 
 handle_info({'EXIT', _Pid, _Reason}, State) ->
 	%% @TODO: implement proper restart strategy for linked processes
@@ -229,11 +282,8 @@ set_status (Status, #ap_state{uuid=Id}=State) ->
 -spec startup_ap (State :: #ap_state{}) -> NewState :: #ap_state{}.
 
 startup_ap (#ap_state{status=init}=State) ->
-	set_status(ready,State);
-
-startup_ap (State) ->
-	?L_E(?DBGSTR("can nott start_up client if not in init state")),
-	State.
+	%% @TODO: implement self configuration phase
+	set_status(ready,State).
 
 
 
@@ -243,4 +293,35 @@ startup_ap (State) ->
 -spec run_simulation (State :: #ap_state{}) -> NewState :: #ap_state{}.
 
 run_simulation (State) ->
-	set_status(running,State).
+	%% @TODO: implement simulation start
+	set_status(running, State).
+
+
+
+
+%--------stop_simulation/1----------------stops a simulation (clears internal state to ready)
+
+-spec stop_simulation (State :: #ap_state{}) -> NewState :: #ap_state{}.
+
+stop_simulation (State) ->
+	set_status(ready, State).
+
+
+
+
+%--------pause_simulation/1----------------halts simulation (tear down of connections) but keeps internal state
+
+-spec pause_simulation (State :: #ap_state{}) -> NewState :: #ap_state{}.
+
+pause_simulation (State) ->
+	set_status(paused, State).
+
+
+
+
+%--------cancel_simulation/1----------------shutdown and exit simulation (AP exits)
+
+-spec cancel_simulation (State :: #ap_state{}) -> NewState :: #ap_state{}.
+
+cancel_simulation (State) ->
+	State.

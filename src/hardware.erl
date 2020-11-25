@@ -41,16 +41,16 @@ creation_info() ->
 	       modules => [?MODULE]} ].
 
 get_hardware_definitions() ->
-	gen_server:call(?MODULE,{get_hardware_definitions,self()}).
+	gen_server:call(?SERVER,{get_hardware_definitions,self()}).
 
 get_hardware_by_id(Id) ->
-	gen_server:call(?MODULE,{get_hardware_by_id,Id}).
+	gen_server:call(?SERVER,{get_hardware_by_id,Id}).
 
 get_hardware_by_model(Model) ->
-	gen_server:call(?MODULE,{get_hardware_by_model,Model}).
+	gen_server:call(?SERVER,{get_hardware_by_model,Model}).
 
 get_hardware_by_vendor(Vendor) ->
-	gen_server:call(?MODULE,{get_hardware_by_vendor,Vendor}).
+	gen_server:call(?SERVER,{get_hardware_by_vendor,Vendor}).
 
 %% @doc Spawns the server and registers the local name (unique)
 -spec(start_link() ->

@@ -439,7 +439,7 @@ cmd_startup_sim (#hdl_state{timer=T, clients=Clients}=State, Which) ->
 
 cmd_launch_clients (ToLauch, State) ->
 	%% @TODO: pass in the real manager
-	L = [ {V, ovsdb_ap:launch(V,self())} || V <- ToLauch],
+	L = [ {V, ovsdb_ap:launch(V,{global,manager})} || V <- ToLauch],
 	Pm = maps:merge(State#hdl_state.client_pid_map, maps:from_list([{P,Id} || {Id, {ok, P}} <- L])),
 	C = maps:merge(State#hdl_state.clients, maps:from_list([{V,{init,P}} || {V, {ok, P}} <- L])),
 	T = owls_timers:mark("launched",State#hdl_state.timer),

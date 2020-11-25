@@ -30,7 +30,7 @@
 
 %% API
 -export([launch/2]).
--export([uuid/1,start_ap/1,stop_ap/1,pause_ap/1,cancel_ap/1]).
+-export([start_ap/1,stop_ap/1,pause_ap/1,cancel_ap/1]).
 
 
 %% gen_server callbacks
@@ -44,14 +44,11 @@
 -export_type([ap_status/0]).
 
 -record(ap_state, { 	
-	sim_manager :: pid(), 	% manager to be contacted to get configuration
-	serial = "" :: string(),		% serial number of the access point
-	type = <<"">> :: binary(),		% device type e.g. EA8300
-	uuid :: string(),			% unique ID for this AP node
+	sim_manager :: tuple(), 	% manager to be contacted to get configuration	
 	timer :: owls_timers:tms(),
 	status = init :: ap_status(),	% internal status
-	config = #{} :: map(),
-	statistics = #{} :: map()
+	config :: ovsdb_ap_config:cfg(),
+	stats_ets :: ets:tid()
 }).
 
 
@@ -64,7 +61,7 @@
 
 -spec launch (Id, SimMan) -> {ok, Pid} | {error, Reason} when
 		Id :: UUID::string(),
-		SimMan :: pid(),
+		SimMan :: tuple(),
 		Pid :: pid(),
 		Reason :: term().
 
@@ -72,14 +69,6 @@ launch (Id, SimMan) ->
 	gen_server:start_link(?MODULE, {Id, SimMan}, []).
 
 
-
-
--spec uuid (Node) -> Uuid when
-		Node :: pid(),
-		Uuid :: term().
-
-uuid (Node) ->
-	gen_server:call(Node,ap_uuid).
 
 
 %%%============================================================================
@@ -118,7 +107,7 @@ cancel_ap (Node) ->
 
 -spec init ({Id, SimMan}) -> {ok, State}  when
 		Id :: UUID::string(),
-		SimMan :: pid(),
+		SimMan :: tuple(),
 		State :: #ap_state{}.
 
 init ({Id,SimMan}) ->
@@ -189,8 +178,6 @@ handle_cast (R,State) ->
 		Reason :: term(),
 		NewState :: #ap_state{}.
 
-handle_call (ap_uuid,_,State) ->
-	{reply, State#ap_state.uuid, State};
 
 handle_call (Request, From, State) ->
 	?L_E(?DBGSTR("got unknow request ~p from ~p",[Request,From])),
@@ -222,7 +209,8 @@ handle_info (Msg,State) ->
 		Reason :: shutdown | normal,
 		State :: #ap_state{}.
 
-terminate (_Reason, _State) ->
+terminate (_Reason, #ap_state{stats_ets=Tab}) ->
+	ets:delete(Tab),
 	ok.
 
 
@@ -250,14 +238,15 @@ code_change (_,OldState,_) ->
 
 -spec prepare_state (ID, SimMan) -> State when
 		ID :: UUID::string(),
-		SimMan :: pid(),
+		SimMan :: tuple(),
 		State :: #ap_state{}.
 
 prepare_state (ID, SimMan) ->
 	#ap_state{
 		sim_manager = SimMan,
-		uuid = ID,
-		timer = owls_timers:new(millisecond)
+		config = ovsdb_ap_config:new(ID),
+		timer = owls_timers:new(millisecond),
+		stats_ets = ets:new(?MODULE,[set,private,{keypos, 2}])
 	}.
 
 
@@ -270,8 +259,8 @@ prepare_state (ID, SimMan) ->
 		State :: #ap_state{},
 		NewState :: #ap_state{}.
 
-set_status (Status, #ap_state{uuid=Id}=State) ->
-	ovsdb_client_handler:ap_status(Status,Id),
+set_status (Status, #ap_state{config=Cfg}=State) ->
+	ovsdb_client_handler:ap_status(Status,ovsdb_ap_config:get_id(Cfg)),
 	State#ap_state{status=Status}.
 
 
@@ -281,9 +270,9 @@ set_status (Status, #ap_state{uuid=Id}=State) ->
 
 -spec startup_ap (State :: #ap_state{}) -> NewState :: #ap_state{}.
 
-startup_ap (#ap_state{status=init}=State) ->
-	%% @TODO: implement self configuration phase
-	set_status(ready,State).
+startup_ap (#ap_state{status=init, config=Cfg, sim_manager=Man}=State) ->
+	NewCfg = ovsdb_ap_config:configure(Man,Cfg),
+	set_status(ready,State#ap_state{config=NewCfg}).
 
 
 

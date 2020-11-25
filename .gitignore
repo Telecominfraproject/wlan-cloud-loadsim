@@ -27,3 +27,4 @@ src/opensync_stats.erl
 config/simnode.*
 certs_db/*
 inventory/*
+sample_ids.cfg

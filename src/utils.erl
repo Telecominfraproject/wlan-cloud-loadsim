@@ -10,7 +10,7 @@
 -author("stephb").
 
 %% API
--export([make_dir/1,uuid/0,get_addr/0,get_addr2/0]).
+-export([make_dir/1,uuid/0,get_addr/0,get_addr2/0,app_name/0,app_name/1,priv_dir/0,app_env/2]).
 
 -spec make_dir( DirName::string() ) -> ok | { error, atom() }.
 make_dir(DirName)->
@@ -72,4 +72,17 @@ good_address([{addr,{A,B,C,D}}|_Tail]) when A=/=127 ->
 	{A,B,C,D};
 good_address([_|T])->
 	good_address(T).
+
+app_name(AppName)->
+	persistent_term:put(running_app,AppName),
+	persistent_term:put(priv_dir,code:priv_dir(AppName)).
+
+app_name()->
+	persistent_term:get(running_app).
+
+priv_dir()->
+	persistent_term:get(priv_dir).
+
+app_env(Key,Default)->
+	application:get_env(app_name(),Key,Default).
 

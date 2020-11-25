@@ -70,7 +70,7 @@ generate_error(Error,Reason)->
 		Reason, "\" }"]).
 
 validate_token(Token)->
-	application:get_env(?OWLS_APP,rest_api_token,"") == binary_to_list(Token).
+	utils:app_env(rest_api_token,"") == binary_to_list(Token).
 
 get_pagination_parameters(Req) ->
 	#{ offset := Offset , limit := Limit, filter := Filter } = cowboy_req:match_qs([{offset,int,1},{limit,int,0},{filter,[],<<>>}],Req),

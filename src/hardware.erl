@@ -21,7 +21,11 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
          code_change/3]).
 
--define(SERVER, ?MODULE).
+-define(SERVER, {global,?MODULE}).
+-define(START_SERVER,{global,?MODULE}).
+
+%% -define(SERVER, ?MODULE).
+%% -define(START_SERVER,{local,?MODULE}).
 
 -record(hardware_state, { hardware }).
 
@@ -52,7 +56,7 @@ get_hardware_by_vendor(Vendor) ->
 -spec(start_link() ->
 	{ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
 start_link() ->
-	gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+	gen_server:start_link(?START_SERVER, ?MODULE, [], []).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -64,13 +68,13 @@ start_link() ->
 	{ok, State :: #hardware_state{}} | {ok, State :: #hardware_state{}, timeout() | hibernate} |
 	{stop, Reason :: term()} | ignore).
 init([]) ->
-	HardwareFileName = filename:join([code:priv_dir(?OWLS_APP),"data","hardware.yaml"]),
+	HardwareFileName = filename:join([utils:priv_dir(),"data","hardware.yaml"]),
 	[Hardware] = try
 		             case filelib:is_file(HardwareFileName) of
 			             true ->
 				             yamerl_constr:file(HardwareFileName);
 			             false->
-				             TemplateFileName = filename:join([code:priv_dir(?OWLS_APP),"templates","hardware.yaml"]),
+				             TemplateFileName = filename:join([utils:priv_dir(),"templates","hardware.yaml"]),
 				             yamerl_constr:file(TemplateFileName)
 			           end
 	             catch

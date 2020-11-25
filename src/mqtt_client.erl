@@ -62,11 +62,11 @@ start_link() ->
 	{stop, Reason :: term()} | ignore).
 init([]) ->
 	process_flag(trap_exit, true),
-	ServerIP = application:get_env(?OWLS_APP,client_server_ip,"localhost"),
-	ServerPort = application:get_env(?OWLS_APP,client_server_port,?MQTT_DEFAULT_SERVER_PORT),
-	CaCertFile = application:get_env(?OWLS_APP,client_cacertfile,"cacertfile.pem"),
-	CertFile = application:get_env(?OWLS_APP,client_certfile,"cliemt.pem"),
-	KeyFile = application:get_env(?OWLS_APP,client_keyfile,"client_dec.key"),
+	ServerIP = utils:app_env(client_server_ip,"localhost"),
+	ServerPort = utils:app_env(client_server_port,?MQTT_DEFAULT_SERVER_PORT),
+	CaCertFile = utils:app_env(client_cacertfile,"cacertfile.pem"),
+	CertFile = utils:app_env(client_certfile,"cliemt.pem"),
+	KeyFile = utils:app_env(client_keyfile,"client_dec.key"),
 
 	{ok, #mqtt_client_state{ server_ip = ServerIP, server_port = ServerPort, cacertfile = CaCertFile ,
 		certfile = CertFile, keyfile = KeyFile}}.

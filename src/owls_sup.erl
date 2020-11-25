@@ -19,7 +19,7 @@ start_link() ->
 	supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 init([]) ->
-	Processes = case application:get_env(?OWLS_APP,role,undefined) of
+	Processes = case utils:app_env(role,undefined) of
 		manager ->
 			?L_I("Simulation Manager starting."),
 			node_finder:creation_info() ++

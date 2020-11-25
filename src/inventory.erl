@@ -29,7 +29,11 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
 	code_change/3]).
 
--define(SERVER, ?MODULE).
+-define(SERVER, {global,?MODULE}).
+-define(START_SERVER,{global,?MODULE}).
+
+%% -define(SERVER, ?MODULE).
+%% -define(START_SERVER,{local,?MODULE}).
 
 -define(CADB_TABLE,cadb_tab).
 -define(CLIENTS_TABLE,clients_tab).
@@ -68,52 +72,52 @@ creation_info() ->
 make_ca(Name,Password)->
 	case (valid_ca_name(Name) and valid_password(Password) )of
 		true->
-			gen_server:call(?MODULE,{make_ca,Name,Password,self()});
+			gen_server:call(?SERVER,{make_ca,Name,Password,self()});
 		false->
 			{error,invalid_ca_name_or_password}
 	end.
 
 -spec import_ca(Name::string(),Password::string(),Cert::binary(),Key::binary(),Decrypt::binary()) -> {ok,ca_info()} | {error,Reason::term()}.
 import_ca(Name,Password,Cert,Key,Decrypt)->
-	gen_server:call(?MODULE,{import_ca,Name,Password,Cert,Key,Decrypt,self()}).
+	gen_server:call(?SERVER,{import_ca,Name,Password,Cert,Key,Decrypt,self()}).
 
 -spec get_ca( Name::string() )-> {ok,ca_info()} | {error,Reason::term()}.
 get_ca(Name)->
-	gen_server:call(?MODULE,{get_ca,Name,self()}).
+	gen_server:call(?SERVER,{get_ca,Name,self()}).
 
 -spec delete_ca( Name::string() ) -> ok | { error,Reason::term() }.
 delete_ca(Name)->
-	gen_server:call(?MODULE,{delete_ca,Name,self()}).
+	gen_server:call(?SERVER,{delete_ca,Name,self()}).
 
 -spec get_cas() -> { ok , [ CAName::string() ]} | {error,Reason::term()}.
 get_cas()->
-	gen_server:call(?MODULE,{get_cas,self()}).
+	gen_server:call(?SERVER,{get_cas,self()}).
 
 -spec make_server(Ca::string(),Id::string(),Type::service_role())-> { ok , SI::server_info() } | { error, Reason::term()}.
 make_server(Ca,Id, mqtt_server )->
-	gen_server:call(?MODULE,{make_server,Ca,Id,mqtt_server,self()});
+	gen_server:call(?SERVER,{make_server,Ca,Id,mqtt_server,self()});
 make_server(Ca,Id, ovsdb_server )->
-	gen_server:call(?MODULE,{make_server,Ca,Id,ovsdb_server,self()}).
+	gen_server:call(?SERVER,{make_server,Ca,Id,ovsdb_server,self()}).
 
 -spec make_servers(Ca::string(),Servers::list(ServerName::string()),Type::service_role())-> { ok, list({ ServerName::string(),SI::server_info()})} | { error, Reason::term() }.
 make_servers(Ca,ServerList,mqtt_server)->
-	gen_server:call(?MODULE,{make_servers,Ca,ServerList,mqtt_server,self()});
+	gen_server:call(?SERVER,{make_servers,Ca,ServerList,mqtt_server,self()});
 make_servers(Ca,ServerList,ovsdb_server)->
-	gen_server:call(?MODULE,{make_servers,Ca,ServerList,ovsdb_server,self()}).
+	gen_server:call(?SERVER,{make_servers,Ca,ServerList,ovsdb_server,self()}).
 
 -spec get_server(Ca::string(),Id::string())-> { ok, SI::server_info()} | { error, Reason::term() }.
 get_server(Ca,Id)->
-	gen_server:call(?MODULE,{get_server,Ca,Id,self()}).
+	gen_server:call(?SERVER,{get_server,Ca,Id,self()}).
 
 -spec delete_server(Ca::string(),Id::string())-> { ok, SI::server_info()} | { error, Reason::term() }.
 delete_server(Ca,Id)->
-	gen_server:call(?MODULE,{delete_server,Ca,Id,self()}).
+	gen_server:call(?SERVER,{delete_server,Ca,Id,self()}).
 
 -spec make_client(Ca::string(),Attributes::#{ atom() => term() })-> {ok,Client::client_info()} | {error,Reason::term()}.
 make_client(Ca,Attributes)->
 	case validate_attributes(Attributes) of
 		true ->
-			gen_server:call(?MODULE,{make_client,Ca,Attributes,self()});
+			gen_server:call(?SERVER,{make_client,Ca,Attributes,self()});
 		false ->
 			{error,missing_attributes}
 	end.
@@ -121,19 +125,19 @@ make_client(Ca,Attributes)->
 -spec make_clients(Ca::string(),OUIBase::string(),Start::integer,HowMany::integer(),Attributes::#{ atom() => term() }) -> {ok,HowManyDone::integer()} | {error,Reason::term()}.
 make_clients(Ca,OuiBase,Start,HowMany,Attributes) ->
 	case validate_attributes(Attributes) of
-		true -> gen_server:call(?MODULE,{make_many_clients,Ca,OuiBase,Start,HowMany,Attributes,self()});
+		true -> gen_server:call(?SERVER,{make_many_clients,Ca,OuiBase,Start,HowMany,Attributes,self()});
 		false -> { error, missing_attributes}
 	end.
 
 -spec get_client(Ca::string(),Id::string())-> { ok , Client::client_info() } | {error,Reason::term()}.
 get_client(Ca,Id)->
-	gen_server:call(?MODULE,{get_client,Ca,Id}).
+	gen_server:call(?SERVER,{get_client,Ca,Id}).
 
 %% @doc Spawns the server and registers the local name (unique)
 -spec(start_link() ->
 	{ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
 start_link() ->
-	gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+	gen_server:start_link(?START_SERVER, ?MODULE, [], []).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -147,9 +151,9 @@ start_link() ->
 init([]) ->
 	startdb(),
 	process_flag(trap_exit, true),
-	InventoryDbDir = application:get_env(?OWLS_APP,inventory_db_dir,""),
+	InventoryDbDir = utils:app_env(inventory_db_dir,""),
 	ok = utils:make_dir(InventoryDbDir),
-	CertsDbDir = application:get_env(?OWLS_APP,cert_db_dir,""),
+	CertsDbDir = utils:app_env(cert_db_dir,""),
 	ok = utils:make_dir(CertsDbDir),
 	CaDbFileName=filename:join(CertsDbDir,?CADB_TABLE_FILENAME),
 	ServersDbFileName=filename:join([InventoryDbDir,?SERVERS_TABLE_FILENAME]),
@@ -411,7 +415,7 @@ create_ca(CaName,Password,State,Pid)->
 	ok = utils:make_dir(CaClientsDir),
 	ok = utils:make_dir(CaServersDir),
 
-	{ ok , TemplateConf } = file:read_file( filename:join([code:priv_dir(?OWLS_APP),"templates","ca.cnf.template"] )),
+	{ ok , TemplateConf } = file:read_file( filename:join([utils:priv_dir(),"templates","ca.cnf.template"] )),
 	NewConf = string:replace(binary_to_list(TemplateConf),"$$DIR_ROOT$$",CaDir,all),
 	CaConfigFileName = filename:join([CaDir,CaName++".cnf"]),
 	ok = file:write_file(CaConfigFileName , list_to_binary(NewConf)),
@@ -594,9 +598,9 @@ generate_client_batch(_CaInfo,Prefix,Current,_Start,0,_Attributes,Pid,ServicePid
 generate_client_batch(CaInfo,Prefix,Current,Start,Left,Attributes,Pid,ServicePid,State)->
 	[X1,X2,X3,X4,X5,X6] = lists:flatten(string:pad(integer_to_list(Current,16),6,leading,$0)),
 	Name = Prefix ++ [X1,X2,$:,X3,X4,$:,X5,X6],
-	#{ serial := Serial }=Attributes,
+	#{ serial := Serial } = Attributes,
 	RealSerial = Serial ++ [X1,X2,X3,X4,X5,X6],
-	_ = create_client(CaInfo,Attributes#{ name => Name, mac => Name, serial => RealSerial },State,self()),
+	_ = create_client(CaInfo, Attributes#{ name => Name, mac => Name, serial => RealSerial },State,self()),
 	generate_client_batch(CaInfo,Prefix,Current+1,Start,Left-1,Attributes,Pid,ServicePid,State).
 
 all_files_exist([])->
@@ -636,7 +640,7 @@ valid_password(_,_) ->
 	false.
 
 startdb()->
-	_ = case filelib:is_file(filename:join([code:priv_dir(?OWLS_APP),"mnesia","schema.DAT"])) of
+	_ = case filelib:is_file(filename:join([utils:priv_dir(),"mnesia","schema.DAT"])) of
 		true ->
 			_ = mnesia:start(),
 	    io:format("Reloading MNESIA...~n");

@@ -79,12 +79,12 @@ start_link() ->
 	{stop, Reason :: term()} | ignore).
 init([]) ->
 	process_flag(trap_exit, true),
-	OuiUri = application:get_env(?OWLS_APP,oui_uri,?OUI_DEFAULT_DOWNLOAD_LINK),
+	OuiUri = utils:app_env(oui_uri,?OUI_DEFAULT_DOWNLOAD_LINK),
 
-	ok = utils:make_dir(filename:join([code:priv_dir(?OWLS_APP),"data"])),
+	ok = utils:make_dir(filename:join([utils:priv_dir(),"data"])),
 
-	OuiTabFileName = filename:join([code:priv_dir(?OWLS_APP),"data",?OUI_LOOKUP_TABLE_FILENAME]),
-	MakerTabFileName = filename:join([code:priv_dir(?OWLS_APP),"data",?MAKER_LOOKUP_TABLE_FILENAME]),
+	OuiTabFileName = filename:join([utils:priv_dir(),"data",?OUI_LOOKUP_TABLE_FILENAME]),
+	MakerTabFileName = filename:join([utils:priv_dir(),"data",?MAKER_LOOKUP_TABLE_FILENAME]),
 
 	{ AllOuis , AllMakers } = try
 		                            _=ets:file2tab(OuiTabFileName),
@@ -302,4 +302,4 @@ refresh(State,_Pid) ->
 
 -spec latest_filename() -> string().
 latest_filename() ->
-	filename:join([code:priv_dir(?OWLS_APP),"data",?OUI_FILENAME]).
+	filename:join([utils:priv_dir(),"data",?OUI_FILENAME]).

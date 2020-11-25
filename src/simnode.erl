@@ -122,7 +122,7 @@ update_stats(Client,Role,Stats)->
 	{ok, State :: #simnode_state{}} | {ok, State :: #simnode_state{}, timeout() | hibernate} |
 	{stop, Reason :: term()} | ignore).
 init([]) ->
-	NodeId = application:get_env(?OWLS_APP,node_id,1),
+	NodeId = utils:app_env(node_id,1),
 	{ok,NodeFinder} = timer:apply_interval(20000,?MODULE,find_manager,[self(),NodeId]),
 	{ok,StatsUpdater} = timer:apply_interval(5000,manager,send_os_stats_report,[]),
 	{ok,#simnode_state{ node_finder = NodeFinder, os_stats_updater = StatsUpdater , node_id = NodeId, manager = none }}.

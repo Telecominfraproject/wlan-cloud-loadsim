@@ -20,7 +20,7 @@
 
 -spec help() -> ok.
 help()->
-	case application:get_env(?OWLS_APP,role,none) of
+	case utils:app_env(role,none) of
 		none ->
 			io:format("Invalid application role. Please verify your configuration.~n");
 		node ->

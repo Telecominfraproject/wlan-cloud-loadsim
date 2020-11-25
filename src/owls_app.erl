@@ -9,6 +9,8 @@
 -module(owls_app).
 -behaviour(application).
 
+-include("../include/common.hrl").
+
 -export([start/2,start/0,load_cli/0]).
 -export([stop/1]).
 
@@ -29,6 +31,7 @@ load_cli()->
 	ok.
 
 app_settings()->
+	utils:app_name(?OWLS_APP),
 	lager:start(),
 	ok = load_cli(),
 	_ = inets:start(),

@@ -109,7 +109,7 @@ code_change(_OldVsn, State, _Extra) ->
 
 create_config () ->
     ?DBGTRC("creating configuration"),
-    Rport = application:get_env(?OWLS_APP,osvdb_rport,?OVSDB_DEFAULT_REFLECTOR_PORT),
-    Port = application:get_env(?OWLS_APP,osvdb_port,?OVSDB_DEFAULT_SERVER_PORT),
-    MaxClients = application:get_env(?OWLS_APP,osvdb_max_clients,?OVSDB_DEFAULT_MAX_CLIENTS),
+    Rport = utils:app_env(osvdb_rport,?OVSDB_DEFAULT_REFLECTOR_PORT),
+    Port = utils:app_env(osvdb_port,?OVSDB_DEFAULT_SERVER_PORT),
+    MaxClients = utils:app_env(osvdb_max_clients,?OVSDB_DEFAULT_MAX_CLIENTS),
     #ovsdb_cfg{reflector_port = Rport, ovsdb_port = Port, max_clients = MaxClients}.

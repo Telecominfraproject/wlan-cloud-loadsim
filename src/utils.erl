@@ -43,6 +43,27 @@ get_addr2()->
 			Error
 	end.
 
+-spec app_name( AppName::atom() )->ok.
+app_name(AppName)->
+	persistent_term:put(running_app,AppName),
+	persistent_term:put(priv_dir,code:priv_dir(AppName)).
+
+-spec app_name()->AppName::atom().
+app_name()->
+	persistent_term:get(running_app).
+
+-spec priv_dir()->DirName::string().
+priv_dir()->
+	persistent_term:get(priv_dir).
+
+-spec app_env(Key::atom(),Default::term())->Value::term().
+app_env(Key,Default)->
+	application:get_env(app_name(),Key,Default).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Local functions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 strip_ifs(Ifs)->
 	strip_ifs(Ifs,[]).
 
@@ -73,16 +94,4 @@ good_address([{addr,{A,B,C,D}}|_Tail]) when A=/=127 ->
 good_address([_|T])->
 	good_address(T).
 
-app_name(AppName)->
-	persistent_term:put(running_app,AppName),
-	persistent_term:put(priv_dir,code:priv_dir(AppName)).
-
-app_name()->
-	persistent_term:get(running_app).
-
-priv_dir()->
-	persistent_term:get(priv_dir).
-
-app_env(Key,Default)->
-	application:get_env(app_name(),Key,Default).
 

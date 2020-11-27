@@ -17,17 +17,6 @@
 
 
 
-%%-----------------------------------------------------------------------------
-%% @doc The SPEC for starting a AP node is a proplist with the following fileds.
-%%
-%% {manager, ::pid()} - the pid of the simmanager used to get configuration.
-%% {ap_serial, ::string()} - the serial number of the AP.
-%% {ap_type, ::binary()} - type of AP to simulate e.g. EA8300.
-%% {uuid, ::term()} - arbitrary unique id to identify this simnode AP.
-%% @end
-%%-----------------------------------------------------------------------------
-
-
 %% API
 -export([launch/2]).
 -export([start_ap/1,stop_ap/1,pause_ap/1,cancel_ap/1]).
@@ -48,6 +37,8 @@
 	timer :: owls_timers:tms(),
 	status = init :: ap_status(),	% internal status
 	config :: ovsdb_ap_config:cfg(),
+	comm = none :: none | pid(),
+	store = #{} :: #{atom() := term()},
 	stats_ets :: ets:tid()
 }).
 
@@ -193,7 +184,8 @@ handle_call (Request, From, State) ->
 		NewState :: #ap_state{}.
 
 
-handle_info({'EXIT', _Pid, _Reason}, State) ->
+handle_info({'EXIT', Pid, Reason}, State) ->
+	?L_E(?DBGSTR("Abnormal exit from ~p with reason: ~p",[Pid,Reason])),
 	%% @TODO: implement proper restart strategy for linked processes
 	{noreply, State};
 
@@ -246,6 +238,7 @@ prepare_state (ID, SimMan) ->
 		sim_manager = SimMan,
 		config = ovsdb_ap_config:new(ID),
 		timer = owls_timers:new(millisecond),
+		status = init,
 		stats_ets = ets:new(?MODULE,[set,private,{keypos, 2}])
 	}.
 
@@ -260,7 +253,7 @@ prepare_state (ID, SimMan) ->
 		NewState :: #ap_state{}.
 
 set_status (Status, #ap_state{config=Cfg}=State) ->
-	ovsdb_client_handler:ap_status(Status,ovsdb_ap_config:get_id(Cfg)),
+	ovsdb_client_handler:ap_status(Status,ovsdb_ap_config:id(Cfg)),
 	State#ap_state{status=Status}.
 
 
@@ -271,8 +264,14 @@ set_status (Status, #ap_state{config=Cfg}=State) ->
 -spec startup_ap (State :: #ap_state{}) -> NewState :: #ap_state{}.
 
 startup_ap (#ap_state{status=init, config=Cfg, sim_manager=Man}=State) ->
-	NewCfg = ovsdb_ap_config:configure(Man,Cfg),
-	set_status(ready,State#ap_state{config=NewCfg}).
+	NewCfg =  ovsdb_ap_config:configure(Man,Cfg),
+	Opts = [
+		{host, ovsdb_ap_config:tip(host,NewCfg)},
+		{port, ovsdb_ap_config:tip(port,NewCfg)},
+		{certs, ovsdb_ap_config:pem(NewCfg)}
+	],
+	{ok, Comm} = ovsdb_ap_comm:start_link(Opts),
+	set_status(ready,State#ap_state{config=NewCfg, comm=Comm}).
 
 
 

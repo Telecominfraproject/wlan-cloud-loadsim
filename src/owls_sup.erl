@@ -27,7 +27,8 @@ init([]) ->
 			manager_rest_api:creation_info() ++
 			oui_server:creation_info() ++
 			hardware:creation_info() ++
-			inventory:creation_info();
+			inventory:creation_info() ++
+      simengine:creation_info();
 		node ->
 			?L_I("Simulation Node starting."),
 			simnode:creation_info() ++

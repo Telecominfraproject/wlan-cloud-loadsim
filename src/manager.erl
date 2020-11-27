@@ -14,7 +14,7 @@
 -include("../include/common.hrl").
 
 %% API
--export([start_link/0,creation_info/0,connect/0,disconnect/0,send_os_stats_report/0,connected_nodes/0]).
+-export([start_link/0,creation_info/0,connect/0,disconnect/0,send_os_stats_report/1,connected_nodes/0]).
 -export([log_info/1,log_info/2,log_error/1,log_error/2]).
 
 %% gen_server callbacks
@@ -45,8 +45,8 @@ disconnect()->
 connected_nodes()->
 	gen_server:call({global,?SERVER},connected_nodes).
 
-send_os_stats_report()->
-	gen_server:cast({global,?SERVER},{stats_report,node(),create_os_stats_report()}).
+send_os_stats_report(Report)->
+	gen_server:cast({global,?SERVER},{stats_report,node(),Report}).
 
 log_info(Message)->
 	gen_server:cast({global,?SERVER},{log_info,node(),Message}).
@@ -76,6 +76,7 @@ start_link() ->
 	{ok, State :: #manager_state{}} | {ok, State :: #manager_state{}, timeout() | hibernate} |
 	{stop, Reason :: term()} | ignore).
 init([]) ->
+	startdb(),
 	{ok, #manager_state{ nodes = sets:new(), stats = maps:new() }}.
 
 %% @private
@@ -175,12 +176,20 @@ code_change(_OldVsn, State = #manager_state{}, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-create_os_stats_report() ->
-	CpuSup = #{ avg1 => cpu_sup:avg1() , avg5 => cpu_sup:avg5(), avg15 => cpu_sup:avg15(),
-		nprocs => cpu_sup:nprocs(), util => cpu_sup:util(), detailed => cpu_sup:util([detailed]), per_cpu => cpu_sup:util([per_cpu])},
-	DiskSup = #{ disk_data => disksup:get_disk_data(), check_interval => disksup:get_check_interval(),
-		almost_full_threshold => disksup:get_almost_full_threshold()},
-	MemSup = #{ check_interval => memsup:get_check_interval(), procmem_high_watermark => memsup:get_procmem_high_watermark(),
-		sysmem_high_watermark => memsup:get_sysmem_high_watermark(), memory_data => memsup:get_memory_data(),
-		helper_timeout => memsup:get_helper_timeout(), system_memory_data => memsup:get_system_memory_data()},
-	#{ cpu_sup => CpuSup,disk_sup => DiskSup, memsup => MemSup}.
+startdb()->
+	_ = case filelib:is_file(filename:join([utils:priv_dir(),"mnesia","schema.DAT"])) of
+		    true ->
+			    _ = mnesia:start(),
+			    io:format("Reloading MNESIA...~n");
+		    false ->
+			    io:format("Starting MNESIA from scratch...~n"),
+			    ok=mnesia:create_schema([node()]),
+			    _ = mnesia:start(),
+			    create_tables()
+	    end,
+	ok.
+
+create_tables()->
+	inventory:create_tables(),
+	simengine:create_tables(),
+	ok.

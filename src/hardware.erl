@@ -14,8 +14,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0,creation_info/0,get_hardware_definitions/0,get_hardware_by_id/1,
-	get_hardware_by_model/1,get_hardware_by_vendor/1]).
+-export([start_link/0,creation_info/0,get_by_id/1,get_by_model/1,get_by_vendor/1,get_definitions/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -40,16 +39,16 @@ creation_info() ->
 	       type => worker,
 	       modules => [?MODULE]} ].
 
-get_hardware_definitions() ->
+get_definitions() ->
 	gen_server:call(?SERVER,{get_hardware_definitions,self()}).
 
-get_hardware_by_id(Id) ->
+get_by_id(Id) ->
 	gen_server:call(?SERVER,{get_hardware_by_id,Id}).
 
-get_hardware_by_model(Model) ->
+get_by_model(Model) ->
 	gen_server:call(?SERVER,{get_hardware_by_model,Model}).
 
-get_hardware_by_vendor(Vendor) ->
+get_by_vendor(Vendor) ->
 	gen_server:call(?SERVER,{get_hardware_by_vendor,Vendor}).
 
 %% @doc Spawns the server and registers the local name (unique)
@@ -69,7 +68,7 @@ start_link() ->
 	{stop, Reason :: term()} | ignore).
 init([]) ->
 	HardwareFileName = filename:join([utils:priv_dir(),"data","hardware.yaml"]),
-	[Hardware] = try
+	[HardwareRaw] = try
 		             case filelib:is_file(HardwareFileName) of
 			             true ->
 				             yamerl_constr:file(HardwareFileName);
@@ -80,7 +79,8 @@ init([]) ->
 	             catch
 								 _:_ -> [[]]
 							 end,
-	{ok, #hardware_state{ hardware = Hardware }}.
+	Devices = proplists:get_value("Devices",HardwareRaw),
+	{ok, #hardware_state{ hardware = convert(Devices) }}.
 
 %% @private
 %% @doc Handling call messages
@@ -93,19 +93,15 @@ init([]) ->
 	                 {stop, Reason :: term(), Reply :: term(), NewState :: #hardware_state{}} |
 	                 {stop, Reason :: term(), NewState :: #hardware_state{}}).
 handle_call({get_hardware_definitions,_Pid}, _From, State = #hardware_state{}) ->
-	Devices = proplists:get_value("Devices",State#hardware_state.hardware,[]),
-	{reply, {ok,Devices}, State};
+	{reply, {ok,State#hardware_state.hardware}, State};
 handle_call({get_hardware_by_id,Id}, _From, State = #hardware_state{}) ->
-	Devices = proplists:get_value("Devices",State#hardware_state.hardware,[]),
-	Res = filter_devices(Devices,"Id",Id,[]),
+	Res = filter_devices(State#hardware_state.hardware,id,list_to_binary(Id),[]),
 	{reply, {ok,Res}, State};
 handle_call({get_hardware_by_model,Model}, _From, State = #hardware_state{}) ->
-	Devices = proplists:get_value("Devices",State#hardware_state.hardware,[]),
-	Res = filter_devices(Devices,"Model",Model,[]),
+	Res = filter_devices(State#hardware_state.hardware,model,list_to_binary(Model),[]),
 	{reply, {ok,Res}, State};
 handle_call({get_hardware_by_vendor,Vendor}, _From, State = #hardware_state{}) ->
-	Devices = proplists:get_value("Devices",State#hardware_state.hardware,[]),
-	Res = filter_devices(Devices,"Vendor",Vendor,[]),
+	Res = filter_devices(State#hardware_state.hardware,vendor,list_to_binary(Vendor),[]),
 	{reply, {ok,Res}, State};
 handle_call(_Request, _From, State = #hardware_state{}) ->
 	{reply, ok, State}.
@@ -158,3 +154,44 @@ filter_devices([H|T],Attribute,Value,Acc)->
 		_ ->
 			filter_devices(T,Attribute,Value,Acc)
 	end.
+
+convert(Hardware)->
+	convert(Hardware,[]).
+
+convert([],Result)->
+	lists:reverse(Result);
+convert([H|T],Result)->
+	Entry=convert_entry(H),
+	convert(T,[Entry|Result]).
+
+convert_entry(Entry)->
+	convert_entry(Entry,[]).
+
+convert_entry([],R)->
+	lists:reverse(R);
+convert_entry([{"Id",Value}|Tail],R)->
+	convert_entry(Tail,[{id,list_to_binary(Value)}|R]);
+convert_entry([{"Description",Value}|Tail],R)->
+	convert_entry(Tail,[{description,list_to_binary(Value)}|R]);
+convert_entry([{"Vendor",Value}|Tail],R)->
+	convert_entry(Tail,[{vendor,list_to_binary(Value)}|R]);
+convert_entry([{"Model",Value}|Tail],R)->
+	convert_entry(Tail,[{model,list_to_binary(Value)}|R]);
+convert_entry([{"Firmware",Value}|Tail],R)->
+	convert_entry(Tail,[{firmware,list_to_binary(Value)}|R]);
+convert_entry([{"Cap",Value}|Tail],R)->
+	convert_entry(Tail,[{cap,convert_list(Value,[])}|R]);
+convert_entry([_|Tail],R)->
+	convert_entry(Tail,R).
+
+convert_list([],R)->
+	R;
+convert_list(["mqtt_client" | Tail], R)->
+	convert_list(Tail,[mqtt_client|R]);
+convert_list(["ovsdb_client" | Tail], R)->
+	convert_list(Tail,[ovsdb_client|R]);
+convert_list([ _ | Tail], R)->
+	convert_list(Tail,R).
+
+
+

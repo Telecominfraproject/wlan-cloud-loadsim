@@ -10,6 +10,7 @@
 -author("stephb").
 
 -include("../include/common.hrl").
+-include("../include/simengine.hrl").
 
 %% API
 -compile(export_all).
@@ -95,6 +96,38 @@ set_node_configuration( Node, Configuration ) ->
 -spec get_node_configuration( Node::node() ) -> { ok, Configuration::term() }.
 get_node_configuration(Node) ->
 	simnode:get_configuration(Node).
+
+-spec create_simulation(Name::string())-> ok | { error , Reason::term() }.
+create_simulation(Name)->
+	{ ok , Nodes } = manager:connected_nodes(),
+	io:format("Creation simulation: ~s~n",[Name]),
+	io:format("  -nodes(~p): ~p~n",[length(Nodes),Nodes]),
+	MaxDevices = length(Nodes) * 10000,
+	NumberOfDevices = input("Number of devices (max:" ++ integer_to_list(MaxDevices) ++ ") ", integer_to_list(MaxDevices div 2)),
+	Simulation = #simulation{ id = list_to_binary(Name),
+		num_devices = list_to_integer(NumberOfDevices),
+		creation_date = calendar:local_time(),
+    start_date = undefined,
+    end_date = undefined,
+		nodes = Nodes },
+	simengine:create(Simulation).
+
+
+input(Prompt,Default)->
+	InputData=string:trim(io:get_line( Prompt ++ " [" ++ Default ++ "] :")),
+	case InputData=="" of
+		true -> Default;
+		false -> InputData
+	end.
+
+to_string([],R)->
+	lists:reverse(R);
+to_string([H|T],R) when is_list(H)->
+	to_string(T,[H|R]);
+to_string([H|T],R) when is_atom(H)->
+	to_string(T,[atom_to_list(H)|R]);
+to_string([H|T],R) when is_binary(H)->
+	to_string(T,[binary_to_list(H)|R]).
 
 
 

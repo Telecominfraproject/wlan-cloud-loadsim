@@ -23,7 +23,7 @@
 	make_server/3,get_server/2,make_servers/3,
 	make_client/2,make_clients/5,generate_client_batch/8,get_client/2,
 	all_files_exist/1,valid_ca_name/1,valid_password/1,
-	delete_server/2,import_ca/5]).
+	delete_server/2,import_ca/5,create_tables/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -149,7 +149,6 @@ start_link() ->
 	{ok, State :: #inventory_state{}} | {ok, State :: #inventory_state{}, timeout() | hibernate} |
 	{stop, Reason :: term()} | ignore).
 init([]) ->
-	startdb(),
 	process_flag(trap_exit, true),
 	InventoryDbDir = utils:app_env(inventory_db_dir,""),
 	ok = utils:make_dir(InventoryDbDir),
@@ -638,19 +637,6 @@ valid_password([H|T],Pos) when (((H>=$0) and (H=<$9)) or ((H>=$a) and (H=<$z)) o
 	valid_password(T,Pos+1);
 valid_password(_,_) ->
 	false.
-
-startdb()->
-	_ = case filelib:is_file(filename:join([utils:priv_dir(),"mnesia","schema.DAT"])) of
-		true ->
-			_ = mnesia:start(),
-	    io:format("Reloading MNESIA...~n");
-		false ->
-			io:format("Starting MNESIA from scratch...~n"),
-			ok=mnesia:create_schema([node()]),
-			_ = mnesia:start(),
-			create_tables()
-	end,
-	ok.
 
 create_tables()->
 	{atomic,ok} = mnesia:create_table(cas,    [{disc_copies,[node()]}, {record_name,ca_info},     {attributes,record_info(fields,ca_info)}]),

@@ -20,7 +20,8 @@
 	type = <<"">> :: binary(),		% device type e.g. EA8300
 	tip_host = "" :: string(),			% host of tip controller
 	tip_port = 0 :: integer(),			% port at tip controller
-	pem = <<"">> :: binary()		% pem file (in memory) of the certificates to use
+	ca_certs = <<"">> :: binary(),		% pem file (in memory) of the server certificate chain
+	client_cert = <<"">> :: binary()	% client certificate + private key in pem format
 }).
 
 -opaque cfg() :: #cfg{}.
@@ -30,7 +31,7 @@
 
 
 -export([new/1,configure/2]).
--export ([id/1,tip/2,pem/1]).
+-export ([id/1,tip/2,ca_certs/1,client_cert/1]).
 
 
 %%------------------------------------------------------------------------------
@@ -56,29 +57,25 @@ configure (_Manager,Config) ->
 		type = proplists:get_value(type,APC),
 		tip_host = proplists:get_value(tip_host,APC),
 		tip_port = proplists:get_value(tip_port,APC),
-		pem = proplists:get_value(pem,APC)
+		ca_certs = proplists:get_value(ca_certs,APC),
+		client_cert = proplists:get_value(client_cert,APC)
 	}.
 
 
 %%------------------------------------------------------------------------------
 %% accessor API
 
-
-
-
 -spec id (Config :: cfg()) -> Id :: string().
-
 id (Cfg) -> Cfg#cfg.id.
 
-
 -spec tip (Part :: host | port, Config :: cfg()) -> string() | integer().
-
 tip (host,Cfg) -> Cfg#cfg.tip_host;
 tip (port,Cfg) -> Cfg#cfg.tip_port.
 
+-spec ca_certs (Config :: cfg()) -> binary().
+ca_certs (Cfg) -> Cfg#cfg.ca_certs.
 
--spec pem (Config :: cfg()) -> binary().
-
-pem (Cfg) -> Cfg#cfg.pem.
+-spec client_cert (Config :: cfg()) -> binary().
+client_cert (Cfg) -> Cfg#cfg.client_cert.
 
 

@@ -21,6 +21,9 @@
 -export([launch/2]).
 -export([start_ap/1,stop_ap/1,pause_ap/1,cancel_ap/1]).
 
+%% comm API
+-export([rpc_cmd/2]).
+
 
 %% gen_server callbacks
 -export([init/1, handle_cast/2, handle_call/3, handle_info/2, terminate/2, code_change/3]).
@@ -89,6 +92,17 @@ pause_ap (Node) ->
 cancel_ap (Node) -> 
 	gen_server:cast(Node,ap_cancel).
 
+
+
+%%%============================================================================
+%%% Comm module API
+%%%============================================================================
+
+
+-spec rpc_cmd (Node :: pid(), Rpc :: term()) -> ok | invalid.
+
+rpc_cmd (Node,Rpc) ->
+	gen_server:call(Node,{exec_rpc,Rpc}).
 
 
 
@@ -168,6 +182,22 @@ handle_cast (R,State) ->
 		Reply :: term(),
 		Reason :: term(),
 		NewState :: #ap_state{}.
+
+handle_call ({exec_rpc, RPC}, _From, State) when is_map(RPC) andalso
+												 is_map_key(<<"method">>,RPC) andalso
+												 is_map_key(<<"id">>,RPC) ->
+	io:format("RPC request: ~s (~B)~n",[maps:get(<<"method">>,RPC),maps:get(<<"id">>,RPC)]),
+	{reply,ok,State};
+
+handle_call ({exec_rpc, RPC}, _From, State) when is_map(RPC) andalso
+												 is_map_key(<<"result">>,RPC) andalso
+												 is_map_key(<<"id">>,RPC) ->
+	io:format("RPC response to request: (~B)~n",[maps:get(<<"id">>,RPC)]),
+	{reply,ok,State};
+
+handle_call ({exec_rpc, RPC}, _From, State) ->
+	io:format("invalid RPC: ~p~n",[RPC]),
+	{reply,invalid, State};
 
 
 handle_call (Request, From, State) ->
@@ -268,7 +298,8 @@ startup_ap (#ap_state{status=init, config=Cfg, sim_manager=Man}=State) ->
 	Opts = [
 		{host, ovsdb_ap_config:tip(host,NewCfg)},
 		{port, ovsdb_ap_config:tip(port,NewCfg)},
-		{certs, ovsdb_ap_config:pem(NewCfg)}
+		{ca, ovsdb_ap_config:ca_certs(NewCfg)},
+		{cert, ovsdb_ap_config:client_cert(NewCfg)}
 	],
 	{ok, Comm} = ovsdb_ap_comm:start_link(Opts),
 	set_status(ready,State#ap_state{config=NewCfg, comm=Comm}).

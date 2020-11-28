@@ -16,15 +16,18 @@
 %% types and specifications
 
 -record (c_state, {
-	socket :: gen_tcp:socket(),
-	ap :: pid()
+	socket :: ssl:sslsocket(),
+	ap :: pid(),
+	status :: active | idle,
+	rxb = <<"">> :: binary()
 }).
 
 
 -type options() :: [
 	{host, string()} | 		% tip controller host name
 	{port, integer()} | 	% port to connect
-	{certs, binary()}		% in memory PEM file of all certs (CA,Cert, Key .. in that order)
+	{ca, binary()}	|		% in memory PEM file of the server CA chain
+	{cert, binary()}		% 
 ].
 
 
@@ -57,13 +60,13 @@ start_link (Options) ->
 create_comm (Opts, AP) ->
 	H = proplists:get_value(host,Opts),
 	P = proplists:get_value(port,Opts),
-	C = proplists:get_value(certs,Opts),
-	[{'Certificate',CA,not_encrypted},
-	 {'Certificate',Cert,not_encrypted},
-	 {KeyType,Key,not_encrypted}] = public_key:pem_decode(C),
+	CAs = [X || {'Certificate',X,not_encrypted} <- public_key:pem_decode(proplists:get_value(ca,Opts))],
+	[{'Certificate',Cert,not_encrypted},
+	 {KeyType,Key,not_encrypted}] = public_key:pem_decode(proplists:get_value(cert,Opts)),
 	State = #c_state{
-		socket = connect_to_server(H,P,CA,Cert,{KeyType,Key}),
-		ap = AP
+		socket = connect_to_server(H,P,CAs,Cert,{KeyType,Key}),
+		ap = AP,
+		status = active
 	},
 	comm_loop(State).
 
@@ -72,29 +75,53 @@ create_comm (Opts, AP) ->
 
 -spec comm_loop (State :: #c_state{}) -> ok.
 
-comm_loop (_State) ->
-	%% @TODO: proper socket handling ...
-	io:format("connected ... loop ... exit"),
-	ok.
+comm_loop (#c_state{socket=S, rxb=Rx, ap=AP}=State) ->
+	receive 
+		{ssl, S, Data} ->
+			Buffer = process_rx_data(<<Rx/binary,Data/binary>>,AP),
+			ok = ssl:setopts(S,[{active,once}]),
+			comm_loop(State#c_state{status=active, rxb=Buffer});
+
+		{ssl_closed, S} ->
+			?L_I(?DBGSTR("socket closed by server")),
+			ok;
+
+    	{ssl_error, S, Reason} ->
+			?L_E(?DBGSTR("socket error ~p",[Reason])),
+			ssl:close(S);
+
+		{send, AP, Data} ->
+			ToSend = jiffy:encode(Data),
+			ok = ssl:send(S,ToSend),
+			comm_loop(State#c_state{status=active});
+
+		{down, AP} ->
+			ssl:close(S)
+
+	after
+		10000 ->
+			comm_loop(State#c_state{status=idle})
+	end.
 
 
 
--spec connect_to_server (Host, Port, CA, Cert, Key) -> Socket when
+-spec connect_to_server (Host, Port, CAs, Cert, Key) -> Socket when
 		Host :: string(),					%% host name to connect to (can be IP address in string format)
 		Port :: integer(),					%% port to connect to
-		CA :: public_key:der_encoded(),		%% server certificate
+		CAs:: [public_key:der_encoded()],	%% server certificate
 		Cert :: public_key:der_encoded(),	%% client certificate
 		Key :: {atom(),public_key:der_encoded()},	%% private key for client cert
-		Socket :: gen_tcp:socket().			
+		Socket :: ssl:sslsocket().			
 
 
-connect_to_server (Host, Port, CA, Cert, Key) -> 
-	Opts = [{cacerts, [CA]},
+connect_to_server (Host, Port, CAs, Cert, Key) -> 
+	Opts = [{cacerts, CAs},
 			{cert,Cert},
 			{key,Key},
 			{versions, ['tlsv1.2','tlsv1.3']},
 			{session_tickets,auto},
-			{mode,binary}],
+			{mode,binary},
+			{active,once}],
 	case ssl:connect(Host, Port, Opts) of
 		{ok, Socket} -> Socket;
 		{error, Reason} -> 
@@ -103,3 +130,23 @@ connect_to_server (Host, Port, CA, Cert, Key) ->
 	end.
 
 
+
+
+%--------process_rx_data/2---------------process data in buffer and ensures only valid decoded JSON is sent to AP
+
+-spec process_rx_data (Data :: binary(), AP :: pid()) -> Buffer :: binary().
+
+process_rx_data (Data, AP) ->
+	try jiffy:decode(Data,[return_maps,copy_strings,return_trailer]) of
+		{has_trailer,Map,Tail} ->
+			ovasd_ap:rpc_cmd(AP,Map),
+			iolist_to_binary(Tail);
+		Map ->
+			ovasd_ap:rpc_cmd(AP,Map),
+			<<"">>
+	catch
+		error:{_,truncated_json} ->
+			Data;
+		_:_ ->
+			<<"">>
+	end.

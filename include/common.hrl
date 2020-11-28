@@ -8,9 +8,16 @@
 %%%-------------------------------------------------------------------
 -author("helge").
 
+-ifndef(__OWLS_COMMON_HRL__).
+-define(__OWLS_COMMON_HRL__,1).
+
 -compile({parse_transform, lager_transform}).
 
 -include_lib("stdlib/include/ms_transform.hrl").
+
+-type attribute_list() :: #{ atom() => term() }.
+-export_type([attribute_list/0]).
+
 
 -define(OWLS_APP,owls).
 
@@ -37,3 +44,6 @@
 -define(RL_IA(X,Y),_=manager:log_info(X,Y)).
 -define(RL_E(X),_=manager:log_error(X)).
 -define(RL_EA(X,Y),_=manager:log_error(X,Y)).
+
+
+-endif.

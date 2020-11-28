@@ -139,10 +139,10 @@ connect_to_server (Host, Port, CAs, Cert, Key) ->
 process_rx_data (Data, AP) ->
 	try jiffy:decode(Data,[return_maps,copy_strings,return_trailer]) of
 		{has_trailer,Map,Tail} ->
-			ovasd_ap:rpc_cmd(AP,Map),
+			ovsdb_ap:rpc_cmd(AP,Map),
 			iolist_to_binary(Tail);
 		Map ->
-			ovasd_ap:rpc_cmd(AP,Map),
+			ovsdb_ap:rpc_cmd(AP,Map),
 			<<"">>
 	catch
 		error:{_,truncated_json} ->

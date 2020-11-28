@@ -10,6 +10,7 @@
 -author("stephb").
 
 -include("../include/common.hrl").
+-include("../include/inventory.hrl").
 -include("../include/simengine.hrl").
 
 %% API
@@ -18,6 +19,7 @@
 
 -define(SIM_APIKEY,sim_api_key).
 
+-type generic_result() :: ok | { error, Reason::term() }.
 
 -spec help() -> ok.
 help()->
@@ -77,16 +79,50 @@ configuration()->
 -spec manager_help() -> ok.
 manager_help()->
 	io:format("refresh_ouis().~n"),
-	io:format("connected_nodes().~n"),
+	io:format("show_nodes().~n"),
 	io:format("get_node_configuration( Node ).~n"),
 	io:format("set_node_configuration( Node, Configuration ).~n").
 
--spec refresh_ouis()-> ok.
-refresh_ouis()->
-	oui_server:refresh().
 
--spec connected_nodes() -> {ok,[node()]}.
-connected_nodes()->
+-spec create_simulation(SimName::string())-> generic_result().
+create_simulation(SimName) when is_list(SimName) ->
+	{ ok , Nodes } = manager:connected_nodes(),
+	io:format("Creation simulation: ~s~n",[SimName]),
+	io:format("  -nodes(~p): ~p~n",[length(Nodes),Nodes]),
+	MaxDevices = length(Nodes) * 10000,
+	NumberOfDevices = input("Number of devices (max:" ++ integer_to_list(MaxDevices) ++ ") ", integer_to_list(MaxDevices div 2)),
+	Simulation = #simulation{ id = list_to_binary(SimName),
+		num_devices = list_to_integer(NumberOfDevices),
+		creation_date = calendar:local_time(),
+    start_date = undefined,
+    end_date = undefined,
+		nodes = Nodes },
+	simengine:create(Simulation).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%  CA Management functions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-spec create_ca(SimName::string(),CAName::string())-> generic_result().
+create_ca(SimName,CAName) when is_list(SimName), is_list(CAName)->
+	ok.
+
+-spec import_ca(SimName::string(),CAName::string(),Attributes::attribute_list())->ok | { error , Reason::term() }.
+import_ca(SimName,CAName,Attributes) when is_list(SimName), is_list(CAName), is_map(Attributes) ->
+	ok.
+
+-spec remove_ca(SimName::string(),CAName::string())->generic_result().
+remove_ca(SimName,CAName) when is_list(SimName), is_list(CAName) ->
+	ok.
+
+-spec show_ca(SimName::string(),CAName::string())-> { ok, Attributes::attribute_list() } | { error , Reason::term() }.
+show_ca(SimName,CAName) when is_list(SimName), is_list(CAName) ->
+	{ ok, #{} }.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%  Node Management functions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-spec show_nodes() -> {ok,[node()]}.
+show_nodes()->
 	manager:connected_nodes().
 
 -spec set_node_configuration( Node::node() , Configuration::term() ) -> ok.
@@ -97,21 +133,34 @@ set_node_configuration( Node, Configuration ) ->
 get_node_configuration(Node) ->
 	simnode:get_configuration(Node).
 
--spec create_simulation(Name::string())-> ok | { error , Reason::term() }.
-create_simulation(Name)->
-	{ ok , Nodes } = manager:connected_nodes(),
-	io:format("Creation simulation: ~s~n",[Name]),
-	io:format("  -nodes(~p): ~p~n",[length(Nodes),Nodes]),
-	MaxDevices = length(Nodes) * 10000,
-	NumberOfDevices = input("Number of devices (max:" ++ integer_to_list(MaxDevices) ++ ") ", integer_to_list(MaxDevices div 2)),
-	Simulation = #simulation{ id = list_to_binary(Name),
-		num_devices = list_to_integer(NumberOfDevices),
-		creation_date = calendar:local_time(),
-    start_date = undefined,
-    end_date = undefined,
-		nodes = Nodes },
-	simengine:create(Simulation).
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%  Node Management functions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-spec create_server(SimName::string(),Type::service_role()) -> generic_result().
+create_server(SimName,"mqtt_server") when is_list(SimName)->
+	ok;
+create_server(SimName,"ovsdb_server") when is_list(SimName)->
+	ok;
+create_server(SimName,all) when is_list(SimName)->
+	ok;
+create_server(SimName,Name) when is_list(SimName)->
+	io:format("create_server: invalid server type ~p. Must be mqtt_server, ovsdb_server, all.~n",[Name]),
+	{ error , unknown_server_type }.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%  Misc management functions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-spec refresh_ouis()-> ok.
+refresh_ouis()->
+	oui_server:refresh().
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%  Local utility functions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 input(Prompt,Default)->
 	InputData=string:trim(io:get_line( Prompt ++ " [" ++ Default ++ "] :")),

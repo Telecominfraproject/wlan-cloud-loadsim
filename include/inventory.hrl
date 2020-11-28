@@ -8,9 +8,12 @@
 %%%-------------------------------------------------------------------
 -author("stephb").
 
--include_lib("stdlib/include/qlc.hrl").
+-ifndef(__OWLS_INVENTORY_HRL__).
+-define(__OWLS_INVENTORY_HRL__,1).
 
--type attribute_list() :: [{binary(),binary()}].
+-include("../include/common.hrl").
+
+-include_lib("stdlib/include/qlc.hrl").
 
 -record(ca_info,{
 	name = <<>> :: binary(),   %% You must leave the NAME field first - do not move it...
@@ -26,7 +29,7 @@
 	decrypt_data = <<>> :: binary(),
 	config_data = <<>> :: binary(),
 	password = <<>> :: binary(),
-	attributes = [] :: attribute_list()
+	attributes = #{} :: attribute_list()
 }).
 
 -type client_role() :: none | mqtt_client | ovsdb_client.
@@ -46,7 +49,7 @@
 	cert = <<>> :: binary(),
 	decrypt = <<>> :: binary(),
 	csr = <<>> :: binary(),
-	attributes = [] :: attribute_list()
+	attributes = #{} :: attribute_list()
 }).
 
 -type service_role() :: none | mqtt_server | ovsdb_server .
@@ -64,7 +67,7 @@
 	cert = <<>> :: binary(),
 	decrypt = <<>> :: binary(),
 	csr = <<>> :: binary(),
-	attributes = [] :: attribute_list()
+	attributes = #{} :: attribute_list()
 }).
 
 -type any_role() :: service_role() | client_role().
@@ -72,5 +75,7 @@
 -type client_info() :: #client_info{}.
 -type server_info() :: #server_info{}.
 
--export_type([client_info/0,server_info/0,ca_info/0,attribute_list/0,client_role/0,service_role/0,
+-export_type([client_info/0,server_info/0,ca_info/0,client_role/0,service_role/0,
 	any_role/0]).
+
+-endif.

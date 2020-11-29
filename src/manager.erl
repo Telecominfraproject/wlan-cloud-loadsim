@@ -180,9 +180,9 @@ startdb()->
 	_ = case filelib:is_file(filename:join([utils:priv_dir(),"mnesia","schema.DAT"])) of
 		    true ->
 			    _ = mnesia:start(),
-			    io:format("Reloading MNESIA...~n");
+			    ?L_I("Reloading MNESIA.");
 		    false ->
-			    io:format("Starting MNESIA from scratch...~n"),
+			    ?L_I("Starting MNESIA from scratch."),
 			    ok=mnesia:create_schema([node()]),
 			    _ = mnesia:start(),
 			    create_tables()

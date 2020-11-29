@@ -13,8 +13,10 @@
 
 -include("../include/simengine.hrl").
 
+-compile([{parse_transform, rec2json}]).
+
 %% API
--export([start_link/0,creation_info/0,create/1,create_tables/0]).
+-export([start_link/0,creation_info/0,create/1,create_tables/0,get/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -42,6 +44,10 @@ creation_info() ->
 -spec create(SimInfo::simulation())-> ok | {error,Reason::term()}.
 create(SimInfo) when is_record(SimInfo,simulation) ->
 	gen_server:call(?SERVER,{create_simulation,SimInfo}).
+
+-spec get(SimName::string()) -> {ok,simulation()} | {error,Reason::term()}.
+get(SimName) when is_list(SimName)->
+	gen_server:call(?SERVER,{get,list_to_binary(SimName)}).
 
 
 %% @doc Spawns the server and registers the local name (unique)
@@ -74,8 +80,15 @@ init([]) ->
 	                 {stop, Reason :: term(), NewState :: #simengine_state{}}).
 
 handle_call({create_simulation,SimInfo}, _From, State = #simengine_state{}) ->
-	_ = create_simulation(SimInfo),
-	{reply, ok, State};
+	case create_sim(SimInfo) of
+		ok -> {reply, ok, State};
+		Error -> { reply, {error,Error} , State}
+	end;
+handle_call({get,SimName}, _From, State = #simengine_state{}) ->
+	case get_sim(SimName) of
+		{ok,[Record]} -> { reply, {ok, Record}, State };
+		Error-> { reply, {error, Error}, State }
+	end;
 handle_call(_Request, _From, State = #simengine_state{}) ->
 	{reply, ok, State}.
 
@@ -122,7 +135,15 @@ create_tables()->
 	{atomic,ok} = mnesia:create_table(simulations,[{disc_copies,[node()]}, {record_name,simulation}, {attributes,record_info(fields,simulation)}]),
 	ok.
 
-create_simulation(SimInfo) when is_record(SimInfo,simulation) ->
-	{atomic,ok}=mnesia:transaction(fun() ->
+create_sim(SimInfo) when is_record(SimInfo,simulation) ->
+	{atomic,Result}=mnesia:transaction(fun() ->
 			mnesia:dirty_write( simulations, SimInfo )
-		end).
+		end),
+	Result.
+
+get_sim(SimName) ->
+	{atomic,Result} = mnesia:transaction( fun() ->
+		mnesia:read(simulations,SimName)
+											end),
+	Result.
+

@@ -19,8 +19,6 @@
 
 -define(SIM_APIKEY,sim_api_key).
 
--type generic_result() :: ok | { error, Reason::term() }.
-
 -spec help() -> ok.
 help()->
 	case utils:app_env(role,none) of
@@ -83,15 +81,21 @@ manager_help()->
 	io:format("get_node_configuration( Node ).~n"),
 	io:format("set_node_configuration( Node, Configuration ).~n").
 
-
 -spec create_simulation(SimName::string())-> generic_result().
-create_simulation(SimName) when is_list(SimName) ->
+create_simulation(SimName)->
+	CAName = SimName,
+	_=create_ca(CAName),
+	create_simulation(SimName,CAName).
+
+-spec create_simulation(SimName::string(),CAName::string())-> generic_result().
+create_simulation(SimName,CAName) when is_list(SimName),is_list(CAName) ->
 	{ ok , Nodes } = manager:connected_nodes(),
 	io:format("Creation simulation: ~s~n",[SimName]),
 	io:format("  -nodes(~p): ~p~n",[length(Nodes),Nodes]),
 	MaxDevices = length(Nodes) * 10000,
 	NumberOfDevices = input("Number of devices (max:" ++ integer_to_list(MaxDevices) ++ ") ", integer_to_list(MaxDevices div 2)),
-	Simulation = #simulation{ id = list_to_binary(SimName),
+	Simulation = #simulation{ name = list_to_binary(SimName),
+	                          ca = list_to_binary(CAName),
 		num_devices = list_to_integer(NumberOfDevices),
 		creation_date = calendar:local_time(),
     start_date = undefined,
@@ -99,24 +103,37 @@ create_simulation(SimName) when is_list(SimName) ->
 		nodes = Nodes },
 	simengine:create(Simulation).
 
+-spec show_simulation(SimName::string())-> {ok,Attributes::attribute_list()} | generic_error().
+show_simulation(SimName) when is_list(SimName) ->
+	simengine:get(SimName).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%  CA Management functions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--spec create_ca(SimName::string(),CAName::string())-> generic_result().
-create_ca(SimName,CAName) when is_list(SimName), is_list(CAName)->
+-spec create_ca(CAName::string())-> generic_result().
+create_ca(CAName) when is_list(CAName)->
+	create_ca(CAName,"password").
+
+-spec create_ca(CAName::string(),Password::string())-> generic_result().
+create_ca(CAName,Password) when is_list(CAName),is_list(Password)->
+	inventory:make_ca(CAName,Password).
+
+-spec import_ca(CAName::string(),Attributes::attribute_list())->ok | { error , Reason::term() }.
+import_ca(CAName,Attributes) when is_list(CAName), is_map(Attributes) ->
 	ok.
 
--spec import_ca(SimName::string(),CAName::string(),Attributes::attribute_list())->ok | { error , Reason::term() }.
-import_ca(SimName,CAName,Attributes) when is_list(SimName), is_list(CAName), is_map(Attributes) ->
+-spec remove_ca(CAName::string())->generic_result().
+remove_ca(CAName) when is_list(CAName) ->
 	ok.
 
--spec remove_ca(SimName::string(),CAName::string())->generic_result().
-remove_ca(SimName,CAName) when is_list(SimName), is_list(CAName) ->
-	ok.
-
--spec show_ca(SimName::string(),CAName::string())-> { ok, Attributes::attribute_list() } | { error , Reason::term() }.
-show_ca(SimName,CAName) when is_list(SimName), is_list(CAName) ->
-	{ ok, #{} }.
+-spec show_ca(CAName::string())-> { ok, Attributes::attribute_list() } | { error , Reason::term() }.
+show_ca(CAName) when is_list(CAName) ->
+	case inventory:get_ca(CAName) of
+		{ok,CAInfo} ->
+			{ok,ca_info:to_json(CAInfo)};
+		Error ->
+			{error,Error}
+	end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%  Node Management functions

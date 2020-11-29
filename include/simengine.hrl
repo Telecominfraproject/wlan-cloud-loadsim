@@ -9,7 +9,8 @@
 -author("stephb").
 
 
--record( simulation, { id = <<>> :: binary(),
+-record( simulation, { name = <<>> :: binary(),
+	ca = <<>> :: binary(),
 	num_devices = 0 :: integer(),
 	creation_date :: calendar:datetime(),
 	start_date = undefined :: undefined | calendar:datetime(),

@@ -82,8 +82,8 @@ import_ca(Name,Password,Cert,Key,Decrypt)->
 	gen_server:call(?SERVER,{import_ca,Name,Password,Cert,Key,Decrypt,self()}).
 
 -spec get_ca( Name::string() )-> {ok,ca_info()} | {error,Reason::term()}.
-get_ca(Name)->
-	gen_server:call(?SERVER,{get_ca,Name,self()}).
+get_ca(Name) when is_list(Name) ->
+	gen_server:call(?SERVER,{get_ca,list_to_binary(Name),self()}).
 
 -spec delete_ca( Name::string() ) -> ok | { error,Reason::term() }.
 delete_ca(Name)->
@@ -203,7 +203,7 @@ handle_call({make_ca,Ca,Password,Pid}, _From, State = #inventory_state{}) ->
 			{reply,{error,ca_already_exists},State}
 	end;
 
-handle_call({import_ca,Ca,Password,Cert,Key,Decrypt,Pid}, _From, State = #inventory_state{}) ->
+handle_call({import_ca,Ca,Password,_Cert,_Key,_Decrypt,Pid}, _From, State = #inventory_state{}) ->
 	case ets:lookup(?CADB_TABLE,Ca) of
 		[]->
 			{ok,NewState}=create_ca(Ca,Password,State,Pid),
@@ -405,7 +405,7 @@ code_change(_OldVsn, State = #inventory_state{}, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-create_ca(CaName,Password,State,Pid)->
+create_ca(CaName,Password,State,_Pid)->
 	%% Make all the directories
 	CaDir = filename:join([State#inventory_state.cert_db_dir,CaName]),
 	ok = utils:make_dir(CaDir),
@@ -424,17 +424,17 @@ create_ca(CaName,Password,State,Pid)->
 	CaConfigFileName = filename:join([CaDir,CaName++".cnf"]),
 
 	Cmd0 = io_lib:format("openssl genrsa -passout pass:~s -aes256 -out ~s 4096",[Password,CaKeyFileName]),
-	CommandResult0 = os:cmd(Cmd0),
+	_CommandResult0 = os:cmd(Cmd0),
 	_ = file:change_mode(CaKeyFileName,8#0400),
-	io:format("~p> CMD0: ~s, RESULT: ~s~n~n",[Pid,Cmd0,CommandResult0]),
+%%	io:format("~p> CMD0: ~s, RESULT: ~s~n~n",[Pid,Cmd0,CommandResult0]),
 	Cmd1 = io_lib:format("openssl req -config ~s -batch -new -x509 -days 3000 -sha256 -extensions v3_ca -passin pass:~s -key ~s -out ~s",
 		[ CaConfigFileName,
 			Password,
 			CaKeyFileName,
 			CaKeyCertFileName ]),
-	CommandResult1 = os:cmd(Cmd1),
+	_CommandResult1 = os:cmd(Cmd1),
 	_ = file:change_mode(CaKeyCertFileName,8#0444),
-	io:format("~p> CMD1: ~s, RESULT: ~s~n~n",[Pid,Cmd1,CommandResult1]),
+%%	io:format("~p> CMD1: ~s, RESULT: ~s~n~n",[Pid,Cmd1,CommandResult1]),
 
 	ok = file:write_file( filename:join([CaDir, "index.txt"]),<<>>),
 	ok = file:write_file( filename:join([CaDir, "serial.txt"]),<<$0,$1>>),

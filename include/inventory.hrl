@@ -17,6 +17,7 @@
 
 -record(ca_info,{
 	name = <<>> :: binary(),   %% You must leave the NAME field first - do not move it...
+	sim_name = <<>> :: binary(),
 	description = <<>> :: binary(),
 	dir_name = <<>> :: binary(),
 	clients_dir_name = <<>> :: binary(),

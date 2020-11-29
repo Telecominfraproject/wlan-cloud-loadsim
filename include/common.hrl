@@ -16,8 +16,10 @@
 -include_lib("stdlib/include/ms_transform.hrl").
 
 -type attribute_list() :: #{ atom() => term() }.
--export_type([attribute_list/0]).
+-type generic_error() :: { error, Reason::term() }.
+-type generic_result() :: ok | generic_error().
 
+-export_type([attribute_list/0,generic_error/0,generic_result/0]).
 
 -define(OWLS_APP,owls).
 

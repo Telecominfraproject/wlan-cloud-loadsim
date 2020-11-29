@@ -72,52 +72,52 @@ creation_info() ->
 make_ca(Name,Password)->
 	case (valid_ca_name(Name) and valid_password(Password) )of
 		true->
-			gen_server:call(?SERVER,{make_ca,Name,Password,self()});
+			gen_server:call(?SERVER,{make_ca,list_to_binary(Name),list_to_binary(Password),self()});
 		false->
 			{error,invalid_ca_name_or_password}
 	end.
 
--spec import_ca(Name::string(),Password::string(),Cert::binary(),Key::binary(),Decrypt::binary()) -> {ok,ca_info()} | {error,Reason::term()}.
+-spec import_ca(Name::string(),Password::string(),Cert::string(),Key::string(),Decrypt::string()) -> {ok,ca_info()} | generic_error().
 import_ca(Name,Password,Cert,Key,Decrypt)->
-	gen_server:call(?SERVER,{import_ca,Name,Password,Cert,Key,Decrypt,self()}).
+	gen_server:call(?SERVER,{import_ca,list_to_binary(Name),list_to_binary(Password),list_to_binary(Cert),list_to_binary(Key),list_to_binary(Decrypt),self()}).
 
--spec get_ca( Name::string() )-> {ok,ca_info()} | {error,Reason::term()}.
+-spec get_ca( Name::string() )-> {ok,ca_info()} | generic_error().
 get_ca(Name) when is_list(Name) ->
 	gen_server:call(?SERVER,{get_ca,list_to_binary(Name),self()}).
 
--spec delete_ca( Name::string() ) -> ok | { error,Reason::term() }.
+-spec delete_ca( Name::string() ) -> ok | generic_error().
 delete_ca(Name)->
-	gen_server:call(?SERVER,{delete_ca,Name,self()}).
+	gen_server:call(?SERVER,{delete_ca,list_to_binary(Name),self()}).
 
--spec get_cas() -> { ok , [ CAName::string() ]} | {error,Reason::term()}.
+-spec get_cas() -> { ok , [ CAName::string() ]} | generic_error().
 get_cas()->
 	gen_server:call(?SERVER,{get_cas,self()}).
 
--spec make_server(Ca::string(),Id::string(),Type::service_role())-> { ok , SI::server_info() } | { error, Reason::term()}.
+-spec make_server(Ca::string(),Id::string(),Type::service_role())-> { ok , SI::server_info() } | generic_error().
 make_server(Ca,Id, mqtt_server )->
-	gen_server:call(?SERVER,{make_server,Ca,Id,mqtt_server,self()});
+	gen_server:call(?SERVER,{make_server,list_to_binary(Ca),list_to_binary(Id),mqtt_server,self()});
 make_server(Ca,Id, ovsdb_server )->
-	gen_server:call(?SERVER,{make_server,Ca,Id,ovsdb_server,self()}).
+	gen_server:call(?SERVER,{make_server,list_to_binary(Ca),list_to_binary(Id),ovsdb_server,self()}).
 
--spec make_servers(Ca::string(),Servers::list(ServerName::string()),Type::service_role())-> { ok, list({ ServerName::string(),SI::server_info()})} | { error, Reason::term() }.
+-spec make_servers(Ca::string(),Servers::list(ServerName::string()),Type::service_role())-> { ok, list({ ServerName::string(),SI::server_info()})} | generic_error().
 make_servers(Ca,ServerList,mqtt_server)->
-	gen_server:call(?SERVER,{make_servers,Ca,ServerList,mqtt_server,self()});
+	gen_server:call(?SERVER,{make_servers,list_to_binary(Ca),utils:to_binary_list(ServerList,[]),mqtt_server,self()});
 make_servers(Ca,ServerList,ovsdb_server)->
-	gen_server:call(?SERVER,{make_servers,Ca,ServerList,ovsdb_server,self()}).
+	gen_server:call(?SERVER,{make_servers,list_to_binary(Ca),utils:to_binary_list(ServerList,[]),ovsdb_server,self()}).
 
--spec get_server(Ca::string(),Id::string())-> { ok, SI::server_info()} | { error, Reason::term() }.
+-spec get_server(Ca::string(),Id::string())-> { ok, SI::server_info()} | generic_error().
 get_server(Ca,Id)->
-	gen_server:call(?SERVER,{get_server,Ca,Id,self()}).
+	gen_server:call(?SERVER,{get_server,list_to_binary(Ca),list_to_binary(Id),self()}).
 
--spec delete_server(Ca::string(),Id::string())-> { ok, SI::server_info()} | { error, Reason::term() }.
+-spec delete_server(Ca::string(),Id::string())-> { ok, SI::server_info()} | generic_error().
 delete_server(Ca,Id)->
-	gen_server:call(?SERVER,{delete_server,Ca,Id,self()}).
+	gen_server:call(?SERVER,{delete_server,list_to_binary(Ca),list_to_binary(Id),self()}).
 
--spec make_client(Ca::string(),Attributes::#{ atom() => term() })-> {ok,Client::client_info()} | {error,Reason::term()}.
+-spec make_client(Ca::string(),Attributes::#{ atom() => term() })-> {ok,Client::client_info()} | generic_error().
 make_client(Ca,Attributes)->
 	case validate_attributes(Attributes) of
 		true ->
-			gen_server:call(?SERVER,{make_client,Ca,Attributes,self()});
+			gen_server:call(?SERVER,{make_client,list_to_binary(Ca),Attributes,self()});
 		false ->
 			{error,missing_attributes}
 	end.
@@ -125,13 +125,13 @@ make_client(Ca,Attributes)->
 -spec make_clients(Ca::string(),OUIBase::string(),Start::integer,HowMany::integer(),Attributes::#{ atom() => term() }) -> {ok,HowManyDone::integer()} | {error,Reason::term()}.
 make_clients(Ca,OuiBase,Start,HowMany,Attributes) ->
 	case validate_attributes(Attributes) of
-		true -> gen_server:call(?SERVER,{make_many_clients,Ca,OuiBase,Start,HowMany,Attributes,self()});
+		true -> gen_server:call(?SERVER,{make_many_clients,list_to_binary(Ca),list_to_binary(OuiBase),Start,HowMany,Attributes,self()});
 		false -> { error, missing_attributes}
 	end.
 
 -spec get_client(Ca::string(),Id::string())-> { ok , Client::client_info() } | {error,Reason::term()}.
 get_client(Ca,Id)->
-	gen_server:call(?SERVER,{get_client,Ca,Id}).
+	gen_server:call(?SERVER,{get_client,list_to_binary(Ca),list_to_binary(Id)}).
 
 %% @doc Spawns the server and registers the local name (unique)
 -spec(start_link() ->
@@ -240,7 +240,7 @@ handle_call({get_ca,Ca,_Pid}, _From, State = #inventory_state{}) ->
 	end;
 
 handle_call({get_cas,_Pid}, _From, State = #inventory_state{}) ->
-	CAs = ets:foldr(fun(E,A)-> [ E#ca_info.name | A ] end,[],?CADB_TABLE),
+	CAs = ets:foldr(fun(E,A)-> [ binary_to_list(E#ca_info.name) | A ] end,[],?CADB_TABLE),
 	{ reply, { ok,CAs}, State};
 
 handle_call({make_server,Ca,Id,Type,Pid}, _From, State = #inventory_state{}) ->
@@ -253,7 +253,7 @@ handle_call({make_server,Ca,Id,Type,Pid}, _From, State = #inventory_state{}) ->
 	end;
 
 handle_call({make_servers,Ca,ServerList,Type,Pid}, _From, State = #inventory_state{}) ->
-	case ets:lookup(?CADB_TABLE,list_to_binary(Ca)) of
+	case ets:lookup(?CADB_TABLE,Ca) of
 		[] ->
 			{reply,{error,unknown_ca},State};
 		[CAInfo] ->
@@ -262,11 +262,11 @@ handle_call({make_servers,Ca,ServerList,Type,Pid}, _From, State = #inventory_sta
 	end;
 
 handle_call({get_server,Ca,Id,_Pid}, _From, State = #inventory_state{}) ->
-	case ets:lookup(?CADB_TABLE,list_to_binary(Ca)) of
+	case ets:lookup(?CADB_TABLE,Ca) of
 		[] ->
 			{reply,{error,unknown_ca},State};
 		[CAInfo] ->
-			Server = #server_info{ name = list_to_binary(Id) },
+			Server = #server_info{ name = Id },
 			case get_record(Server) of
 				{atomic,[Record]} ->
 					case Record#client_info.ca == CAInfo#ca_info.name of
@@ -281,11 +281,11 @@ handle_call({get_server,Ca,Id,_Pid}, _From, State = #inventory_state{}) ->
 	end;
 
 handle_call({delete_server,Ca,Id,_ParentPid}, _From, State = #inventory_state{}) ->
-	case ets:lookup(?CADB_TABLE,list_to_binary(Ca)) of
+	case ets:lookup(?CADB_TABLE,Ca) of
 		[] ->
 			{reply,{error,unknown_ca},State};
 		[CAInfo] ->
-			Server = #server_info{ name = list_to_binary(Id) },
+			Server = #server_info{ name = Id },
 			case get_record(Server) of
 				{atomic,[Record]} ->
 					case Record#server_info.ca == CAInfo#ca_info.name of
@@ -301,7 +301,7 @@ handle_call({delete_server,Ca,Id,_ParentPid}, _From, State = #inventory_state{})
 	end;
 
 handle_call({make_client,Ca,Attributes,Pid}, _From, State = #inventory_state{}) ->
-	case ets:lookup(?CADB_TABLE,list_to_binary(Ca)) of
+	case ets:lookup(?CADB_TABLE,Ca) of
 		[] ->
 			{reply,{error,unknown_ca},State};
 		[CAInfo] ->
@@ -310,7 +310,7 @@ handle_call({make_client,Ca,Attributes,Pid}, _From, State = #inventory_state{}) 
 	end;
 
 handle_call({make_many_clients,Ca,OuiBase,Start,HowMany,Attributes,Pid}, _From, State = #inventory_state{}) ->
-	case ets:lookup(?CADB_TABLE,list_to_binary(Ca)) of
+	case ets:lookup(?CADB_TABLE,Ca) of
 		[] ->
 			{reply,{error,unknown_ca},State};
 		[CAInfo] ->
@@ -319,11 +319,11 @@ handle_call({make_many_clients,Ca,OuiBase,Start,HowMany,Attributes,Pid}, _From, 
 	end;
 
 handle_call({get_client,Ca,Id}, _From, State = #inventory_state{}) ->
-	case ets:lookup(?CADB_TABLE,list_to_binary(Ca)) of
+	case ets:lookup(?CADB_TABLE,Ca) of
 		[] ->
 			{reply,{error,unknown_ca},State};
 		[CAInfo] ->
-			Client = #client_info{ name = list_to_binary(Id) },
+			Client = #client_info{ name = Id },
 			case get_record(Client) of
 				{atomic,[Record]} ->
 					case Record#client_info.ca == CAInfo#ca_info.name of
@@ -338,11 +338,11 @@ handle_call({get_client,Ca,Id}, _From, State = #inventory_state{}) ->
 	end;
 
 handle_call({delete_client,Ca,Id}, _From, State = #inventory_state{}) ->
-	case ets:lookup(?CADB_TABLE,list_to_binary(Ca)) of
+	case ets:lookup(?CADB_TABLE,Ca) of
 		[] ->
 			{reply,{error,unknown_ca},State};
 		[CAInfo] ->
-			Client = #client_info{ name = list_to_binary(Id) },
+			Client = #client_info{ name = Id },
 			case get_record(Client) of
 				{atomic,[Record]} ->
 					case Record#client_info.ca == CAInfo#ca_info.name of
@@ -405,9 +405,10 @@ code_change(_OldVsn, State = #inventory_state{}, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+-spec create_ca(CAName::binary(),Password::binary(),State::#inventory_state{},Pid::pid()) -> {ok,NewState::#inventory_state{}}.
 create_ca(CaName,Password,State,_Pid)->
 	%% Make all the directories
-	CaDir = filename:join([State#inventory_state.cert_db_dir,CaName]),
+	CaDir = filename:join([State#inventory_state.cert_db_dir,binary_to_list(CaName)]),
 	ok = utils:make_dir(CaDir),
 	CaClientsDir = filename:join([CaDir,"clients"]),
 	CaServersDir = filename:join([CaDir,"servers"]),
@@ -416,12 +417,12 @@ create_ca(CaName,Password,State,_Pid)->
 
 	{ ok , TemplateConf } = file:read_file( filename:join([utils:priv_dir(),"templates","ca.cnf.template"] )),
 	NewConf = string:replace(binary_to_list(TemplateConf),"$$DIR_ROOT$$",CaDir,all),
-	CaConfigFileName = filename:join([CaDir,CaName++".cnf"]),
+	CaConfigFileName = filename:join([CaDir,binary_to_list(CaName)++".cnf"]),
 	ok = file:write_file(CaConfigFileName , list_to_binary(NewConf)),
 
-	CaKeyFileName = filename:join([CaDir,CaName ++ "_key.pem"]),
-	CaKeyCertFileName = filename:join([CaDir,CaName ++ "_cert.pem"]),
-	CaConfigFileName = filename:join([CaDir,CaName++".cnf"]),
+	CaKeyFileName = filename:join([CaDir,binary_to_list(CaName) ++ "_key.pem"]),
+	CaKeyCertFileName = filename:join([CaDir,binary_to_list(CaName) ++ "_cert.pem"]),
+	CaConfigFileName = filename:join([CaDir,binary_to_list(CaName)++".cnf"]),
 
 	Cmd0 = io_lib:format("openssl genrsa -passout pass:~s -aes256 -out ~s 4096",[Password,CaKeyFileName]),
 	_CommandResult0 = os:cmd(Cmd0),
@@ -447,7 +448,7 @@ create_ca(CaName,Password,State,_Pid)->
 	{ok,CertData}=file:read_file(CaKeyCertFileName),
 	{ok,KeyData}=file:read_file(CaKeyFileName),
 
-	NewCa = #ca_info{ name = list_to_binary(CaName),
+	NewCa = #ca_info{ name = CaName,
 										dir_name = list_to_binary(CaDir),
 										clients_dir_name = list_to_binary(CaClientsDir),
 										servers_dir_name = list_to_binary(CaServersDir),
@@ -456,7 +457,7 @@ create_ca(CaName,Password,State,_Pid)->
 										config_file_name = list_to_binary(CaConfigFileName),
 										cert_data = CertData,
 	                  key_data = KeyData,
-										password = list_to_binary(Password),
+										password = Password,
 								    config_data = list_to_binary(NewConf)
 			},
 	_ = add_record(NewCa),
@@ -477,32 +478,35 @@ delete_ca(CAInfo,State,_Pid)->
 %% openssl req -batch -config mqtt-server.cnf -newkey rsa:2048 -sha256 -out mqttservercert.csr -outform PEM
 %% openssl ca -batch -key apassword -config openssl-ca.cnf -policy signing_policy -extensions signing_req_server -out mqttservercert.pem -infiles mqttservercert.csr
 %% openssl rsa -passin pass:apassword -in mqttserverkey.pem -out mqttserverkey_dec.pem
--spec create_server(CAInfo::ca_info(),Name::string(),Type::service_role(),State::#inventory_state{},ParentPid::pid()) -> { ok , NewState::#inventory_state{} } | {error, Reason::term() }.
+-spec create_server(CAInfo::ca_info(),Name::binary(),Type::service_role(),State::#inventory_state{},ParentPid::pid()) -> { ok , NewState::#inventory_state{} } | generic_error().
 create_server(CAInfo,Name,Type,State,Pid)->
 	BaseDir = binary_to_list(CAInfo#ca_info.servers_dir_name),
-	ServerKeyPem = filename:join([BaseDir,"server-" ++ Name ++ "-key.pem"]),
-	ServerKeyDec = filename:join([BaseDir,"server-" ++ Name ++ "-key_dec.pem"]),
-	ServerCertCsr = filename:join([BaseDir,"server-" ++ Name ++ "-cert.csr"]),
-	ServerCertPem = filename:join([BaseDir,"server-" ++ Name ++ "-cert.pem"]),
-	Subject = "\"/C=CA/ST=BC/L=Vancouver/O=Arilia Wireless Inc./OU=Servers/CN=" ++ Name ++ "\"",
+	ServerKeyPem = filename:join([BaseDir,"server-" ++ binary_to_list(Name) ++ "-key.pem"]),
+	ServerKeyDec = filename:join([BaseDir,"server-" ++ binary_to_list(Name) ++ "-key_dec.pem"]),
+	ServerCertCsr = filename:join([BaseDir,"server-" ++ binary_to_list(Name) ++ "-cert.csr"]),
+	ServerCertPem = filename:join([BaseDir,"server-" ++ binary_to_list(Name) ++ "-cert.pem"]),
+	Subject = "\"/C=CA/ST=BC/L=Vancouver/O=Arilia Wireless Inc./OU=Servers/CN=" ++ binary_to_list(Name) ++ "\"",
 	Cmd1 = io_lib:format("openssl req -config ~s -batch -passout pass:~s -newkey rsa:2048 -sha256 -keyout ~s -out ~s -outform PEM",
-		[ CAInfo#ca_info.config_file_name,
-			CAInfo#ca_info.password,
-			ServerKeyPem, ServerCertCsr]),
+		[ binary_to_list(CAInfo#ca_info.config_file_name),
+		  binary_to_list(CAInfo#ca_info.password),
+			ServerKeyPem,
+			ServerCertCsr]),
 	CommandResult1 = os:cmd(Cmd1),
 	io:format("~p> CMD1: ~s, RESULT: ~s~n~n",[Pid,Cmd1,CommandResult1]),
 	Cmd2 = io_lib:format("openssl ca -batch -passin pass:~s -config ~s -subj ~s -keyfile ~s -cert ~s -extensions server_cert -policy policy_loose -out ~s -infiles ~s",
-		[ CAInfo#ca_info.password,
-			CAInfo#ca_info.config_file_name,
+		[ binary_to_list(CAInfo#ca_info.password),
+		  binary_to_list(CAInfo#ca_info.config_file_name),
 			Subject,
-			CAInfo#ca_info.key_file_name,
-			CAInfo#ca_info.cert_file_name,
+			binary_to_list(CAInfo#ca_info.key_file_name),
+			binary_to_list(CAInfo#ca_info.cert_file_name),
 			ServerCertPem,
 			ServerCertCsr]),
 	CommandResult2 = os:cmd(Cmd2),
 	io:format("~p> CMD2: ~s, RESULT: ~s~n~n",[Pid,Cmd2,CommandResult2]),
 	Cmd3 = io_lib:format("openssl rsa -passin pass:~s -in ~s -out ~s",
-		[	CAInfo#ca_info.password, ServerKeyPem, ServerKeyDec]),
+		[	binary_to_list(CAInfo#ca_info.password),
+		  ServerKeyPem,
+      ServerKeyDec]),
 	CommandResult3 = os:cmd(Cmd3),
 	io:format("~p> CMD3: ~s, RESULT: ~s~n~n",[Pid,Cmd3,CommandResult3]),
 
@@ -512,7 +516,7 @@ create_server(CAInfo,Name,Type,State,Pid)->
 	{ok,ServerCertPemData} = file:read_file(ServerCertPem),
 
 	NewServerInfo = #server_info{
-		name = list_to_binary(Name),
+		name = Name,
 		service = Type,
 		ca = CAInfo#ca_info.name,
 		key = KeyPemData,
@@ -534,34 +538,33 @@ create_servers(CAInfo,[H|T],Type,State,Pid)->
 %% openssl req -batch -config openssl-client.cnf -newkey rsa:2048 -sha256 -out clientcert.csr -outform PEM -nodes
 %% openssl ca -batch -key apassword -config openssl-ca.cnf -policy signing_policy -extensions signing_req_client -out clientcert.pem -infiles clientcert.csr
 %% openssl rsa -passin pass:apassword -in clientkey.pem -out clientkey_dec.pem
-%% create_client(CaInfo,Name,HardwareId,State,self())
 -spec create_client( CAInfo :: ca_info(), Attributes::#{ atom() => term() }, State::#inventory_state{} ,ParentPid::pid() ) ->
 			{ ok , NewState::#inventory_state{} } | { error , Reason :: term()}.
 create_client(CAInfo,Attributes,State,Pid)->
 	BaseDir = binary_to_list(CAInfo#ca_info.clients_dir_name),
 	#{ mac := Mac, serial := Serial, name := Name } = Attributes,
-	ClientKeyPem = filename:join([BaseDir,"client-" ++ Name ++ "-key.pem"]),
-	ClientKeyDec = filename:join([BaseDir,"client-" ++ Name ++ "-key_dec.pem"]),
-	ClientCertCsr = filename:join([BaseDir,"client-" ++ Name ++ "-cert.csr"]),
-	ClientCertPem = filename:join([BaseDir,"client-" ++ Name ++ "-cert.pem"]),
-	Subject = "\"/C=CA/ST=BC/L=Vancouver/O=Arilia Wireless Inc./OU=Clients/CN=" ++ Name ++ "\"",
+	ClientKeyPem = filename:join([BaseDir,"client-" ++ binary_to_list(Name) ++ "-key.pem"]),
+	ClientKeyDec = filename:join([BaseDir,"client-" ++ binary_to_list(Name) ++ "-key_dec.pem"]),
+	ClientCertCsr = filename:join([BaseDir,"client-" ++ binary_to_list(Name) ++ "-cert.csr"]),
+	ClientCertPem = filename:join([BaseDir,"client-" ++ binary_to_list(Name) ++ "-cert.pem"]),
+	Subject = "\"/C=CA/ST=BC/L=Vancouver/O=Arilia Wireless Inc./OU=Clients/CN=" ++ binary_to_list(Name) ++ "\"",
 	Cmd1 = io_lib:format("openssl req -config ~s -batch -passout pass:~s -newkey rsa:2048 -sha256 -keyout ~s -out ~s -outform PEM -nodes",
 		[ CAInfo#ca_info.config_file_name, CAInfo#ca_info.password, ClientKeyPem,ClientCertCsr]),
 	CommandResult1 = os:cmd(Cmd1),
 	io:format("~p> CMD1: ~s, RESULT: ~s~n~n",[Pid,Cmd1,CommandResult1]),
 	Cmd2 = io_lib:format("openssl ca -batch -passin pass:~s -config ~s -subj ~s -keyfile ~s -cert ~s -extensions usr_cert -policy policy_loose -out ~s -infiles ~s",
-		[ CAInfo#ca_info.password,
-			CAInfo#ca_info.config_file_name,
+		[ binary_to_list(CAInfo#ca_info.password),
+		  binary_to_list(CAInfo#ca_info.config_file_name),
 			Subject,
-			CAInfo#ca_info.key_file_name,
-			CAInfo#ca_info.cert_file_name,
+			binary_to_list(CAInfo#ca_info.key_file_name),
+			binary_to_list(CAInfo#ca_info.cert_file_name),
 			ClientCertPem	,
 			ClientCertCsr
 			]),
 	CommandResult2 = os:cmd(Cmd2),
 	io:format("~p> CMD2: ~s, RESULT: ~s~n~n",[Pid,Cmd2,CommandResult2]),
 	Cmd3 = io_lib:format("openssl rsa -passin pass:~s -in ~s -out ~s",
-		[	CAInfo#ca_info.password, ClientKeyPem, ClientKeyDec]),
+		[	binary_to_list(CAInfo#ca_info.password), ClientKeyPem, ClientKeyDec]),
 	CommandResult3 = os:cmd(Cmd3),
 	io:format("~p> CMD3: ~s, RESULT: ~s~n~n",[Pid,Cmd3,CommandResult3]),
 
@@ -571,11 +574,11 @@ create_client(CAInfo,Attributes,State,Pid)->
 	{ok,ClientCertPemData} = file:read_file(ClientCertPem),
 
 	Client = #client_info{
-		name = list_to_binary(Name),
+		name = Name,
 		ca = CAInfo#ca_info.name,
 		cap = [ mqtt_client , ovsdb_client ],
-		mac = list_to_binary(Mac),
-		serial = list_to_binary(Serial),
+		mac = Mac,
+		serial = Serial,
 		key = ClientKeyPemData,
 		cert = ClientCertPemData,
 		decrypt = ClientKeyDecData,
@@ -599,7 +602,7 @@ generate_client_batch(CaInfo,Prefix,Current,Start,Left,Attributes,Pid,ServicePid
 	Name = Prefix ++ [X1,X2,$:,X3,X4,$:,X5,X6],
 	#{ serial := Serial } = Attributes,
 	RealSerial = Serial ++ [X1,X2,X3,X4,X5,X6],
-	_ = create_client(CaInfo, Attributes#{ name => Name, mac => Name, serial => RealSerial },State,self()),
+	_ = create_client(CaInfo, Attributes#{ name => list_to_binary(Name), mac => list_to_binary(Name), serial => list_to_binary(RealSerial) },State,self()),
 	generate_client_batch(CaInfo,Prefix,Current+1,Start,Left-1,Attributes,Pid,ServicePid,State).
 
 all_files_exist([])->

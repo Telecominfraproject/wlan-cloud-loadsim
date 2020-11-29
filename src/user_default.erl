@@ -118,7 +118,7 @@ create_ca(CAName) when is_list(CAName)->
 create_ca(CAName,Password) when is_list(CAName),is_list(Password)->
 	inventory:make_ca(CAName,Password).
 
--spec import_ca(CAName::string(),Attributes::attribute_list())->ok | { error , Reason::term() }.
+-spec import_ca(CAName::string(),Attributes::attribute_list())->ok | generic_error().
 import_ca(CAName,Attributes) when is_list(CAName), is_map(Attributes) ->
 	ok.
 
@@ -126,7 +126,7 @@ import_ca(CAName,Attributes) when is_list(CAName), is_map(Attributes) ->
 remove_ca(CAName) when is_list(CAName) ->
 	ok.
 
--spec show_ca(CAName::string())-> { ok, Attributes::attribute_list() } | { error , Reason::term() }.
+-spec show_ca(CAName::string())-> { ok, Attributes::attribute_list() } | generic_error().
 show_ca(CAName) when is_list(CAName) ->
 	case inventory:get_ca(CAName) of
 		{ok,CAInfo} ->
@@ -134,6 +134,10 @@ show_ca(CAName) when is_list(CAName) ->
 		Error ->
 			{error,Error}
 	end.
+
+-spec list_cas() -> { ok , [string()]} | generic_error().
+list_cas()->
+	inventory:get_cas().
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%  Node Management functions
@@ -186,14 +190,6 @@ input(Prompt,Default)->
 		false -> InputData
 	end.
 
-to_string([],R)->
-	lists:reverse(R);
-to_string([H|T],R) when is_list(H)->
-	to_string(T,[H|R]);
-to_string([H|T],R) when is_atom(H)->
-	to_string(T,[atom_to_list(H)|R]);
-to_string([H|T],R) when is_binary(H)->
-	to_string(T,[binary_to_list(H)|R]).
 
 
 

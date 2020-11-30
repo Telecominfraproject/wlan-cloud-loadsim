@@ -10,7 +10,7 @@
 -author("stephb").
 
 %% API
--export([make_dir/1,uuid/0,get_addr/0,get_addr2/0,app_name/0,app_name/1,priv_dir/0,app_env/2]).
+-export([make_dir/1,uuid/0,get_addr/0,get_addr2/0,app_name/0,app_name/1,priv_dir/0,app_env/2,to_string_list/2,to_binary_list/2]).
 
 -spec make_dir( DirName::string() ) -> ok | { error, atom() }.
 make_dir(DirName)->
@@ -93,5 +93,25 @@ good_address([{addr,{A,B,C,D}}|_Tail]) when A=/=127 ->
 	{A,B,C,D};
 good_address([_|T])->
 	good_address(T).
+
+-spec to_string_list([term()],[term()])->[string()].
+to_string_list([],R)->
+	lists:reverse(R);
+to_string_list([H|T],R) when is_list(H)->
+	to_string_list(T,[H|R]);
+to_string_list([H|T],R) when is_atom(H)->
+	to_string_list(T,[atom_to_list(H)|R]);
+to_string_list([H|T],R) when is_binary(H)->
+	to_string_list(T,[binary_to_list(H)|R]).
+
+-spec to_binary_list([term()],[term()])->[string()].
+to_binary_list([],R)->
+	lists:reverse(R);
+to_binary_list([H|T],R) when is_list(H)->
+	to_binary_list(T,[list_to_binary(H)|R]);
+to_binary_list([H|T],R) when is_atom(H)->
+	to_binary_list(T,[list_to_binary(atom_to_list(H))|R]);
+to_binary_list([H|T],R) when is_binary(H)->
+	to_binary_list(T,[H|R]).
 
 

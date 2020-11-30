@@ -126,7 +126,7 @@ send_stats()->
 	{stop, Reason :: term()} | ignore).
 init([]) ->
 	NodeId = utils:app_env(node_id,1),
-	{ok,NodeFinder} = timer:apply_interval(20000,?MODULE,find_manager,[self(),NodeId]),
+	{ok,NodeFinder} = timer:apply_interval(7500,?MODULE,find_manager,[self(),NodeId]),
 	{ok,StatsUpdater} = timer:apply_interval(5000,?MODULE,send_stats,[]),
 	{ok,#simnode_state{ node_finder = NodeFinder, os_stats_updater = StatsUpdater , node_id = NodeId, manager = none }}.
 
@@ -189,8 +189,13 @@ handle_call(_Request, _From, State = #simnode_state{}) ->
 	{noreply, NewState :: #simnode_state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), NewState :: #simnode_state{}}).
 handle_cast( {manager_found,NodeName}, State = #simnode_state{}) ->
-	NewState=try_connecting(NodeName,State),
-	{noreply, NewState};
+	case State#simnode_state.manager == NodeName of
+		true ->
+			{noreply, State};
+		false ->
+			NewState=try_connecting(NodeName,State),
+			{noreply, NewState}
+	end;
 handle_cast({set_client_pid,Client,none}, State = #simnode_state{}) ->
 	NewPids = maps:remove(Client,State#simnode_state.client_pids),
 	{noreply, State#simnode_state{ client_pids = NewPids }};
@@ -241,11 +246,13 @@ code_change(_OldVsn, State = #simnode_state{}, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+-define(D,io:format(">>>~p:~p ~p~n",[?MODULE,?FUNCTION_NAME,?LINE])).
+
 find_manager(Pid,Id) ->
 	case node_finder:receiver(Id) of
-		unknown ->
+		{error,_Reason} ->
 			ok;
-		NodeName ->
+		{ok,NodeName} ->
 			gen_server:cast( Pid , { manager_found, NodeName}),
 			ok
 	end.
@@ -263,7 +270,7 @@ try_connecting(NodeName,State)->
 					_=lager:info("Adding new manager ~p node.",[NodeName]),
 					State#simnode_state{ manager = NodeName };
 				pang ->
-					_=lager:info("Node ~p unresponsive.",[NodeName]),
+					_=lager:info("Manager node ~p unresponsive.",[NodeName]),
 					State
 			end
 	end.

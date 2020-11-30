@@ -11,6 +11,8 @@
 
 -behaviour(gen_server).
 
+-include("../include/common.hrl").
+
 %% API
 -export([start_link/0,broadcaster/1,creation_info/0,receiver/1]).
 
@@ -109,7 +111,7 @@ send_payload(_,_,_,-1)->
 	ok;
 send_payload(Socket,Payload,StartPort,HowMany)->
 	SockAddr = #{ family => inet, port => StartPort+HowMany, addr => broadcast },
-	_=socket:sendto(Socket,Payload,SockAddr),
+	_ = socket:sendto(Socket,Payload,SockAddr),
 	send_payload(Socket,Payload,StartPort,HowMany-1).
 
 broadcaster(_Pid)->
@@ -117,25 +119,40 @@ broadcaster(_Pid)->
 	Key = crypto:hash(sha256,atom_to_binary(Cookie)),
 	Data = term_to_binary({atom_to_list(Cookie),atom_to_list(node())},[compressed]),
 	Payload = crypto:crypto_one_time(aes_256_ctr,Key,<<0:128>>,Data,true),
-	{ ok , Socket } = socket:open(inet,dgram,udp),
-	_=socket:setopt(Socket,socket,broadcast,true),
-	send_payload( Socket, Payload, 19000,100 ),
-	socket:close(Socket).
+	case socket:open(inet,dgram,udp) of
+		{ ok , Socket } ->
+			_ = socket:setopt(Socket,socket,broadcast,true),
+			send_payload( Socket, Payload, 19000,100 ),
+			socket:close(Socket);
+		{ error , Reason } ->
+			?L_IA("Cannot broadcast our presence: ~p",[Reason])
+	end,
+	ok.
+
+
+-define(D,io:format(">>>~p:~p ~p~n",[?MODULE,?FUNCTION_NAME,?LINE])).
 
 receiver(Id)->
-	{ok,S}=socket:open(inet,dgram,udp),
-	_=socket:bind(S,#{ family => inet, addr => any, port => 19000+Id}),
-	{ok,Data}=socket:recv(S),
-	Cookie = erlang:get_cookie(),
-	Key = crypto:hash(sha256,atom_to_binary(Cookie)),
-	Payload = crypto:crypto_one_time(aes_256_ctr,Key,<<0:128>>,Data,false),
-	Result = try
-      { _ , Node } = erlang:binary_to_term(Payload,[safe]),
-			list_to_atom(Node)
-	catch
-		_:_ ->
-			unknown
-	end,
-	_=socket:close(S),
-	Result.
-
+	case socket:open(inet,dgram,udp) of
+		{ok,S} ->
+			_ = socket:bind(S,#{ family => inet, addr => any, port => 19000+Id}),
+			R = case socket:recv(S,0,5000) of
+						{ok,Data} ->
+							Cookie = erlang:get_cookie(),
+							Key = crypto:hash(sha256,atom_to_binary(Cookie)),
+							Payload = crypto:crypto_one_time(aes_256_ctr,Key,<<0:128>>,Data,false),
+							try
+				        { _ , Node } = erlang:binary_to_term(Payload,[safe]),
+								{ok,list_to_atom(Node)}
+							catch
+								_:_ ->
+									{ error , unrecognised_node_hello }
+							end;
+						{error,_Reason} = Error ->
+							Error
+					end,
+				_ = socket:close(S),
+			R;
+		{error,_Reason} = Error ->
+			Error
+	end.

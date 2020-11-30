@@ -143,11 +143,11 @@ receiver(Id)->
 								?D,
 				        { _ , Node } = erlang:binary_to_term(Payload,[safe]),
 								?D,
-								list_to_atom(Node)
+								{ok,list_to_atom(Node)}
 							catch
 								_:_ ->
 									?D,
-									{ error , unknown }
+									{ error , unrecognised_node_hello }
 							end;
 						{error,_Reason} = Error ->
 							?D,

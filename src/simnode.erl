@@ -243,9 +243,9 @@ code_change(_OldVsn, State = #simnode_state{}, _Extra) ->
 %%%===================================================================
 find_manager(Pid,Id) ->
 	case node_finder:receiver(Id) of
-		unknown ->
+		{error,_Reason} ->
 			ok;
-		NodeName ->
+		{ok,NodeName} ->
 			gen_server:cast( Pid , { manager_found, NodeName}),
 			ok
 	end.

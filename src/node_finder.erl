@@ -122,26 +122,38 @@ broadcaster(_Pid)->
 	send_payload( Socket, Payload, 19000,100 ),
 	socket:close(Socket).
 
+-define(D,io:format(">>>~p:~p ~p~n",[?MODULE,?FUNCTION_NAME,?LINE])).
+
 receiver(Id)->
 	case socket:open(inet,dgram,udp) of
 		{ok,S} ->
 			io:format("Opening a socket...~n"),
 			_ = socket:bind(S,#{ family => inet, addr => any, port => 19000+Id}),
-			R = case socket:recv(S,2000) of
+			?D,
+			R = case socket:recv(S,0,2000) of
 						{ok,Data} ->
+							?D,
 							Cookie = erlang:get_cookie(),
+							?D,
 							Key = crypto:hash(sha256,atom_to_binary(Cookie)),
+							?D,
 							Payload = crypto:crypto_one_time(aes_256_ctr,Key,<<0:128>>,Data,false),
+							?D,
 							try
+								?D,
 				        { _ , Node } = erlang:binary_to_term(Payload,[safe]),
+								?D,
 								list_to_atom(Node)
 							catch
 								_:_ ->
+									?D,
 									{ error , unknown }
 							end;
 						{error,_Reason} = Error ->
+							?D,
 							Error
 					end,
+				?D,
 				_ = socket:close(S),
 				io:format("Closing a socket...~n"),
 			R;

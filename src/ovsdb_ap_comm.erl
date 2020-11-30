@@ -38,7 +38,7 @@
 %%------------------------------------------------------------------------------
 %% API
 
--export ([start_link/1,create_comm/2]).
+-export ([start_link/1,create_comm/2,send_term/2,end_comm/1]).
 
 
 -spec start_link (Options :: options()) -> {ok, pid()}.
@@ -49,6 +49,21 @@ start_link (Options) ->
 	
 
 
+-spec send_term(Comm :: pid(), Data :: term()) -> ok | {error, Reason :: string()}.
+
+send_term (Comm, Data) when is_map(Data) ->
+	Comm ! {send, self(), Data},
+	ok;
+
+send_term (_,_) ->
+	{error,"Data needs to be a map"}.
+
+
+
+-spec end_comm (Comm :: pid()) -> ok.
+
+end_comm (Comm) ->
+	Comm ! {down, self()}.
 
 
 

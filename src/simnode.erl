@@ -189,8 +189,13 @@ handle_call(_Request, _From, State = #simnode_state{}) ->
 	{noreply, NewState :: #simnode_state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), NewState :: #simnode_state{}}).
 handle_cast( {manager_found,NodeName}, State = #simnode_state{}) ->
-	NewState=try_connecting(NodeName,State),
-	{noreply, NewState};
+	case State#simnode_state.manager == NodeName of
+		true ->
+			{noreply, State};
+		false ->
+			NewState=try_connecting(NodeName,State),
+			{noreply, NewState}
+	end;
 handle_cast({set_client_pid,Client,none}, State = #simnode_state{}) ->
 	NewPids = maps:remove(Client,State#simnode_state.client_pids),
 	{noreply, State#simnode_state{ client_pids = NewPids }};

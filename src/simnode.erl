@@ -126,7 +126,7 @@ send_stats()->
 	{stop, Reason :: term()} | ignore).
 init([]) ->
 	NodeId = utils:app_env(node_id,1),
-	{ok,NodeFinder} = timer:apply_interval(5000,?MODULE,find_manager,[self(),NodeId]),
+	{ok,NodeFinder} = timer:apply_interval(7500,?MODULE,find_manager,[self(),NodeId]),
 	{ok,StatsUpdater} = timer:apply_interval(5000,?MODULE,send_stats,[]),
 	{ok,#simnode_state{ node_finder = NodeFinder, os_stats_updater = StatsUpdater , node_id = NodeId, manager = none }}.
 
@@ -251,10 +251,8 @@ code_change(_OldVsn, State = #simnode_state{}, _Extra) ->
 find_manager(Pid,Id) ->
 	case node_finder:receiver(Id) of
 		{error,_Reason} ->
-			?D,
 			ok;
 		{ok,NodeName} ->
-			?D,
 			gen_server:cast( Pid , { manager_found, NodeName}),
 			ok
 	end.
@@ -264,7 +262,6 @@ try_connecting(NodeName,State)->
 		true ->
 			State;
 		false ->
-			io:format("Trying to ping...~n"),
 			case net_adm:ping(NodeName) of
 				pong ->
 					_=global:sync(),

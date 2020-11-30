@@ -11,12 +11,13 @@
 
 -behaviour(gen_server).
 
+-include("../include/common.hrl").
 -include("../include/simengine.hrl").
 
 -compile([{parse_transform, rec2json}]).
 
 %% API
--export([start_link/0,creation_info/0,create/1,create_tables/0,get/1]).
+-export([start_link/0,creation_info/0,create/1,create_tables/0,get/1,list/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -41,14 +42,17 @@ creation_info() ->
 	       type => worker,
 	       modules => [?MODULE]} ].
 
--spec create(SimInfo::simulation())-> ok | {error,Reason::term()}.
+-spec create(SimInfo::simulation())-> ok | generic_error().
 create(SimInfo) when is_record(SimInfo,simulation) ->
 	gen_server:call(?SERVER,{create_simulation,SimInfo}).
 
--spec get(SimName::string()) -> {ok,simulation()} | {error,Reason::term()}.
+-spec get(SimName::string()) -> {ok,simulation()} | generic_error().
 get(SimName) when is_list(SimName)->
 	gen_server:call(?SERVER,{get,list_to_binary(SimName)}).
 
+-spec list() -> {ok,[string()]} | generic_error().
+list() ->
+	gen_server:call(?SERVER,list_simulations).
 
 %% @doc Spawns the server and registers the local name (unique)
 -spec(start_link() ->
@@ -89,6 +93,8 @@ handle_call({get,SimName}, _From, State = #simengine_state{}) ->
 		{ok,[Record]} -> { reply, {ok, Record}, State };
 		Error-> { reply, {error, Error}, State }
 	end;
+handle_call(list_simulations, _From, State = #simengine_state{}) ->
+	{ reply, {ok, list_sims()}, State };
 handle_call(_Request, _From, State = #simengine_state{}) ->
 	{reply, ok, State}.
 
@@ -146,4 +152,13 @@ get_sim(SimName) ->
 		mnesia:read(simulations,SimName)
 											end),
 	Result.
+
+list_sims()->
+	{atomic,Result} = mnesia:transaction( fun()->
+																					mnesia:foldr( fun(E,A)->
+																						[ binary_to_list(E#simulation.name) | A ]
+																												end, [], simulations)
+																				end),
+	Result.
+
 

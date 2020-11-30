@@ -107,6 +107,10 @@ create_simulation(SimName,CAName) when is_list(SimName),is_list(CAName) ->
 show_simulation(SimName) when is_list(SimName) ->
 	simengine:get(SimName).
 
+-spec list_simulations() -> {ok,SimulationList::[string()]} | generic_error().
+list_simulations() ->
+	simengine:list().
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%  CA Management functions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

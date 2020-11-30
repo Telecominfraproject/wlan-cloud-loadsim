@@ -125,23 +125,25 @@ broadcaster(_Pid)->
 receiver(Id)->
 	case socket:open(inet,dgram,udp) of
 		{ok,S} ->
+			io:format("Opening a socket...~n"),
 			_ = socket:bind(S,#{ family => inet, addr => any, port => 19000+Id}),
 			R = case socket:recv(S,2000) of
-				{ok,Data} ->
-					Cookie = erlang:get_cookie(),
-					Key = crypto:hash(sha256,atom_to_binary(Cookie)),
-					Payload = crypto:crypto_one_time(aes_256_ctr,Key,<<0:128>>,Data,false),
-					try
-		        { _ , Node } = erlang:binary_to_term(Payload,[safe]),
-						list_to_atom(Node)
-					catch
-						_:_ ->
-							{ error , unknown }
-					end;
-				{error,_Reason} = Error ->
-					Error
+						{ok,Data} ->
+							Cookie = erlang:get_cookie(),
+							Key = crypto:hash(sha256,atom_to_binary(Cookie)),
+							Payload = crypto:crypto_one_time(aes_256_ctr,Key,<<0:128>>,Data,false),
+							try
+				        { _ , Node } = erlang:binary_to_term(Payload,[safe]),
+								list_to_atom(Node)
+							catch
+								_:_ ->
+									{ error , unknown }
+							end;
+						{error,_Reason} = Error ->
+							Error
 					end,
-				_=socket:close(S),
+				_ = socket:close(S),
+				io:format("Closing a socket...~n"),
 			R;
 		{error,_Reason} = Error ->
 			Error

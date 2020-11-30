@@ -246,11 +246,15 @@ code_change(_OldVsn, State = #simnode_state{}, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+-define(D,io:format(">>>~p:~p ~p~n",[?MODULE,?FUNCTION_NAME,?LINE])).
+
 find_manager(Pid,Id) ->
 	case node_finder:receiver(Id) of
 		{error,_Reason} ->
+			?D,
 			ok;
 		{ok,NodeName} ->
+			?D,
 			gen_server:cast( Pid , { manager_found, NodeName}),
 			ok
 	end.
@@ -262,6 +266,7 @@ try_connecting(NodeName,State)->
 		true ->
 			State;
 		false ->
+			io:format("Trying to ping...~n"),
 			case net_adm:ping(NodeName) of
 				pong ->
 					_=global:sync(),

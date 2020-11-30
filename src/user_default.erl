@@ -111,6 +111,15 @@ show_simulation(SimName) when is_list(SimName) ->
 list_simulations() ->
 	simengine:list().
 
+-spec analyze_node(TargetName::string())-> { ok , Attributes::attribute_list() } | generic_error().
+analyze_node(TargetName)->
+	NodeName=list_to_atom(TargetName),
+	case lists:member(NodeName,nodes()) of
+		false->
+			{error,unknown_node};
+		true->
+
+	end.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%  CA Management functions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

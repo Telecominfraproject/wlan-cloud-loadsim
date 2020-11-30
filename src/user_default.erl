@@ -118,7 +118,7 @@ analyze_node(TargetName)->
 		false->
 			{error,unknown_node};
 		true->
-
+			{ok,#{}}
 	end.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%  CA Management functions

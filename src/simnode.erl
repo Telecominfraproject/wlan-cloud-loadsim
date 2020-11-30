@@ -248,11 +248,9 @@ code_change(_OldVsn, State = #simnode_state{}, _Extra) ->
 %%%===================================================================
 find_manager(Pid,Id) ->
 	case node_finder:receiver(Id) of
-		{error,_Reason} = E ->
-			io:format(">>>RECV-1: ~p~n",[E]),
+		{error,_Reason} ->
 			ok;
-		{ok,NodeName} = F ->
-			io:format(">>>RECV-2: ~p~n",[F]),
+		{ok,NodeName} ->
 			gen_server:cast( Pid , { manager_found, NodeName}),
 			ok
 	end.
@@ -260,27 +258,19 @@ find_manager(Pid,Id) ->
 -define(D,io:format(">>>~p:~p ~p~n",[?MODULE,?FUNCTION_NAME,?LINE])).
 
 try_connecting(NodeName,State)->
-	?D,
-	io:format(">>>trying to connect: ~p (~p) ~n",[NodeName,State]),
-	?D,
 	case NodeName == State#simnode_state.manager of
 		true ->
-			?D,
 			State;
 		false ->
-			?D,
 			case net_adm:ping(NodeName) of
 				pong ->
-					?D,
 					_=global:sync(),
 					manager:connect(),
 					erlang:monitor_node(NodeName,true),
 					_=lager:info("Adding new manager ~p node.",[NodeName]),
-					?D,
 					State#simnode_state{ manager = NodeName };
 				pang ->
-					_=lager:info("Node ~p unresponsive.",[NodeName]),
-					?D,
+					_=lager:info("Manager node ~p unresponsive.",[NodeName]),
 					State
 			end
 	end.

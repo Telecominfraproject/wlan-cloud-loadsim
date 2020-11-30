@@ -248,9 +248,11 @@ code_change(_OldVsn, State = #simnode_state{}, _Extra) ->
 %%%===================================================================
 find_manager(Pid,Id) ->
 	case node_finder:receiver(Id) of
-		{error,_Reason} ->
+		{error,_Reason} = E ->
+			io:format(">>>RECV-1: ~p~n",[E]),
 			ok;
-		{ok,NodeName} ->
+		{ok,NodeName} = F ->
+			io:format(">>>RECV-2: ~p~n",[F]),
 			gen_server:cast( Pid , { manager_found, NodeName}),
 			ok
 	end.

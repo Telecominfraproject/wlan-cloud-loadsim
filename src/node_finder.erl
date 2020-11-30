@@ -128,7 +128,7 @@ receiver(Id)->
 	case socket:open(inet,dgram,udp) of
 		{ok,S} ->
 			_ = socket:bind(S,#{ family => inet, addr => any, port => 19000+Id}),
-			R = case socket:recv(S,0,2000) of
+			R = case socket:recv(S,0,5000) of
 						{ok,Data} ->
 							Cookie = erlang:get_cookie(),
 							Key = crypto:hash(sha256,atom_to_binary(Cookie)),

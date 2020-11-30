@@ -126,7 +126,7 @@ send_stats()->
 	{stop, Reason :: term()} | ignore).
 init([]) ->
 	NodeId = utils:app_env(node_id,1),
-	{ok,NodeFinder} = timer:apply_interval(20000,?MODULE,find_manager,[self(),NodeId]),
+	{ok,NodeFinder} = timer:apply_interval(5000,?MODULE,find_manager,[self(),NodeId]),
 	{ok,StatsUpdater} = timer:apply_interval(5000,?MODULE,send_stats,[]),
 	{ok,#simnode_state{ node_finder = NodeFinder, os_stats_updater = StatsUpdater , node_id = NodeId, manager = none }}.
 

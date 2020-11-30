@@ -259,8 +259,6 @@ find_manager(Pid,Id) ->
 			ok
 	end.
 
--define(D,io:format(">>>~p:~p ~p~n",[?MODULE,?FUNCTION_NAME,?LINE])).
-
 try_connecting(NodeName,State)->
 	case NodeName == State#simnode_state.manager of
 		true ->

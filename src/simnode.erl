@@ -255,20 +255,30 @@ find_manager(Pid,Id) ->
 			ok
 	end.
 
+-define(D,io:format(">>>~p:~p ~p~n",[?MODULE,?FUNCTION_NAME,?LINE])).
+
 try_connecting(NodeName,State)->
+	?D,
+	io:format(">>>trying to connect: ~p (~p) ~n",[NodeName,State]),
+	?D,
 	case NodeName == State#simnode_state.manager of
 		true ->
+			?D,
 			State;
 		false ->
+			?D,
 			case net_adm:ping(NodeName) of
 				pong ->
+					?D,
 					_=global:sync(),
 					manager:connect(),
 					erlang:monitor_node(NodeName,true),
 					_=lager:info("Adding new manager ~p node.",[NodeName]),
+					?D,
 					State#simnode_state{ manager = NodeName };
 				pang ->
 					_=lager:info("Node ~p unresponsive.",[NodeName]),
+					?D,
 					State
 			end
 	end.

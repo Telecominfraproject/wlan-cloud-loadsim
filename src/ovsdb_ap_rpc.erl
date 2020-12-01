@@ -19,7 +19,7 @@
 %%------------------------------------------------------------------------------
 %% request handling
 
--spec eval_req (Method, Id, Data, Store) -> ok | {ok, Result} | {error, Reason} when
+-spec eval_req (Method, Id, Data, Store) -> {ok, ignore} | {ok, Result} | {error, Reason} when
 		Method :: binary(),
 		Id :: binary(),
 		Data :: map(),
@@ -35,6 +35,10 @@ eval_req(<<"transact">>,Id,#{<<"params">>:=P},Store) ->
 	?DBGTRC("RPC request: ~s (~s)~n",[<<"transact">>,Id]),
 	Qr = table_query(P,Store),
 	{ok, make_result(Id,Qr)};
+
+eval_req(<<"get_schema">>,Id,_,_Store) ->
+	?DBGTRC("RPC request: ~s (~s)~n",[<<"get_schema">>,Id]),
+	{ok, ignore};
 
 eval_req (Method, Id, _Data, _Store) ->
 	io:format("RPC request: ~s (~s)~n",[Method,Id]),
@@ -63,15 +67,21 @@ make_result (Id, Res) ->
 %% response handling
 
 -spec eval_resp (Id, Data, Queue, Store) -> ok | {error, Reason} when
-		Id :: integer(),
+		Id :: binary(),
 		Data :: map(),
 		Queue :: ets:tid(),
 		Store :: ets:tid(),
 		Reason :: term().
 
-eval_resp (Id, _Data, _Queue, _Store) ->
-	io:format("handle response to RPC wit ID: ~s~n",[Id]),
-	ok.
+eval_resp (Id, _Data, Queue, _Store) ->
+	case ets:lookup(Queue,Id) of
+		[] ->
+			?L_E(?DBGSTR("Result with no corresponding request ~s",[Id])),
+			{error,?DBGSTR("Can't find ID ~s",[Id])};
+		_ ->
+			io:format("handle response to RPC wit ID: ~s~n",[Id]),
+			ok
+	end.
 
 
 

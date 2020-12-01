@@ -197,7 +197,7 @@ handle_call ({exec_rpc, RPC}, _From, State) when is_map(RPC) andalso
 								maps:get(<<"id">>,RPC),
 								RPC,
 								State#ap_state.store) of
-		ok ->
+		{ok, ignore} ->
 			{reply,ok,State};
 
 		{ok, Result} when is_map(Result) andalso is_map_key(<<"result">>,Result) ->

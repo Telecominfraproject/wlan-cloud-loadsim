@@ -111,15 +111,16 @@ show_simulation(SimName) when is_list(SimName) ->
 list_simulations() ->
 	simengine:list().
 
--spec analyze_node(TargetName::string())-> { ok , Attributes::attribute_list() } | generic_error().
-analyze_node(TargetName)->
-	NodeName=list_to_atom(TargetName),
-	case lists:member(NodeName,nodes()) of
-		false->
-			{error,unknown_node};
-		true->
-			{ok,#{}}
-	end.
+-spec analyze_nodes()-> ok.
+analyze_nodes()->
+	{ok,Nodes}=show_nodes(),
+	utils:print_nodes_info([node()|Nodes]).
+
+-spec show_plan(SimName::string()) -> {ok,Attributes::attribute_list()} | generic_error().
+show_plan(SimName)->
+	{ok,#{}}.
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%  CA Management functions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -167,7 +168,6 @@ set_node_configuration( Node, Configuration ) ->
 get_node_configuration(Node) ->
 	simnode:get_configuration(Node).
 
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%  Node Management functions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -182,15 +182,12 @@ create_server(SimName,Name) when is_list(SimName)->
 	io:format("create_server: invalid server type ~p. Must be mqtt_server, ovsdb_server, all.~n",[Name]),
 	{ error , unknown_server_type }.
 
-
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%  Misc management functions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -spec refresh_ouis()-> ok.
 refresh_ouis()->
 	oui_server:refresh().
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%  Local utility functions

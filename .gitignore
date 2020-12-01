@@ -11,6 +11,10 @@ rel/example_project
 ebin
 deps
 logs
+inventory
+certs_db
+config
+
 
 # rebar 3
 .rebar3

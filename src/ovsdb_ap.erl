@@ -22,7 +22,7 @@
 -export([start_ap/1,stop_ap/1,pause_ap/1,cancel_ap/1]).
 
 %% comm API
--export([rpc_cmd/2]).
+-export([rpc_cmd/2,reset_comm/1]).
 
 
 %% gen_server callbacks
@@ -41,7 +41,8 @@
 	status = init :: ap_status(),	% internal status
 	config :: ovsdb_ap_config:cfg(),
 	comm = none :: none | pid(),
-	store = #{} :: #{atom() := term()},
+	store :: ets:tid(),
+	req_queue :: ets:tid(),
 	stats_ets :: ets:tid()
 }).
 
@@ -103,6 +104,12 @@ cancel_ap (Node) ->
 
 rpc_cmd (Node,Rpc) ->
 	gen_server:call(Node,{exec_rpc,Rpc}).
+
+
+-spec reset_comm (Node :: pid()) -> ok.
+
+reset_comm (Node) ->
+	gen_server:call(Node,reset_comm).
 
 
 
@@ -186,19 +193,40 @@ handle_cast (R,State) ->
 handle_call ({exec_rpc, RPC}, _From, State) when is_map(RPC) andalso
 												 is_map_key(<<"method">>,RPC) andalso
 												 is_map_key(<<"id">>,RPC) ->
-	io:format("RPC request: ~s (~B)~n",[maps:get(<<"method">>,RPC),maps:get(<<"id">>,RPC)]),
-	{reply,ok,State};
+	case ovsdb_ap_rpc:eval_req(maps:get(<<"method">>,RPC),
+								maps:get(<<"id">>,RPC),
+								RPC,
+								State#ap_state.store) of
+		{ok, ignore} ->
+			{reply,ok,State};
 
+		{ok, Result} when is_map(Result) andalso is_map_key(<<"result">>,Result) ->
+			ok = ovsdb_ap_comm:send_term(State#ap_state.comm,Result),
+			{reply,ok,State};
+
+		{error, Reason} ->
+			?L_E(?DBGSTR("RPC call '~s' failed with reason: ~s",[maps:get(<<"method">>,RPC),Reason])),
+			{reply,invalid,State}
+	end;
+	
 handle_call ({exec_rpc, RPC}, _From, State) when is_map(RPC) andalso
 												 is_map_key(<<"result">>,RPC) andalso
 												 is_map_key(<<"id">>,RPC) ->
-	io:format("RPC response to request: (~B)~n",[maps:get(<<"id">>,RPC)]),
-	{reply,ok,State};
+	case ovsdb_ap_rpc:eval_resp(maps:get(<<"id">>,RPC),
+								 RPC,
+								 State#ap_state.req_queue,
+								 State#ap_state.store) of
+		ok ->
+			{reply,ok,State};
 
+		{error, Reason} ->
+			?L_E(?DBGSTR("RPC response to request '~B' failed with reason: ~p",[maps:get(<<"id">>,RPC),Reason])),
+			{reply,invalid,State}
+	end;
+	
 handle_call ({exec_rpc, RPC}, _From, State) ->
 	io:format("invalid RPC: ~p~n",[RPC]),
 	{reply,invalid, State};
-
 
 handle_call (Request, From, State) ->
 	?L_E(?DBGSTR("got unknow request ~p from ~p",[Request,From])),
@@ -264,12 +292,15 @@ code_change (_,OldState,_) ->
 		State :: #ap_state{}.
 
 prepare_state (ID, SimMan) ->
+	Store = ets:new(ovsdb_ap,[bag,private,{keypos, 1}]),
 	#ap_state{
 		sim_manager = SimMan,
-		config = ovsdb_ap_config:new(ID),
+		config = ovsdb_ap_config:new(ID,Store),
 		timer = owls_timers:new(millisecond),
 		status = init,
-		stats_ets = ets:new(?MODULE,[set,private,{keypos, 2}])
+		store = Store,
+		req_queue = ets:new(ovsdb_ap_req,[ordered_set,private,{keypos, 1}]),
+		stats_ets = ets:new(ovsdb_ap_stats,[set,private,{keypos, 2}])
 	}.
 
 
@@ -295,14 +326,7 @@ set_status (Status, #ap_state{config=Cfg}=State) ->
 
 startup_ap (#ap_state{status=init, config=Cfg, sim_manager=Man}=State) ->
 	NewCfg =  ovsdb_ap_config:configure(Man,Cfg),
-	Opts = [
-		{host, ovsdb_ap_config:tip(host,NewCfg)},
-		{port, ovsdb_ap_config:tip(port,NewCfg)},
-		{ca, ovsdb_ap_config:ca_certs(NewCfg)},
-		{cert, ovsdb_ap_config:client_cert(NewCfg)}
-	],
-	{ok, Comm} = ovsdb_ap_comm:start_link(Opts),
-	set_status(ready,State#ap_state{config=NewCfg, comm=Comm}).
+	set_status(ready,State#ap_state{config=NewCfg, comm=none}).
 
 
 
@@ -311,9 +335,25 @@ startup_ap (#ap_state{status=init, config=Cfg, sim_manager=Man}=State) ->
 
 -spec run_simulation (State :: #ap_state{}) -> NewState :: #ap_state{}.
 
-run_simulation (State) ->
-	%% @TODO: implement simulation start
-	set_status(running, State).
+run_simulation (#ap_state{status=ready,config=Cfg}=State) ->
+	Opts = [
+		{host, ovsdb_ap_config:tip_redirector(host,Cfg)},
+		{port, ovsdb_ap_config:tip_redirector(port,Cfg)},
+		{ca, ovsdb_ap_config:ca_certs(Cfg)},
+		{cert, ovsdb_ap_config:client_cert(Cfg)}
+	],
+	{ok, Comm} = ovsdb_ap_comm:start_link(Opts),
+	set_status(running, State#ap_state{comm=Comm});
+
+run_simulation (#ap_state{status=paused,config=Cfg}=State) ->
+	Opts = [
+		{host, ovsdb_ap_config:tip_manager(host,Cfg)},
+		{port, ovsdb_ap_config:tip_manager(port,Cfg)},
+		{ca, ovsdb_ap_config:ca_certs(Cfg)},
+		{cert, ovsdb_ap_config:client_cert(Cfg)}
+	],
+	{ok, Comm} = ovsdb_ap_comm:start_link(Opts),
+	set_status(running, State#ap_state{comm=Comm}).
 
 
 

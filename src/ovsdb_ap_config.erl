@@ -10,16 +10,14 @@
 -author("helge").
 
 -include("../include/common.hrl").
+-include("ovsdb_ap_tables.hrl").
 
 %%------------------------------------------------------------------------------
 %% types and specifications
 
 -record (cfg, {
 	id :: string(),
-	serial = "" :: string(),		% serial number of the access point
-	type = <<"">> :: binary(),		% device type e.g. EA8300
-	tip_host = "" :: string(),			% host of tip controller
-	tip_port = 0 :: integer(),			% port at tip controller
+	store_ref :: ets:tid(),
 	ca_certs = <<"">> :: binary(),		% pem file (in memory) of the server certificate chain
 	client_cert = <<"">> :: binary()	% client certificate + private key in pem format
 }).
@@ -30,18 +28,18 @@
 -export_type([cfg/0]).
 
 
--export([new/1,configure/2]).
--export ([id/1,tip/2,ca_certs/1,client_cert/1]).
+-export([new/2,configure/2]).
+-export ([id/1,ca_certs/1,client_cert/1,tip_redirector/2,tip_manager/2]).
 
 
 %%------------------------------------------------------------------------------
 %% API
 
 
--spec new (Id :: string()) -> Config :: cfg().
+-spec new (Id :: string(), Store :: ets:tid()) -> Config :: cfg().
 
-new (Id) ->
-	#cfg{id=Id}.
+new (Id,Store) ->
+	#cfg{id=Id, store_ref = Store}.
 
 
 -spec configure (Manager :: tuple(), Config :: cfg()) -> NewConfig :: cfg().
@@ -52,25 +50,41 @@ configure (_Manager,Config) ->
 	File = filename:join([code:priv_dir(?OWLS_APP),"ovsdb","test_ap.cfg"]),
 	{ok, [M]} = file:consult(File),
 	APC = maps:get(Config#cfg.id,M),
+	initialize_ap_store(Config#cfg.store_ref,APC),
 	Config#cfg{
-		serial = proplists:get_value(serial,APC),
-		type = proplists:get_value(type,APC),
-		tip_host = proplists:get_value(tip_host,APC),
-		tip_port = proplists:get_value(tip_port,APC),
 		ca_certs = proplists:get_value(ca_certs,APC),
 		client_cert = proplists:get_value(client_cert,APC)
 	}.
 
 
+
+-spec initialize_ap_store (Store :: ets:tid(), APConfig :: proplists:proplist()) -> ok.
+
+initialize_ap_store (Store, APC) ->
+	ets:insert(Store,{'AWLAN_Node_seq',1}),
+	Node = #'AWLAN_Node'{
+		row_idx = 0,
+		% data = #{
+		% 	redirector_addr => list_to_binary([proplists:get_value(tip_host,APC),":",
+		% 								       integer_to_list(proplists:get_value(tip_port,APC))]),
+		% 	serial_number => proplists:get_value(serial,APC),
+		% 	model => proplists:get_value(type,APC)
+		% }
+		redirector_addr = list_to_binary([proplists:get_value(tip_host,APC),":",
+										 integer_to_list(proplists:get_value(tip_port,APC))]),
+		serial_number = proplists:get_value(serial,APC),
+		model = proplists:get_value(type,APC)
+	},
+	ets:insert(Store,Node),
+	ok.
+
+
+
 %%------------------------------------------------------------------------------
-%% accessor API
+%% accessor API - direct config settings
 
 -spec id (Config :: cfg()) -> Id :: string().
 id (Cfg) -> Cfg#cfg.id.
-
--spec tip (Part :: host | port, Config :: cfg()) -> string() | integer().
-tip (host,Cfg) -> Cfg#cfg.tip_host;
-tip (port,Cfg) -> Cfg#cfg.tip_port.
 
 -spec ca_certs (Config :: cfg()) -> binary().
 ca_certs (Cfg) -> Cfg#cfg.ca_certs.
@@ -78,4 +92,43 @@ ca_certs (Cfg) -> Cfg#cfg.ca_certs.
 -spec client_cert (Config :: cfg()) -> binary().
 client_cert (Cfg) -> Cfg#cfg.client_cert.
 
+
+%%------------------------------------------------------------------------------
+%% accessor API from Store tables
+
+-spec tip_redirector (Part :: host | port, Config :: cfg()) -> string() | integer().
+
+% tip_redirector (Part,#cfg{store_ref=Store}) -> 
+% 	[#'AWLAN_Node'{data=D}|_] = ets:lookup(Store,'AWLAN_Node'),
+% 	#{redirector_addr:=R} = D,
+% 	get_host_or_port(Part,R).
+
+tip_redirector (Part,#cfg{store_ref=Store}) -> 
+	[#'AWLAN_Node'{redirector_addr=R}|_] = ets:lookup(Store,'AWLAN_Node'),
+	get_host_or_port(Part,R).
+
+
+-spec tip_manager (Part :: host | port, Config :: cfg()) -> string() | integer().
+
+% tip_manager (Part,#cfg{store_ref=Store}) -> 
+% 	[#'AWLAN_Node'{data=D}|_] = ets:lookup(Store,'AWLAN_Node'),
+% 	#{manager_addr:=R} = D,
+% 	get_host_or_port(Part,R).
+
+tip_manager (Part,#cfg{store_ref=Store}) -> 
+	[#'AWLAN_Node'{manager_addr=R}|_] = ets:lookup(Store,'AWLAN_Node'),
+	get_host_or_port(Part,R).
+
+
+
+-spec get_host_or_port (Part :: host | port, Addr :: string() | binary()) -> string() | integer().
+
+get_host_or_port (Part, Addr) when is_binary(Addr) ->
+	[H,P] = string:split(Addr,":",trailing),
+	case Part of
+		host when is_binary(H) -> binary_to_list(H);
+		host -> H;
+		port when is_binary(P) -> binary_to_integer(P);
+		port -> list_to_integer(P)
+	end.
 

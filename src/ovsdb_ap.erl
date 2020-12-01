@@ -193,26 +193,26 @@ handle_cast (R,State) ->
 handle_call ({exec_rpc, RPC}, _From, State) when is_map(RPC) andalso
 												 is_map_key(<<"method">>,RPC) andalso
 												 is_map_key(<<"id">>,RPC) ->
-	case ovasdb_ap_rpc:eval_req(maps:get(<<"method">>,RPC),
+	case ovsdb_ap_rpc:eval_req(maps:get(<<"method">>,RPC),
 								maps:get(<<"id">>,RPC),
 								RPC,
 								State#ap_state.store) of
 		ok ->
 			{reply,ok,State};
 
-		{ok, Result} when is_map(Result) andalso is_map_key(<<"result">>,RPC) ->
-			ovasdb_ap_comm:send_term(State#ap_state.comm,Result),
+		{ok, Result} when is_map(Result) andalso is_map_key(<<"result">>,Result) ->
+			ok = ovsdb_ap_comm:send_term(State#ap_state.comm,Result),
 			{reply,ok,State};
 
 		{error, Reason} ->
-			?L_E(?DBGSTR("RPC call '~s' failed with reason: ~p",[maps:get(<<"method">>,RPC),Reason])),
+			?L_E(?DBGSTR("RPC call '~s' failed with reason: ~s",[maps:get(<<"method">>,RPC),Reason])),
 			{reply,invalid,State}
 	end;
 	
 handle_call ({exec_rpc, RPC}, _From, State) when is_map(RPC) andalso
 												 is_map_key(<<"result">>,RPC) andalso
 												 is_map_key(<<"id">>,RPC) ->
-	case ovasdb_ap_rpc:eval_resp(maps:get(<<"id">>,RPC),
+	case ovsdb_ap_rpc:eval_resp(maps:get(<<"id">>,RPC),
 								 RPC,
 								 State#ap_state.req_queue,
 								 State#ap_state.store) of
@@ -326,14 +326,7 @@ set_status (Status, #ap_state{config=Cfg}=State) ->
 
 startup_ap (#ap_state{status=init, config=Cfg, sim_manager=Man}=State) ->
 	NewCfg =  ovsdb_ap_config:configure(Man,Cfg),
-	Opts = [
-		{host, ovsdb_ap_config:tip(host,NewCfg)},
-		{port, ovsdb_ap_config:tip(port,NewCfg)},
-		{ca, ovsdb_ap_config:ca_certs(NewCfg)},
-		{cert, ovsdb_ap_config:client_cert(NewCfg)}
-	],
-	{ok, Comm} = ovsdb_ap_comm:start_link(Opts),
-	set_status(ready,State#ap_state{config=NewCfg, comm=Comm}).
+	set_status(ready,State#ap_state{config=NewCfg, comm=none}).
 
 
 
@@ -342,9 +335,25 @@ startup_ap (#ap_state{status=init, config=Cfg, sim_manager=Man}=State) ->
 
 -spec run_simulation (State :: #ap_state{}) -> NewState :: #ap_state{}.
 
-run_simulation (State) ->
-	%% @TODO: implement simulation start
-	set_status(running, State).
+run_simulation (#ap_state{status=ready,config=Cfg}=State) ->
+	Opts = [
+		{host, ovsdb_ap_config:tip_redirector(host,Cfg)},
+		{port, ovsdb_ap_config:tip_redirector(port,Cfg)},
+		{ca, ovsdb_ap_config:ca_certs(Cfg)},
+		{cert, ovsdb_ap_config:client_cert(Cfg)}
+	],
+	{ok, Comm} = ovsdb_ap_comm:start_link(Opts),
+	set_status(running, State#ap_state{comm=Comm});
+
+run_simulation (#ap_state{status=paused,config=Cfg}=State) ->
+	Opts = [
+		{host, ovsdb_ap_config:tip_manager(host,Cfg)},
+		{port, ovsdb_ap_config:tip_manager(port,Cfg)},
+		{ca, ovsdb_ap_config:ca_certs(Cfg)},
+		{cert, ovsdb_ap_config:client_cert(Cfg)}
+	],
+	{ok, Comm} = ovsdb_ap_comm:start_link(Opts),
+	set_status(running, State#ap_state{comm=Comm}).
 
 
 

@@ -28,8 +28,8 @@
 -export_type([cfg/0]).
 
 
--export([new/1,configure/2]).
--export ([id/1,tip/2,ca_certs/1,client_cert/1]).
+-export([new/2,configure/2]).
+-export ([id/1,ca_certs/1,client_cert/1,tip_redirector/2,tip_manager/2]).
 
 
 %%------------------------------------------------------------------------------
@@ -55,10 +55,6 @@ configure (_Manager,Config) ->
 		ca_certs = proplists:get_value(ca_certs,APC),
 		client_cert = proplists:get_value(client_cert,APC)
 	}.
-		% serial = proplists:get_value(serial,APC),
-		% type = proplists:get_value(type,APC),
-		% tip_host = proplists:get_value(tip_host,APC),
-		% tip_port = proplists:get_value(tip_port,APC),
 
 
 
@@ -66,11 +62,20 @@ configure (_Manager,Config) ->
 
 initialize_ap_store (Store, APC) ->
 	ets:insert(Store,{'AWLAN_Node_seq',1}),
-	Node = AWLAN_Node#{
-		redirector_addr = list_to_binary([proplists:get_value(tip_host,APC),":",proplists:get_value(tip_port,APC)])
-		
+	Node = #'AWLAN_Node'{
+		row_idx = 0,
+		% data = #{
+		% 	redirector_addr => list_to_binary([proplists:get_value(tip_host,APC),":",
+		% 								       integer_to_list(proplists:get_value(tip_port,APC))]),
+		% 	serial_number => proplists:get_value(serial,APC),
+		% 	model => proplists:get_value(type,APC)
+		% }
+		redirector_addr = list_to_binary([proplists:get_value(tip_host,APC),":",
+										 integer_to_list(proplists:get_value(tip_port,APC))]),
+		serial_number = proplists:get_value(serial,APC),
+		model = proplists:get_value(type,APC)
 	},
-	ets:insert(Store,{'AWLAN_Node',0,Node}),
+	ets:insert(Store,Node),
 	ok.
 
 
@@ -92,5 +97,38 @@ client_cert (Cfg) -> Cfg#cfg.client_cert.
 %% accessor API from Store tables
 
 -spec tip_redirector (Part :: host | port, Config :: cfg()) -> string() | integer().
-tip_redirector (host,Cfg) -> Cfg#cfg.tip_host;
-tip_redirector (port,Cfg) -> Cfg#cfg.tip_port.
+
+% tip_redirector (Part,#cfg{store_ref=Store}) -> 
+% 	[#'AWLAN_Node'{data=D}|_] = ets:lookup(Store,'AWLAN_Node'),
+% 	#{redirector_addr:=R} = D,
+% 	get_host_or_port(Part,R).
+
+tip_redirector (Part,#cfg{store_ref=Store}) -> 
+	[#'AWLAN_Node'{redirector_addr=R}|_] = ets:lookup(Store,'AWLAN_Node'),
+	get_host_or_port(Part,R).
+
+
+-spec tip_manager (Part :: host | port, Config :: cfg()) -> string() | integer().
+
+% tip_manager (Part,#cfg{store_ref=Store}) -> 
+% 	[#'AWLAN_Node'{data=D}|_] = ets:lookup(Store,'AWLAN_Node'),
+% 	#{manager_addr:=R} = D,
+% 	get_host_or_port(Part,R).
+
+tip_manager (Part,#cfg{store_ref=Store}) -> 
+	[#'AWLAN_Node'{manager_addr=R}|_] = ets:lookup(Store,'AWLAN_Node'),
+	get_host_or_port(Part,R).
+
+
+
+-spec get_host_or_port (Part :: host | port, Addr :: string() | binary()) -> string() | integer().
+
+get_host_or_port (Part, Addr) when is_binary(Addr) ->
+	[H,P] = string:split(Addr,":",trailing),
+	case Part of
+		host when is_binary(H) -> binary_to_list(H);
+		host -> H;
+		port when is_binary(P) -> binary_to_integer(P);
+		port -> list_to_integer(P)
+	end.
+

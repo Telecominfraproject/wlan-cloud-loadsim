@@ -63,7 +63,8 @@ send_term (_,_) ->
 -spec end_comm (Comm :: pid()) -> ok.
 
 end_comm (Comm) ->
-	Comm ! {down, self()}.
+	Comm ! {down, self()},
+	ok.
 
 
 
@@ -94,11 +95,16 @@ comm_loop (#c_state{socket=S, rxb=Rx, ap=AP}=State) ->
 	receive 
 		{ssl, S, Data} ->
 			Buffer = process_rx_data(<<Rx/binary,Data/binary>>,AP),
-			ok = ssl:setopts(S,[{active,once}]),
-			comm_loop(State#c_state{status=active, rxb=Buffer});
+			case ssl:setopts(S,[{active,once}]) of
+				ok ->
+					comm_loop(State#c_state{status=active, rxb=Buffer});
+				{error,closed} ->
+					?L_I(?DBGSTR("socket closed by server, bailing out")),
+					ok
+			end;
 
 		{ssl_closed, S} ->
-			?L_I(?DBGSTR("socket closed by server")),
+			?L_E(?DBGSTR("socket closed by server")),
 			ok;
 
     	{ssl_error, S, Reason} ->
@@ -107,6 +113,7 @@ comm_loop (#c_state{socket=S, rxb=Rx, ap=AP}=State) ->
 
 		{send, AP, Data} ->
 			ToSend = jiffy:encode(Data),
+			io:format("Sending: ~s~n",[ToSend]),
 			ok = ssl:send(S,ToSend),
 			comm_loop(State#c_state{status=active});
 

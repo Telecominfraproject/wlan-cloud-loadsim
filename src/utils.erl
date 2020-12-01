@@ -10,7 +10,7 @@
 -author("stephb").
 
 %% API
--export([make_dir/1,uuid/0,get_addr/0,get_addr2/0,app_name/0,app_name/1,priv_dir/0,app_env/2,to_string_list/2,to_binary_list/2]).
+-export([make_dir/1,uuid/0,get_addr/0,get_addr2/0,app_name/0,app_name/1,priv_dir/0,app_env/2,to_string_list/2,to_binary_list/2,print_nodes_info/1]).
 
 -spec make_dir( DirName::string() ) -> ok | { error, atom() }.
 make_dir(DirName)->
@@ -60,6 +60,31 @@ priv_dir()->
 app_env(Key,Default)->
 	application:get_env(app_name(),Key,Default).
 
+
+print_nodes_info(Nodes)->
+	io:format("---------------------------------------------------------------------------------------------~n"),
+	io:format("|Node name                             | Total       | Allocated   | Biggest      |  Procs  |~n"),
+	io:format("|--------------------------------------|-------------|-------------|-------------------------~n"),
+	print_line(Nodes),
+	io:format("---------------------------------------------------------------------------------------------~n").
+
+print_line([])->
+	ok;
+print_line([H|T])->
+	NodeInfo = node_info(H),
+	#{ total := Total , allocated := Allocated , worst := Worst , processes := Processes } = NodeInfo,
+	io:format("|~37s |~9.2f MB |~9.2f MB | ~9.2f MB | ~7b |~n",[atom_to_list(H),Total,Allocated,Worst,Processes]),
+	print_line(T).
+
+node_info(Node)->
+	try
+		{Total,Allocated,{ _Pid, Worst}}=rpc:call(Node,memsup,get_memory_data,[]),
+		Processes = rpc:call(Node,cpu_sup,nprocs,[]),
+		#{ total => Total/(1 bsl 20), allocated => Allocated/(1 bsl 20), worst => Worst/(1 bsl 20), processes => Processes }
+	catch
+		_:_ ->
+			#{ total => 0, allocated => 0, worst => 0, processes => 0 }
+	end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Local functions

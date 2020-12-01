@@ -17,7 +17,7 @@
 -compile([{parse_transform, rec2json}]).
 
 %% API
--export([start_link/0,creation_info/0,create/1,create_tables/0,get/1,list/0]).
+-export([start_link/0,creation_info/0,create/1,create_tables/0,get/1,list/0,prepare/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -60,6 +60,10 @@ list() ->
 start_link() ->
 	gen_server:start_link(?START_SERVER, ?MODULE, [], []).
 
+-spec prepare(SimName::string(), Notification::mfa())-> ok.
+prepare(SimName,Nofitication)->
+	gen_server:call(?SERVER,{prepare,SimName,Nofitication}).
+
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
@@ -83,6 +87,8 @@ init([]) ->
 	                 {stop, Reason :: term(), Reply :: term(), NewState :: #simengine_state{}} |
 	                 {stop, Reason :: term(), NewState :: #simengine_state{}}).
 
+handle_call({prepare,_SimName,_Nofitication},_From,State = #simengine_state{}) ->
+	{reply,ok,State};
 handle_call({create_simulation,SimInfo}, _From, State = #simengine_state{}) ->
 	case create_sim(SimInfo) of
 		ok -> {reply, ok, State};

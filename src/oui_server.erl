@@ -93,9 +93,10 @@ init([]) ->
 																set_keys()
                             catch
 															_:_ ->
-																?L_I("No OUI tables on disk."),
 																_=ets:new(?OUI_LOOKUP_TABLE,[named_table,public,ordered_set]),
 																_=ets:new(?MAKER_LOOKUP_TABLE,[named_table,public,ordered_set]),
+																_=timer:apply_after(10000, ?MODULE, refresh, []),
+																?L_I("No OUI tables on disk. Automatic refresh in 10 seconds."),
 																{ [], [] }
 														end,
 	{ok, #oui_server_state{ uri = OuiUri ,

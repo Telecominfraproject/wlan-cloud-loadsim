@@ -9,16 +9,29 @@
 -author("stephb").
 
 
+-record( sim_entry, {
+	name = <<>> :: binary(),
+	type = none :: none | clients | mqtt_clients | ovsdb_clients | mqtt_server | ovsdb_server,
+	node :: node(),
+	ip :: inet:ip_address(),
+	port :: integer(),
+	port_reflector :: integer(),
+	names = [] :: [binary()]
+}).
+
+-type sim_entry()::#sim_entry{}.
+
 -record( simulation, { name = <<>> :: binary(),
 	ca = <<>> :: binary(),
 	num_devices = 0 :: integer(),
-	plan = <<>> :: binary(),    %% yaml plan for the simulation
 	creation_date :: calendar:datetime(),
 	start_date = undefined :: undefined | calendar:datetime(),
 	end_date = undefined :: undefined | calendar:datetime(),
-	nodes = [] :: [ node() ]
+	nodes = [] :: [ node() ],
+	mqtt_servers = auto :: auto | sim_entry(),
+  ovsdb_servers = auto :: auto | sim_entry()
 }).
 
 -type simulation() :: #simulation{}.
 
--export_type([simulation/0]).
+-export_type([simulation/0,sim_entry/0]).

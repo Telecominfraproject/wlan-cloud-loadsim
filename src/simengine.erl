@@ -17,7 +17,8 @@
 -compile([{parse_transform, rec2json}]).
 
 %% API
--export([start_link/0,creation_info/0,create/1,create_tables/0,get/1,list/0,prepare/2]).
+-export([start_link/0,creation_info/0,create/1,create_tables/0,get/1,list/0,
+         prepare/2,prepare_assets/2,prepare_done/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -29,7 +30,7 @@
 %% -define(SERVER, ?MODULE).
 %% -define(START_SERVER,{local,?MODULE}).
 
--record(simengine_state, {}).
+-record(simengine_state, { prepare_pid = none :: none | pid() }).
 
 %%%===================================================================
 %%% API
@@ -60,9 +61,9 @@ list() ->
 start_link() ->
 	gen_server:start_link(?START_SERVER, ?MODULE, [], []).
 
--spec prepare(SimName::string(), Notification::mfa())-> ok.
-prepare(SimName,Nofitication)->
-	gen_server:call(?SERVER,{prepare,SimName,Nofitication}).
+-spec prepare(SimName::string(), {M::atom(),F::atom(),Args::[term()]})-> ok.
+prepare(SimName,{M,F,A}=Notification) when is_list(SimName), is_atom(M), is_atom(F), is_list(A) ->
+	gen_server:call(?SERVER,{prepare,list_to_binary(SimName),Notification}).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -87,8 +88,9 @@ init([]) ->
 	                 {stop, Reason :: term(), Reply :: term(), NewState :: #simengine_state{}} |
 	                 {stop, Reason :: term(), NewState :: #simengine_state{}}).
 
-handle_call({prepare,_SimName,_Nofitication},_From,State = #simengine_state{}) ->
-	{reply,ok,State};
+handle_call({prepare,SimName,Notification},_From,State = #simengine_state{}) ->
+	PreparePid=spawn_link(?MODULE,prepare_assets,[SimName,Notification]),
+	{reply,ok,State#simengine_state{ prepare_pid = PreparePid }};
 handle_call({create_simulation,SimInfo}, _From, State = #simengine_state{}) ->
 	case create_sim(SimInfo) of
 		ok -> {reply, ok, State};
@@ -167,4 +169,15 @@ list_sims()->
 																				end),
 	Result.
 
+-spec prepare_assets(SimName::binary(), {atom(),atom(),[term()]})->ok.
+prepare_assets(SimName,{M,F,A}=_Notification)->
+	_ = case get_sim(SimName) of
+		[] ->
+			apply(M,F,A++[{error,unknown_simulation}]);
+		SimInfo ->
+			apply(M,F,A++[ok])
+	end,
+	ok.
 
+prepare_done(Original,Result)->
+	io:format("Prepare done: ~p with status ~p~n",[Original,Result]).

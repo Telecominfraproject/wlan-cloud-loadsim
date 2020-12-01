@@ -94,13 +94,16 @@ create_simulation(SimName,CAName) when is_list(SimName),is_list(CAName) ->
 	io:format("  -nodes(~p): ~p~n",[length(Nodes),Nodes]),
 	MaxDevices = length(Nodes) * 10000,
 	NumberOfDevices = input("Number of devices (max:" ++ integer_to_list(MaxDevices) ++ ") ", integer_to_list(MaxDevices div 2)),
+	{ MQTTServers , OVSDBServers } = select_servers(),
 	Simulation = #simulation{ name = list_to_binary(SimName),
 	                          ca = list_to_binary(CAName),
-		num_devices = list_to_integer(NumberOfDevices),
-		creation_date = calendar:local_time(),
-    start_date = undefined,
-    end_date = undefined,
-		nodes = Nodes },
+	                          num_devices = list_to_integer(NumberOfDevices),
+	                          creation_date = calendar:local_time(),
+	                          mqtt_servers = MQTTServers,
+	                          ovsdb_servers = OVSDBServers,
+	                          start_date = undefined,
+	                          end_date = undefined,
+	                          nodes = Nodes },
 	simengine:create(Simulation).
 
 -spec show_simulation(SimName::string())-> {ok,Attributes::attribute_list()} | generic_error().
@@ -117,7 +120,7 @@ analyze_nodes()->
 	utils:print_nodes_info([node()|Nodes]).
 
 -spec show_plan(SimName::string()) -> {ok,Attributes::attribute_list()} | generic_error().
-show_plan(SimName)->
+show_plan(_SimName)->
 	{ok,#{}}.
 
 
@@ -134,11 +137,23 @@ create_ca(CAName,Password) when is_list(CAName),is_list(Password)->
 
 -spec import_ca(CAName::string(),Attributes::attribute_list())->ok | generic_error().
 import_ca(CAName,Attributes) when is_list(CAName), is_map(Attributes) ->
-	ok.
+	try
+		#{ keyfilename := _CaKeyFileName ,
+		   certfilename := _CaKeyCertFileName ,
+		   password := _Password } = Attributes,
+		inventory:import_ca(CAName,Attributes)
+	catch
+		_:_ ->
+			{ error, missing_attribute }
+	end.
+
+-spec import_ca(CAName::string(),Password::string(),KeyFileName::string(),CertFileName::string())->ok | generic_error().
+import_ca(CAName,Password,KeyFileName,CertFileNAme) when is_list(CAName), is_list(Password), is_list(KeyFileName), is_list(CertFileNAme) ->
+	inventory:import_ca(CAName,#{ password => Password, keyfilename => KeyFileName, certfilename => CertFileNAme}).
 
 -spec remove_ca(CAName::string())->generic_result().
 remove_ca(CAName) when is_list(CAName) ->
-	ok.
+	inventory:delete_ca(CAName).
 
 -spec show_ca(CAName::string())-> { ok, Attributes::attribute_list() } | generic_error().
 show_ca(CAName) when is_list(CAName) ->
@@ -200,6 +215,61 @@ input(Prompt,Default)->
 		false -> InputData
 	end.
 
+-spec select_servers() -> { MQTTServer:: auto | #sim_entry{} , OVSDBServer:: auto | #sim_entry{} }.
+select_servers() ->
+	case input("Do you want to automatically create servers? (yes/no)", "yes") of
+		"yes" ->
+			{ auto, auto } ;
+		_ ->
+			MQTTServer = case input("Do you want to automatically create MQTT server? (yes/no)", "yes") of
+										 "yes" ->
+											 auto;
+										 _ ->
+											 get_server(mqtt_server)
+			             end,
+			OVSDBServer = case input("Do you want to automatically create OVSDB server? (yes/no)", "yes") of
+				              "yes" ->
+					              auto;
+				              _ ->
+					              get_server(ovsdb_server)
+			              end,
+			{ MQTTServer, OVSDBServer }
+	end.
+
+-spec get_server( mqtt_server | ovsdb_server )-> auto | #sim_entry{}.
+get_server(mqtt_server)->
+	try
+		io:format("Please enter the MQTT Server configuration:~n"),
+		Name =      input("  Name: ",""),
+		{ok,IPAddress} = inet:parse_address(input("  IP Address: ","")),
+		Port =      input("  TCP Port","1883"),
+		#sim_entry{ name = list_to_binary(Name),
+		            type = mqtt_server,
+								ip = IPAddress,
+								port = list_to_integer(Port),
+								port_reflector = 0 }
+	catch
+		_:_ ->
+			io:format("Invalid information entered. Please try again.~n"),
+			auto
+	end;
+get_server(ovsdb_server)->
+	try
+		io:format("Please enter the OVSDB Server configuration:~n"),
+		Name =      input("  Name: ",""),
+		{ok,IPAddress} = inet:parse_address(input("  IP Address: ","")),
+		Port1 =      input("  TCP Port (reflector)","6643"),
+		Port2 =      input("  TCP Port (service)","6640"),
+		#sim_entry{ name = list_to_binary(Name),
+		            type = ovsdb_server,
+		            ip   = IPAddress,
+		            port_reflector = list_to_integer(Port1),
+		            port = list_to_integer(Port2) }
+	catch
+		_:_ ->
+			io:format("Invalid information entered. Please try again.~n"),
+			auto
+	end.
 
 
 

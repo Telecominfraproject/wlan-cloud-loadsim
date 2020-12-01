@@ -23,7 +23,7 @@
 	make_server/3,get_server/2,make_servers/3,
 	make_client/2,make_clients/5,generate_client_batch/8,get_client/2,
 	all_files_exist/1,valid_ca_name/1,valid_password/1,
-	delete_server/2,import_ca/5,create_tables/0]).
+	delete_server/2,import_ca/2,create_tables/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -77,9 +77,9 @@ make_ca(Name,Password)->
 			{error,invalid_ca_name_or_password}
 	end.
 
--spec import_ca(Name::string(),Password::string(),Cert::string(),Key::string(),Decrypt::string()) -> {ok,ca_info()} | generic_error().
-import_ca(Name,Password,Cert,Key,Decrypt)->
-	gen_server:call(?SERVER,{import_ca,list_to_binary(Name),list_to_binary(Password),list_to_binary(Cert),list_to_binary(Key),list_to_binary(Decrypt),self()}).
+-spec import_ca(Name::string(),Attributes::attribute_list()) -> {ok,ca_info()} | generic_error().
+import_ca(CAName,Attributes)->
+	gen_server:call(?SERVER,{import_ca,list_to_binary(CAName),Attributes,self()}).
 
 -spec get_ca( Name::string() )-> {ok,ca_info()} | generic_error().
 get_ca(Name) when is_list(Name) ->
@@ -203,10 +203,10 @@ handle_call({make_ca,Ca,Password,Pid}, _From, State = #inventory_state{}) ->
 			{reply,{error,ca_already_exists},State}
 	end;
 
-handle_call({import_ca,Ca,Password,_Cert,_Key,_Decrypt,Pid}, _From, State = #inventory_state{}) ->
+handle_call({import_ca,Ca,Attributes,Pid}, _From, State = #inventory_state{}) ->
 	case ets:lookup(?CADB_TABLE,Ca) of
 		[]->
-			{ok,NewState}=create_ca(Ca,Password,State,Pid),
+			{ok,NewState}=import_ca(Ca,Attributes,State,Pid),
 			{reply, ok, NewState};
 		[_CAInfo]->
 			{reply,{error,ca_already_exists},State}
@@ -460,6 +460,61 @@ create_ca(CaName,Password,State,_Pid)->
 										password = Password,
 								    config_data = list_to_binary(NewConf)
 			},
+	_ = add_record(NewCa),
+	ets:insert(?CADB_TABLE,NewCa),
+	update_disk_db(State),
+
+	{ ok, State#inventory_state{ status = created } }.
+
+-spec import_ca(CAName::binary(),Attributes::attribute_list(),State::#inventory_state{},Pid::pid()) -> {ok,NewState::#inventory_state{}}.
+import_ca(CaName,Attributes,State,_Pid)->
+	%% Make all the directories
+	#{ password := OPassword , keyfilename := OKeyFileNAme , certfilename := OCertFileName } = Attributes,
+	CaDir = filename:join([State#inventory_state.cert_db_dir,binary_to_list(CaName)]),
+	ok = utils:make_dir(CaDir),
+	CaClientsDir = filename:join([CaDir,"clients"]),
+	CaServersDir = filename:join([CaDir,"servers"]),
+	ok = utils:make_dir(CaClientsDir),
+	ok = utils:make_dir(CaServersDir),
+
+	{ ok , TemplateConf } = file:read_file( filename:join([utils:priv_dir(),"templates","ca.cnf.template"] )),
+	NewConf = string:replace(binary_to_list(TemplateConf),"$$DIR_ROOT$$",CaDir,all),
+	CaConfigFileName = filename:join([CaDir,binary_to_list(CaName)++".cnf"]),
+	ok = file:write_file(CaConfigFileName , list_to_binary(NewConf)),
+
+	CaKeyFileName = filename:join([CaDir,binary_to_list(CaName) ++ "_key.pem"]),
+	CaKeyCertFileName = filename:join([CaDir,binary_to_list(CaName) ++ "_cert.pem"]),
+	CaConfigFileName = filename:join([CaDir,binary_to_list(CaName)++".cnf"]),
+
+	_ = file:copy( OKeyFileNAme , CaKeyFileName ),
+	_ = file:copy( OCertFileName, CaKeyCertFileName ),
+
+	_ = file:change_mode(CaKeyFileName,8#0400),
+	_ = file:change_mode(CaKeyCertFileName,8#0444),
+
+	ok = file:write_file( filename:join([CaDir, "index.txt"]),<<>>),
+	ok = file:write_file( filename:join([CaDir, "serial.txt"]),<<$0,$1>>),
+
+	ok = utils:make_dir(filename:join([CaDir,"certs"])),
+	ok = utils:make_dir(filename:join([CaDir,"newcerts"])),
+	ok = utils:make_dir(filename:join([CaDir,"crl"])),
+	ok = utils:make_dir(filename:join([CaDir,"private"])),
+
+	{ok,CertData}=file:read_file(CaKeyCertFileName),
+	{ok,KeyData}=file:read_file(CaKeyFileName),
+
+	NewCa = #ca_info{ name = CaName,
+	                  dir_name = list_to_binary(CaDir),
+	                  clients_dir_name = list_to_binary(CaClientsDir),
+	                  servers_dir_name = list_to_binary(CaServersDir),
+	                  cert_file_name = list_to_binary(CaKeyCertFileName),
+	                  key_file_name =  list_to_binary(CaKeyFileName),
+	                  config_file_name = list_to_binary(CaConfigFileName),
+	                  cert_data = CertData,
+	                  key_data = KeyData,
+	                  password = list_to_binary(OPassword),
+	                  config_data = list_to_binary(NewConf)
+	},
 	_ = add_record(NewCa),
 	ets:insert(?CADB_TABLE,NewCa),
 	update_disk_db(State),

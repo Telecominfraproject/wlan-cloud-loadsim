@@ -96,12 +96,18 @@ table_query ([_,#{<<"table">>:=T, <<"op">>:= <<"select">>, <<"columns">>:=C, <<"
 	#{ <<"rows">> => make_res_rows(Res,C,[])};
 	
 
-table_query ([_,#{<<"table">>:=T, <<"op">>:= <<"update">>, <<"row">>:=C}],S) ->
-	#{}.
+table_query ([_,#{<<"table">>:=T, <<"op">>:= <<"update">>, <<"row">>:=C, <<"where">>:=W}],S) ->
+	M = create_match_spec(T,[],W),
+	Res = ets:select(S,M),
+	D = ets:select_delete(S,[setelement(3,hd(M),[true])]),
+	ets:insert(S,update_records(T,C,Res,[])),
+	#{<<"count">> => D}.
 
 
 
--spec make_res_rows (Res :: [tuple()], Cols :: [binary()], Acc :: [#{}]) -> [#{}].
+%--------make_res_rows/3-----------------formats query results into proper rows map
+
+-spec make_res_rows (Res :: [[any()]], Cols :: [binary()], Acc :: [#{}]) -> [#{}].
 
 make_res_rows ([],_,Acc) ->
 	lists:reverse(Acc);
@@ -116,20 +122,51 @@ make_res_rows ([_|T],C,Acc) ->
 
 
 
+%--------create_match_spec/3-------------creates proper match specification from RPC command for ETS search
+
 -spec create_match_spec (TableName :: binary(), Columns :: [binary()], Where :: []) -> [{tuple(),list(),list()}].
 
 create_match_spec (T,[],W) ->	%% an empty list of desired columns means all columns
 	create_match_spec(T,rec_fields(T),W);
 
-create_match_spec (T,C,_W) ->
+create_match_spec (T,C,W) ->
 	Fxy = fun(X,true) -> list_to_atom(lists:flatten([$$,integer_to_list(X)])); (_,false) -> list_to_atom("_") end,
 	Fields = rec_fields(T),
 	MP = [Fxy(I,Y) || {I,X} <- lists:zip(lists:seq(1,length(Fields)),Fields), case lists:member(X,C) of true -> Y=true; _ -> Y=false, true end],
-	[{list_to_tuple([binary_to_atom(T)|MP]),[],['$$']}].
+	Clauses = [make_match_clause(T,list_to_tuple(X))||X<-W],
+	[{list_to_tuple([binary_to_atom(T)|MP]),Clauses,['$$']}].
 	
 
 
+-spec make_match_clause (TableName :: binary(), {Arg1 :: binary(), Op :: binary(), Arg2 :: binary()}) -> {atom(),any(),any()}.
 
+make_match_clause (T,{A1,Op,A2}) ->
+	Fields = rec_fields(T),
+	FieldMap = lists:zip(lists:seq(1,length(Fields)),Fields),
+	OpMap = #{<<"==">>=>'==', <<"!=">>=>'/=', <<"<=">>=>'<=', <<"<">>=>'<', <<">=">>=>'>=', <<">">>=>'>'},
+	{maps:get(Op,OpMap,'=='),mk_fp(A1,FieldMap),mk_fp(A2,FieldMap)}.
+
+
+mk_fp (Val,IndexFields) ->
+	case lists:keyfind(Val,2,IndexFields) of
+		false -> Val;
+		{N,_} -> list_to_atom(lists:flatten([$$,integer_to_list(N)]))
+	end.
+
+
+
+%--------update_recors/4-----------------create an updated record to eb inserted into ETS from RCP call
+
+-spec update_records (TableName :: binary(), NewValues :: #{binary():=any()}, Records :: [[any()]], Acc :: [[any()]]) -> [tuple()].
+
+update_records (T,_,[],Acc) ->
+	[list_to_tuple([binary_to_atom(T)|X]) || X <- Acc];
+
+update_records (T,V,[R|Rest],Acc)  ->
+	Cand = lists:zip(rec_fields(T),R),
+	Updt = [Uv || {F,Ov} <- Cand, case maps:is_key(F,V) of true -> Uv=maps:get(F,V), true; _ -> Uv=Ov, true end],
+	io:format("UPDT: ~p~n",[Updt]),
+	update_records(T,V,Rest,[Updt|Acc]).
 
 
 %%------------------------------------------------------------------------------

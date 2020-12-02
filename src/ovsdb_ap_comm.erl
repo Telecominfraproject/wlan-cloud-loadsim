@@ -15,14 +15,6 @@
 %%-----------------------------------------------------------------------------
 %% types and specifications
 
--record (c_state, {
-	socket :: ssl:sslsocket(),
-	ap :: pid(),
-	status :: active | idle,
-	rxb = <<"">> :: binary()
-}).
-
-
 -type options() :: [
 	{host, string()} | 		% tip controller host name
 	{port, integer()} | 	% port to connect
@@ -30,15 +22,21 @@
 	{cert, binary()}		% 
 ].
 
-
-
 -export_type([options/0]).
+
+-record (c_state, {
+	options :: options(),
+	socket :: none | ssl:sslsocket(),
+	ap :: pid(),
+	status :: active | idle,
+	rxb = <<"">> :: binary()
+}).
 
 
 %%------------------------------------------------------------------------------
 %% API
 
--export ([start_link/1,create_comm/2,send_term/2,end_comm/1]).
+-export ([start_link/1,create_comm/2,send_term/2,end_comm/1,start_comm/1]).
 
 
 -spec start_link (Options :: options()) -> {ok, pid()}.
@@ -51,7 +49,7 @@ start_link (Options) ->
 
 -spec send_term(Comm :: pid(), Data :: term()) -> ok | {error, Reason :: string()}.
 
-send_term (Comm, Data) when is_map(Data) ->
+send_term (Comm, Data) when is_pid(Comm) andalso is_map(Data) ->
 	Comm ! {send, self(), Data},
 	ok;
 
@@ -67,6 +65,13 @@ end_comm (Comm) ->
 	ok.
 
 
+-spec start_comm (Comm :: pid()) -> ok.
+
+start_comm (Comm) ->
+	Comm ! {start, self()},
+	ok.
+
+
 
 %%------------------------------------------------------------------------------
 %% internals
@@ -74,15 +79,11 @@ end_comm (Comm) ->
 -spec create_comm (Options :: options(), AP :: pid()) -> ok.
 
 create_comm (Opts, AP) ->
-	H = proplists:get_value(host,Opts),
-	P = proplists:get_value(port,Opts),
-	CAs = [X || {'Certificate',X,not_encrypted} <- public_key:pem_decode(proplists:get_value(ca,Opts))],
-	[{'Certificate',Cert,not_encrypted},
-	 {KeyType,Key,not_encrypted}] = public_key:pem_decode(proplists:get_value(cert,Opts)),
 	State = #c_state{
-		socket = connect_to_server(H,P,CAs,Cert,{KeyType,Key}),
+		options = Opts,
+		socket = none,
 		ap = AP,
-		status = active
+		status = idle
 	},
 	comm_loop(State).
 
@@ -113,17 +114,37 @@ comm_loop (#c_state{socket=S, rxb=Rx, ap=AP}=State) ->
 
 		{send, AP, Data} ->
 			ToSend = jiffy:encode(Data),
-			io:format("Sending: ~s~n",[ToSend]),
+			?L_I(?DBGSTR("Sending: ~s",[ToSend])),
 			ok = ssl:send(S,ToSend),
 			comm_loop(State#c_state{status=active});
 
 		{down, AP} ->
-			ssl:close(S)
+			ssl:close(S);
+
+		{start, AP} ->
+			NewState = start_connection(State),
+			comm_loop(NewState)
 
 	after
 		10000 ->
 			comm_loop(State#c_state{status=idle})
 	end.
+
+
+
+-spec start_connection (State :: #c_state{}) -> NewState :: #c_state{}.
+
+start_connection (#c_state{options=Opts}=State) ->
+	H = proplists:get_value(host,Opts),
+	P = proplists:get_value(port,Opts),
+	CAs = [X || {'Certificate',X,not_encrypted} <- public_key:pem_decode(proplists:get_value(ca,Opts))],
+	[{'Certificate',Cert,not_encrypted},
+	 {KeyType,Key,not_encrypted}] = public_key:pem_decode(proplists:get_value(cert,Opts)),
+	State#c_state{
+		socket = connect_to_server(H,P,CAs,Cert,{KeyType,Key}),
+		status = active
+	}.
+
 
 
 
@@ -144,6 +165,7 @@ connect_to_server (Host, Port, CAs, Cert, Key) ->
 			{session_tickets,auto},
 			{mode,binary},
 			{active,once}],
+	?L_I(?DBGSTR("AP connecting to ~s:~B",[Host,Port])),
 	case ssl:connect(Host, Port, Opts) of
 		{ok, Socket} -> Socket;
 		{error, Reason} -> 

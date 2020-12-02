@@ -98,11 +98,6 @@ client_cert (Cfg) -> Cfg#cfg.client_cert.
 
 -spec tip_redirector (Part :: host | port, Config :: cfg()) -> string() | integer().
 
-% tip_redirector (Part,#cfg{store_ref=Store}) -> 
-% 	[#'AWLAN_Node'{data=D}|_] = ets:lookup(Store,'AWLAN_Node'),
-% 	#{redirector_addr:=R} = D,
-% 	get_host_or_port(Part,R).
-
 tip_redirector (Part,#cfg{store_ref=Store}) -> 
 	[#'AWLAN_Node'{redirector_addr=R}|_] = ets:lookup(Store,'AWLAN_Node'),
 	get_host_or_port(Part,R).
@@ -110,25 +105,26 @@ tip_redirector (Part,#cfg{store_ref=Store}) ->
 
 -spec tip_manager (Part :: host | port, Config :: cfg()) -> string() | integer().
 
-% tip_manager (Part,#cfg{store_ref=Store}) -> 
-% 	[#'AWLAN_Node'{data=D}|_] = ets:lookup(Store,'AWLAN_Node'),
-% 	#{manager_addr:=R} = D,
-% 	get_host_or_port(Part,R).
-
 tip_manager (Part,#cfg{store_ref=Store}) -> 
 	[#'AWLAN_Node'{manager_addr=R}|_] = ets:lookup(Store,'AWLAN_Node'),
 	get_host_or_port(Part,R).
 
 
 
--spec get_host_or_port (Part :: host | port, Addr :: string() | binary()) -> string() | integer().
+-spec get_host_or_port (Part :: host | port, Addr :: binary()) -> string() | integer().
 
 get_host_or_port (Part, Addr) when is_binary(Addr) ->
-	[H,P] = string:split(Addr,":",trailing),
+	Parts = string:split(Addr,":",all),
 	case Part of
-		host when is_binary(H) -> binary_to_list(H);
-		host -> H;
-		port when is_binary(P) -> binary_to_integer(P);
-		port -> list_to_integer(P)
+		host -> case Parts of
+					[_,H,_] -> binary_to_list(H);
+					[H,_]   -> binary_to_list(H);
+						  _ -> ""
+				end;
+		port -> case Parts of
+					[_,_,P] -> binary_to_integer(P);
+					[_,P]   -> binary_to_integer(P);
+						  _ -> 0
+				end
 	end.
 

@@ -28,20 +28,20 @@
 		Reason :: term().
 
 eval_req(<<"echo">>, Id, _Data, _Store) ->
-	?DBGTRC("RPC request: ~s (~s)~n",[<<"echo">>,Id]),
+	?L_I(?DBGSTR("RPC request: ~s (~s)",[<<"echo">>,Id])),
 	{ok, make_result(Id,#{})};
 
 eval_req(<<"transact">>,Id,#{<<"params">>:=P},Store) ->
-	?DBGTRC("RPC request: ~s (~s)~n",[<<"transact">>,Id]),
+	?L_I(?DBGSTR("RPC request: ~s (~s)",[<<"transact">>,Id])),
 	Qr = table_query(P,Store),
 	{ok, make_result(Id,Qr)};
 
 eval_req(<<"get_schema">>,Id,_,_Store) ->
-	?DBGTRC("RPC request: ~s (~s)~n",[<<"get_schema">>,Id]),
+	?L_I(?DBGSTR("RPC request: ~s (~s)",[<<"get_schema">>,Id])),
 	{ok, ignore};
 
 eval_req (Method, Id, _Data, _Store) ->
-	io:format("RPC request: ~s (~s)~n",[Method,Id]),
+	?L_I(?DBGSTR("RPC request: ~s (~s)",[Method,Id])),
 	{error,io_lib:format("~s not recognized",[Method])}.
 
 
@@ -101,7 +101,23 @@ table_query ([_,#{<<"table">>:=T, <<"op">>:= <<"update">>, <<"row">>:=C, <<"wher
 	Res = ets:select(S,M),
 	D = ets:select_delete(S,[setelement(3,hd(M),[true])]),
 	ets:insert(S,update_records(T,C,Res,[])),
-	#{<<"count">> => D}.
+	case network_update(C) of
+		true ->
+			ovsdb_ap:reset_comm(self()),
+			#{<<"count">> => D};
+		_ ->
+			#{<<"count">> => D}
+	end.
+	
+
+
+%--------network_update/1----------------special handling if any network address hase changed
+
+-spec network_update (Updates :: #{binary()=>any()}) -> true | false.
+
+network_update (#{<<"manager_addr">>:=_}) -> true;
+network_update (#{<<"redirector_addr">>:=_}) -> true;
+network_update (_) -> false.
 
 
 
@@ -165,7 +181,6 @@ update_records (T,_,[],Acc) ->
 update_records (T,V,[R|Rest],Acc)  ->
 	Cand = lists:zip(rec_fields(T),R),
 	Updt = [Uv || {F,Ov} <- Cand, case maps:is_key(F,V) of true -> Uv=maps:get(F,V), true; _ -> Uv=Ov, true end],
-	io:format("UPDT: ~p~n",[Updt]),
 	update_records(T,V,Rest,[Updt|Acc]).
 
 
@@ -178,9 +193,3 @@ update_records (T,V,[R|Rest],Acc)  ->
 rec_fields (<<"AWLAN_Node">>) ->
 	[atom_to_binary(X)||X<-record_info(fields,'AWLAN_Node')].
 
-
-
-
-
-
-	

@@ -36,28 +36,10 @@
 %%------------------------------------------------------------------------------
 %% the tables
 
--type awlan_node_map() :: #{
-	mqtt_settings => #{},
-	redirector_addr => binary(),
-	manager_addr => binary(),
-	sku_number => [set|[proplists:proplist()]],
-	serial_number => binary(),
-	model => binary(),
-	firmware_version => binary(),
-	platform_version => binary(),
-	revision => binary(),
-	version_matrix => [map|[proplists:proplist()]]
-}.
-
-% -record ('AWLAN_Node',{
-% 	row_idx = 0 :: integer(),
-% 	data = #{} :: awlan_node_map()
-% }).
-
 
 -record ('AWLAN_Node',{
 	row_idx = 0 :: integer(),
-	mqtt_settings = #{} :: #{},
+	mqtt_settings = [map,[]] :: [map|[proplists:proplist()]],
 	redirector_addr = <<>> :: binary(),
 	manager_addr = <<>> :: binary(),
 	sku_number = [set,[]] :: [set|[proplists:proplist()]],

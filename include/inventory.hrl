@@ -43,9 +43,7 @@
 	serial = <<>> :: binary(),
 	description = <<>> :: binary(),
 	type = <<>> :: binary(),
-	firmware = <<>> :: binary(),
-	vendor = <<>> :: binary(),
-	model = <<>> :: binary(),
+	id = <<>> :: binary(),              %% hardware ID
 	key = <<>> :: binary(),
 	cert = <<>> :: binary(),
 	decrypt = <<>> :: binary(),
@@ -71,12 +69,22 @@
 	attributes = #{} :: attribute_list()
 }).
 
+-record( hardware_info, {
+	id = <<>> :: binary(),
+	description = <<>> :: binary(),
+	vendor = <<>> :: binary(),
+	model = <<>> :: binary(),
+	capabilities = [] :: [ mqtt_client | ovsdb_client ],
+	firmware = <<>> :: binary()
+}).
+
 -type any_role() :: service_role() | client_role().
 -type ca_info() :: #ca_info{}.
 -type client_info() :: #client_info{}.
 -type server_info() :: #server_info{}.
+-type hardware_info() :: #hardware_info{}.
 
 -export_type([client_info/0,server_info/0,ca_info/0,client_role/0,service_role/0,
-	any_role/0]).
+	any_role/0,hardware_info/0]).
 
 -endif.

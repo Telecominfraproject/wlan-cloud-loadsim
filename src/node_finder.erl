@@ -119,7 +119,7 @@ broadcaster(_Pid)->
 	Key = crypto:hash(sha256,atom_to_binary(Cookie)),
 	Data = term_to_binary({atom_to_list(Cookie),atom_to_list(node())},[compressed]),
 	Payload = crypto:crypto_one_time(aes_256_ctr,Key,<<0:128>>,Data,true),
-	case socket:open(inet,dgram,udp) of
+	_ = case socket:open(inet,dgram,udp) of
 		{ ok , Socket } ->
 			_ = socket:setopt(Socket,socket,broadcast,true),
 			send_payload( Socket, Payload, 19000,100 ),

@@ -119,14 +119,14 @@ do( ?HTTP_GET , Req , #request_state{ resource = <<"ouis">> } = State ) ->
 
 do( ?HTTP_GET , Req , #request_state{ resource = <<"makers">> , id = nothing } = State ) ->
 	PaginationParameters = restutils:get_pagination_parameters(Req),
-	{ok,Makers}=oui_server:get_makers(),
+	{ok,Makers}=oui_server:get_vendors(),
 	{ SubList , PaginationInfo } = restutils:paginate(PaginationParameters,Makers),
 	JSON = restutils:create_paginated_return("Manufacturers",SubList,PaginationInfo),
 	{JSON,restutils:add_CORS(Req),State};
 
 do( ?HTTP_GET , Req , #request_state{ resource = <<"makers">> } = State ) ->
 	Maker = State#request_state.id,
-	case oui_server:lookup_maker(binary_to_list(Maker)) of
+	case oui_server:lookup_vendor(binary_to_list(Maker)) of
 		{ok,OUIs} ->
 			JSON = binary:list_to_bin([<<"{ \"Manufacturer\" : \"">> , Maker, <<"\" , \"OUIs\" : [ ">>, restutils:dump_string_array(OUIs), <<" ] }">>]),
 			{JSON,restutils:add_CORS(Req),State};

@@ -13,7 +13,7 @@ main([]) ->
         file_substitute(filename:join(["priv","templates","simmanager.args.template"]),
             filename:join(["config","simmanager.args"]),
             [{"$$NODE_NAME$$",NodeName},{"$$COOKIE$$",Cookie}]),
-        file:mk_dir(filename:join(["priv","mnesia"])
+        file:make_dir(filename:join(["priv","mnesia"]))
     catch
         _:_ ->
             usage()

@@ -61,7 +61,7 @@ list() ->
 start_link() ->
 	gen_server:start_link(?START_SERVER, ?MODULE, [], []).
 
--spec prepare(SimName::string(), {M::atom(),F::atom(),Args::[term()]})-> ok.
+-spec prepare(SimName::string(), NotificationCB::notification_cb())-> ok.
 prepare(SimName,{M,F,A}=Notification) when is_list(SimName), is_atom(M), is_atom(F), is_list(A) ->
 	gen_server:call(?SERVER,{prepare,list_to_binary(SimName),Notification}).
 
@@ -169,7 +169,7 @@ list_sims()->
 																				end),
 	Result.
 
--spec prepare_assets(SimName::binary(), {atom(),atom(),[term()]})->ok.
+-spec prepare_assets(SimName::binary(), Notification::notification_cb())->ok.
 prepare_assets(SimName,{M,F,A}=_Notification)->
 	_ = case get_sim(SimName) of
 		[] ->

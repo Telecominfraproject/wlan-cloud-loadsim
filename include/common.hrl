@@ -18,8 +18,9 @@
 -type attribute_list() :: #{ atom() => term() }.
 -type generic_error() :: { error, Reason::term() }.
 -type generic_result() :: ok | generic_error().
+-type notification_cb() ::  { Module::atom(), Function::atom(),Args::[term()]}.
 
--export_type([attribute_list/0,generic_error/0,generic_result/0]).
+-export_type([attribute_list/0,generic_error/0,generic_result/0,notification_cb/0]).
 
 -define(OWLS_APP,owls).
 

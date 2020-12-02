@@ -122,7 +122,7 @@ make_client(Ca,Attributes)->
 			{error,missing_attributes}
 	end.
 
--spec make_clients(CAName::string(),Start::integer(),HowMany::integer(),Attributes::#{ atom() => term() }, {M::atom(),F::atom(),A::[term()]}) -> {ok,HowManyDone::integer()} | {error,Reason::term()}.
+-spec make_clients(CAName::string(),Start::integer(),HowMany::integer(),Attributes::#{ atom() => term() }, Notification::notification_cb() ) -> {ok,HowManyDone::integer()} | {error,Reason::term()}.
 make_clients(CAName,Start,HowMany,Attributes,Notification) ->
 	case validate_attributes(Attributes) of
 		true -> gen_server:call(?SERVER,{make_many_clients,list_to_binary(CAName),Start,HowMany,Attributes,Notification});

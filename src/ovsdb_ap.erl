@@ -109,7 +109,7 @@ rpc_cmd (Node,Rpc) ->
 -spec reset_comm (Node :: pid()) -> ok.
 
 reset_comm (Node) ->
-	gen_server:call(Node,reset_comm).
+	gen_server:cast(Node,reset_comm).
 
 
 
@@ -175,6 +175,12 @@ handle_cast (ap_cancel, State) ->
 	_ = cancel_simulation(State),
 	{stop, normal, State};
 
+handle_cast (reset_comm, State) ->
+	{noreply,ctrl_connect(State)};
+
+handle_cast (ctlr_start_comm, State) ->
+	{noreply, ctlr_start_comm(State)};
+
 handle_cast (R,State) ->
 	?L_E(?DBGSTR("got unknown request: ~p",[R])),
 	{noreply, State}.
@@ -186,9 +192,28 @@ handle_cast (R,State) ->
 		Request :: term(),
 		From :: {pid(),Tag::term()},
 		State :: #ap_state{},
-		Reply :: term(),
+		Reply :: ok | invalid | ignored,
 		Reason :: term(),
 		NewState :: #ap_state{}.
+
+handle_call ({exec_rpc, RPC}, _From, #ap_state{status=paused}=State) when is_map(RPC) andalso
+												 						  is_map_key(<<"method">>,RPC) andalso
+												 						  is_map_key(<<"id">>,RPC) ->
+	case  maps:get(<<"method">>,RPC) of
+		<<"echo">> -> 
+			case ovsdb_ap_rpc:eval_req(<<"echo">>, maps:get(<<"id">>,RPC), RPC, State#ap_state.store) of
+				{ok, Result} when is_map(Result) andalso is_map_key(<<"result">>,Result) ->
+						ok = ovsdb_ap_comm:send_term(State#ap_state.comm,Result),
+						{reply,ok,State};
+				_ ->
+						{reply, ignored, State}
+			end;
+		_ ->
+			{reply, ignored, State}
+	end;
+
+handle_call ({exec_rpc, _RPC}, _From, #ap_state{status=paused}=State) ->
+	{reply, ignored, State};
 
 handle_call ({exec_rpc, RPC}, _From, State) when is_map(RPC) andalso
 												 is_map_key(<<"method">>,RPC) andalso
@@ -225,7 +250,7 @@ handle_call ({exec_rpc, RPC}, _From, State) when is_map(RPC) andalso
 	end;
 	
 handle_call ({exec_rpc, RPC}, _From, State) ->
-	io:format("invalid RPC: ~p~n",[RPC]),
+	?L_E(?DBGSTR("invalid RPC: ~p~n",[RPC])),
 	{reply,invalid, State};
 
 handle_call (Request, From, State) ->
@@ -242,9 +267,11 @@ handle_call (Request, From, State) ->
 		NewState :: #ap_state{}.
 
 
+handle_info({'EXIT', _Pid, normal}, State) ->
+	{noreply, State};
+
 handle_info({'EXIT', Pid, Reason}, State) ->
 	?L_E(?DBGSTR("Abnormal exit from ~p with reason: ~p",[Pid,Reason])),
-	%% @TODO: implement proper restart strategy for linked processes
 	{noreply, State};
 
 
@@ -313,8 +340,9 @@ prepare_state (ID, SimMan) ->
 		State :: #ap_state{},
 		NewState :: #ap_state{}.
 
-set_status (Status, #ap_state{config=Cfg}=State) ->
+set_status (Status, #ap_state{status=OldStatus, config=Cfg}=State) ->
 	ovsdb_client_handler:ap_status(Status,ovsdb_ap_config:id(Cfg)),
+	?L_I(?DBGSTR("AP ~p : status change := ~p -> ~p",[self(),OldStatus,Status])),
 	State#ap_state{status=Status}.
 
 
@@ -335,26 +363,13 @@ startup_ap (#ap_state{status=init, config=Cfg, sim_manager=Man}=State) ->
 
 -spec run_simulation (State :: #ap_state{}) -> NewState :: #ap_state{}.
 
-run_simulation (#ap_state{status=ready,config=Cfg}=State) ->
-	Opts = [
-		{host, ovsdb_ap_config:tip_redirector(host,Cfg)},
-		{port, ovsdb_ap_config:tip_redirector(port,Cfg)},
-		{ca, ovsdb_ap_config:ca_certs(Cfg)},
-		{cert, ovsdb_ap_config:client_cert(Cfg)}
-	],
-	{ok, Comm} = ovsdb_ap_comm:start_link(Opts),
-	set_status(running, State#ap_state{comm=Comm});
+run_simulation (#ap_state{status=ready}=State) ->
+	NewState = ctrl_connect(State),
+	set_status(running,NewState);
 
-run_simulation (#ap_state{status=paused,config=Cfg}=State) ->
-	Opts = [
-		{host, ovsdb_ap_config:tip_manager(host,Cfg)},
-		{port, ovsdb_ap_config:tip_manager(port,Cfg)},
-		{ca, ovsdb_ap_config:ca_certs(Cfg)},
-		{cert, ovsdb_ap_config:client_cert(Cfg)}
-	],
-	{ok, Comm} = ovsdb_ap_comm:start_link(Opts),
-	set_status(running, State#ap_state{comm=Comm}).
-
+run_simulation (#ap_state{status=paused}=State) ->
+	set_status(running,State).
+	
 
 
 
@@ -363,7 +378,8 @@ run_simulation (#ap_state{status=paused,config=Cfg}=State) ->
 -spec stop_simulation (State :: #ap_state{}) -> NewState :: #ap_state{}.
 
 stop_simulation (State) ->
-	set_status(ready, State).
+	NewState = ctrl_disconnect(State),
+	set_status(ready, NewState).
 
 
 
@@ -384,3 +400,65 @@ pause_simulation (State) ->
 
 cancel_simulation (State) ->
 	State.
+
+
+
+
+%--------ctrl_connect/1------------------connect to either the tip redirector or manager based on state / old connections are closed if open
+
+-spec ctrl_connect (State :: #ap_state{}) -> NewState :: #ap_state{}.
+
+ctrl_connect (#ap_state{comm=none, status=ready, config=Cfg}=State) ->
+	Opts = [
+		{host, ovsdb_ap_config:tip_redirector(host,Cfg)},
+		{port, ovsdb_ap_config:tip_redirector(port,Cfg)},
+		{ca, ovsdb_ap_config:ca_certs(Cfg)},
+		{cert, ovsdb_ap_config:client_cert(Cfg)}
+	],
+	{ok, Comm} = ovsdb_ap_comm:start_link(Opts),
+	gen_server:cast(self(),ctlr_start_comm),
+	State#ap_state{comm=Comm};
+
+ctrl_connect (#ap_state{comm=none, status=running, config=Cfg}=State) ->
+	O = case ovsdb_ap_config:tip_manager(host,Cfg) of
+		[] ->
+			[{host, ovsdb_ap_config:tip_redirector(host,Cfg)},
+			 {port, ovsdb_ap_config:tip_redirector(port,Cfg)}];
+		_ ->
+			[{host, ovsdb_ap_config:tip_manager(host,Cfg)},
+			 {port, ovsdb_ap_config:tip_manager(port,Cfg)}]
+	end,
+	Opts = [{ca, ovsdb_ap_config:ca_certs(Cfg)},{cert, ovsdb_ap_config:client_cert(Cfg)}|O],
+	{ok, Comm} = ovsdb_ap_comm:start_link(Opts),
+	gen_server:cast(self(),ctlr_start_comm),
+	State#ap_state{comm=Comm};
+
+ctrl_connect (#ap_state{comm=Comm}=State) ->
+	ovsdb_ap_comm:end_comm(Comm),
+	ctrl_connect (State#ap_state{comm=none}).
+
+
+
+
+%--------ctrl_disconnect/1---------------disconnect and closes communication port but otherwise does not chenge status
+
+-spec ctrl_disconnect (State :: #ap_state{}) -> NewState :: #ap_state{}.
+
+ctrl_disconnect (#ap_state{comm=none}=State) ->
+	State;
+
+ctrl_disconnect (#ap_state{comm=Comm}=State) ->
+	ovsdb_ap_comm:end_comm(Comm),
+	State#ap_state{comm=none}.
+
+
+
+%--------ctlr_start_comm/1---------------asychrounously starts the connection after comm is created
+
+-spec ctlr_start_comm (State :: #ap_state{}) -> NewState :: #ap_state{}.
+
+ctlr_start_comm (#ap_state{comm=Comm}=State) ->
+	ovsdb_ap_comm:start_comm(Comm),
+	State.
+
+

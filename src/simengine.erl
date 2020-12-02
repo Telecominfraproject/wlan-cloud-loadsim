@@ -18,7 +18,7 @@
 
 %% API
 -export([start_link/0,creation_info/0,create/1,create_tables/0,get/1,list/0,
-         prepare/2,prepare_assets/2,prepare_done/2]).
+         prepare/2,prepare_assets/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -178,6 +178,3 @@ prepare_assets(SimName,{M,F,A}=_Notification)->
 			apply(M,F,A++[ok])
 	end,
 	ok.
-
-prepare_done(Original,Result)->
-	io:format("Prepare done: ~p with status ~p~n",[Original,Result]).

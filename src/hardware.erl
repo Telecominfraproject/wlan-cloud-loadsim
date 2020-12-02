@@ -10,6 +10,7 @@
 -author("stephb").
 
 -include("../include/common.hrl").
+-include("../include/inventory.hrl").
 
 -behaviour(gen_server).
 
@@ -39,16 +40,26 @@ creation_info() ->
 	       type => worker,
 	       modules => [?MODULE]} ].
 
+-spec get_definitions() -> { ok , [ hardware_info() ]}.
 get_definitions() ->
 	gen_server:call(?SERVER,{get_hardware_definitions,self()}).
 
-get_by_id(Id) ->
+-spec get_by_id(Id::string()|binary()) -> { ok , [hardware_info()] } | generic_error().
+get_by_id(Id) when is_list(Id)->
+	gen_server:call(?SERVER,{get_hardware_by_id,list_to_binary(Id)});
+get_by_id(Id) when is_binary(Id)->
 	gen_server:call(?SERVER,{get_hardware_by_id,Id}).
 
-get_by_model(Model) ->
+-spec get_by_model(Model::string()|binary()) -> { ok , [hardware_info()] } | generic_error().
+get_by_model(Model) when is_list(Model) ->
+	gen_server:call(?SERVER,{get_hardware_by_model,list_to_binary(Model)});
+get_by_model(Model) when is_binary(Model) ->
 	gen_server:call(?SERVER,{get_hardware_by_model,Model}).
 
-get_by_vendor(Vendor) ->
+-spec get_by_vendor(Vendor::string()|binary()) -> { ok , [hardware_info()] } | generic_error().
+get_by_vendor(Vendor) when is_list(Vendor) ->
+	gen_server:call(?SERVER,{get_hardware_by_vendor,list_to_binary(Vendor)});
+get_by_vendor(Vendor) when is_binary(Vendor) ->
 	gen_server:call(?SERVER,{get_hardware_by_vendor,Vendor}).
 
 %% @doc Spawns the server and registers the local name (unique)
@@ -95,13 +106,13 @@ init([]) ->
 handle_call({get_hardware_definitions,_Pid}, _From, State = #hardware_state{}) ->
 	{reply, {ok,State#hardware_state.hardware}, State};
 handle_call({get_hardware_by_id,Id}, _From, State = #hardware_state{}) ->
-	Res = filter_devices(State#hardware_state.hardware,id,list_to_binary(Id),[]),
+	Res = filter_devices(State#hardware_state.hardware,id,Id),
 	{reply, {ok,Res}, State};
 handle_call({get_hardware_by_model,Model}, _From, State = #hardware_state{}) ->
-	Res = filter_devices(State#hardware_state.hardware,model,list_to_binary(Model),[]),
+	Res = filter_devices(State#hardware_state.hardware,model,Model),
 	{reply, {ok,Res}, State};
 handle_call({get_hardware_by_vendor,Vendor}, _From, State = #hardware_state{}) ->
-	Res = filter_devices(State#hardware_state.hardware,vendor,list_to_binary(Vendor),[]),
+	Res = filter_devices(State#hardware_state.hardware,vendor,Vendor),
 	{reply, {ok,Res}, State};
 handle_call(_Request, _From, State = #hardware_state{}) ->
 	{reply, ok, State}.
@@ -145,15 +156,12 @@ code_change(_OldVsn, State = #hardware_state{}, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-filter_devices([],_,_,Acc)->
-	lists:reverse(Acc);
-filter_devices([H|T],Attribute,Value,Acc)->
-	case proplists:get_value(Attribute,H,none) of
-		Value ->
-			filter_devices(T,Attribute,Value,[H|Acc]);
-		_ ->
-			filter_devices(T,Attribute,Value,Acc)
-	end.
+filter_devices( Hardware, id, Value )->
+	[ X || X <- Hardware, X#hardware_info.id == Value ];
+filter_devices( Hardware, model, Value )->
+	[ X || X <- Hardware, X#hardware_info.model == Value ];
+filter_devices( Hardware, vendor, Value )->
+	[ X || X <- Hardware, X#hardware_info.vendor == Value ].
 
 convert(Hardware)->
 	convert(Hardware,[]).
@@ -165,22 +173,22 @@ convert([H|T],Result)->
 	convert(T,[Entry|Result]).
 
 convert_entry(Entry)->
-	convert_entry(Entry,[]).
+	convert_entry(Entry,#hardware_info{}).
 
 convert_entry([],R)->
-	lists:reverse(R);
+	R;
 convert_entry([{"Id",Value}|Tail],R)->
-	convert_entry(Tail,[{id,list_to_binary(Value)}|R]);
+	convert_entry( Tail, R#hardware_info{ id = list_to_binary(Value)} );
 convert_entry([{"Description",Value}|Tail],R)->
-	convert_entry(Tail,[{description,list_to_binary(Value)}|R]);
+	convert_entry(Tail, R#hardware_info{ description = list_to_binary(Value)});
 convert_entry([{"Vendor",Value}|Tail],R)->
-	convert_entry(Tail,[{vendor,list_to_binary(Value)}|R]);
+	convert_entry(Tail, R#hardware_info{ vendor = list_to_binary(Value)});
 convert_entry([{"Model",Value}|Tail],R)->
-	convert_entry(Tail,[{model,list_to_binary(Value)}|R]);
+	convert_entry(Tail,R#hardware_info{model=list_to_binary(Value)});
 convert_entry([{"Firmware",Value}|Tail],R)->
-	convert_entry(Tail,[{firmware,list_to_binary(Value)}|R]);
-convert_entry([{"Cap",Value}|Tail],R)->
-	convert_entry(Tail,[{cap,convert_list(Value,[])}|R]);
+	convert_entry(Tail,R#hardware_info{firmware=list_to_binary(Value)});
+convert_entry([{"Capabilities",Value}|Tail],R)->
+	convert_entry(Tail,R#hardware_info{capabilities = convert_list(Value,[])});
 convert_entry([_|Tail],R)->
 	convert_entry(Tail,R).
 

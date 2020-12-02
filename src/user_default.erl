@@ -110,6 +110,14 @@ create_simulation(SimName,CAName) when is_list(SimName),is_list(CAName) ->
 show_simulation(SimName) when is_list(SimName) ->
 	simengine:get(SimName).
 
+-spec prepare_simulation( SimName::string() )->ok.
+prepare_simulation(SimName)->
+	simengine:prepare(SimName,{?MODULE,preparation_completion,[SimName]}),
+	ok.
+
+preparation_completion(SimName,CompletionStatus)->
+	io:format("Prepararion completion status for simulation ~s. Completion status: ~p~n",[SimName,CompletionStatus]).
+
 -spec list_simulations() -> {ok,SimulationList::[string()]} | generic_error().
 list_simulations() ->
 	simengine:list().

@@ -21,7 +21,7 @@
 -define(MAKER_LOOKUP_TABLE_FILENAME,"maker_lookup_table.ets").
 
 %% API
--export([start_link/0,creation_info/0,refresh/0,refresh/2,get_all/0,lookup_oui/1,lookup_maker/1,get_ouis/0,get_makers/0]).
+-export([start_link/0,creation_info/0,refresh/0,refresh/2,get_all/0,lookup_oui/1,lookup_vendor/1,get_ouis/0,get_vendors/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -53,14 +53,20 @@ get_all()->
 get_ouis()->
 	gen_server:call(?MODULE,get_ouis).
 
-get_makers()->
-	gen_server:call(?MODULE,get_makers).
+get_vendors()->
+	gen_server:call(?MODULE,get_vendors).
 
-lookup_oui(Id)->
-	gen_server:call(?MODULE,{lookup_oui,Id}).
+-spec lookup_oui(OUI:: string() | binary()) -> {ok,Vendor::binary()} | generic_error().
+lookup_oui(OUI) when is_list(OUI) ->
+	gen_server:call(?MODULE,{lookup_oui,list_to_binary(OUI)});
+lookup_oui(OUI) when is_binary(OUI) ->
+	gen_server:call(?MODULE,{lookup_oui,OUI}).
 
-lookup_maker(Id)->
-	gen_server:call(?MODULE,{lookup_maker,Id}).
+-spec lookup_vendor(Vendor::string() | binary() ) -> {ok,[ OUI::binary() ] } | generic_error().
+lookup_vendor(Vendor) when is_list(Vendor)->
+	gen_server:call(?MODULE,{lookup_vendor,list_to_binary(Vendor)});
+lookup_vendor(Vendor) when is_binary(Vendor)->
+	gen_server:call(?MODULE,{lookup_vendor,Vendor}).
 
 %% @doc Spawns the server and registers the local name (unique)
 -spec(start_link() ->
@@ -117,7 +123,7 @@ init([]) ->
 	{noreply, NewState :: #oui_server_state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), Reply :: term(), NewState :: #oui_server_state{}} |
 	{stop, Reason :: term(), NewState :: #oui_server_state{}}).
-handle_call(get_makers, _From, State = #oui_server_state{}) ->
+handle_call(get_vendors, _From, State = #oui_server_state{}) ->
 	{reply, {ok,State#oui_server_state.all_makers}, State};
 handle_call(get_ouis, _From, State = #oui_server_state{}) ->
 	{reply, {ok,State#oui_server_state.all_ouis}, State};
@@ -132,13 +138,13 @@ handle_call({lookup_oui,OUI}, _From, State = #oui_server_state{}) ->
 		    { reply , { error , "OUI not found" },State}
 	end,
 	Answer;
-handle_call({lookup_maker,Maker}, _From, State = #oui_server_state{}) ->
+handle_call({lookup_vendor,Vendor}, _From, State = #oui_server_state{}) ->
 	Answer = try
-		[{Maker,OUIs}]=ets:lookup(?MAKER_LOOKUP_TABLE,Maker),
+		[{Vendor,OUIs}]=ets:lookup(?MAKER_LOOKUP_TABLE,Vendor),
 		{ reply, { ok , OUIs} , State}
 	catch
 		_:_ ->
-			{ reply, { error, "Maker not found."},State}
+			{ reply, { error, unknown_vendor },State}
    end,
 	Answer;
 
@@ -242,7 +248,7 @@ process_record( Io , Acc ) ->
 		{ ok , Line } ->
 			[ OUI , _Hex | Company ] = string:tokens( Line , "\n\t ") ,
 			find_blank( Io ) ,
-			process_record( Io , maps:put( filter_oui(OUI) , string:join( Company , " ") , Acc ) );
+			process_record( Io , maps:put( list_to_binary(filter_oui(OUI)) , list_to_binary(string:join( Company , " ")) , Acc ) );
 		_ ->
 			Acc
 	end.

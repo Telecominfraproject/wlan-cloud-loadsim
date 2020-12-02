@@ -13,12 +13,13 @@
 
 -include("../include/common.hrl").
 -include("../include/simengine.hrl").
+-include("../include/inventory.hrl").
 
 -compile([{parse_transform, rec2json}]).
 
 %% API
 -export([start_link/0,creation_info/0,create/1,create_tables/0,get/1,list/0,
-         prepare/2,prepare_assets/2]).
+         prepare/2,prepare_assets/2,progress/3]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -47,9 +48,11 @@ creation_info() ->
 create(SimInfo) when is_record(SimInfo,simulation) ->
 	gen_server:call(?SERVER,{create_simulation,SimInfo}).
 
--spec get(SimName::string()) -> {ok,simulation()} | generic_error().
+-spec get(SimName::string()|binary()) -> {ok,simulation()} | generic_error().
 get(SimName) when is_list(SimName)->
-	gen_server:call(?SERVER,{get,list_to_binary(SimName)}).
+	gen_server:call(?SERVER,{get,list_to_binary(SimName)});
+get(SimName) when is_binary(SimName)->
+	gen_server:call(?SERVER,{get,SimName}).
 
 -spec list() -> {ok,[string()]} | generic_error().
 list() ->
@@ -98,7 +101,7 @@ handle_call({create_simulation,SimInfo}, _From, State = #simengine_state{}) ->
 	end;
 handle_call({get,SimName}, _From, State = #simengine_state{}) ->
 	case get_sim(SimName) of
-		{ok,[Record]} -> { reply, {ok, Record}, State };
+		[Record] -> { reply, {ok, Record}, State };
 		Error-> { reply, {error, Error}, State }
 	end;
 handle_call(list_simulations, _From, State = #simengine_state{}) ->
@@ -170,11 +173,59 @@ list_sims()->
 	Result.
 
 -spec prepare_assets(SimName::binary(), Notification::notification_cb())->ok.
-prepare_assets(SimName,{M,F,A}=_Notification)->
+prepare_assets(SimName,{M,F,A}=Notification)->
 	_ = case get_sim(SimName) of
 		[] ->
 			apply(M,F,A++[{error,unknown_simulation}]);
-		SimInfo ->
-			apply(M,F,A++[ok])
+		[SimInfo] ->
+			%% If we get here, the CA exists
+			%% Build the clients
+			split_build_clients(SimInfo,Notification),
+			split_build_servers(SimInfo,Notification)
 	end,
 	ok.
+
+-spec split_build_clients( Sim::simulation(), NotificationCB::notification_cb())->ok.
+split_build_clients(SimInfo,_Notification)->
+	{ok,HardwareDefinitions} = hardware:get_definitions(),
+	Ids = [ X#hardware_info.id || X <- HardwareDefinitions ],
+	BatchSize = SimInfo#simulation.num_devices div length(Ids),
+	run_batch(Ids,BatchSize,SimInfo),
+	ok.
+
+run_batch(Ids,BatchSize,SimInfo)->
+	run_batch(Ids,BatchSize,SimInfo,1).
+
+run_batch([],_,_,_)->
+	ok;
+run_batch([H|T],BatchSize,SimInfo,BatchNumber)->
+	BatchName = binary:list_to_bin([SimInfo#simulation.name,<<"-">>,integer_to_binary(BatchNumber)]),
+	Attributes = #{ id => H, name => BatchName, serial => H, mac => <<>> },
+	inventory:make_clients(SimInfo#simulation.ca,
+	                       1,
+	                       min(BatchSize,SimInfo#simulation.num_devices - (BatchSize * (BatchNumber-1))),
+													Attributes,
+                         {?MODULE,progress,[BatchNumber,H,SimInfo#simulation.name]}),
+%%	io:format(">>>Start: ~p, HowMany: ~p, BatchSize: ~p Number:~p~n",[1,min(BatchSize,SimInfo#simulation.num_devices - (BatchSize * (BatchNumber-1))),BatchSize,BatchNumber]),
+	io:format("Starting batch ~p.~n",[BatchNumber]),
+	run_batch(T,BatchSize,SimInfo,BatchNumber+1).
+
+progress(BatchNumber,Id,SimName)->
+	io:format("~nSimulation ~s preparation progress: ID=~s Batch=~p~n",[binary_to_list(SimName),binary_to_list(Id),BatchNumber]).
+
+%% Create the servers - only if they are pon automatic mode
+split_build_servers(SimInfo,Notification)->
+	generate_server(SimInfo,mqtt_server,SimInfo#simulation.mqtt_servers),
+	generate_server(SimInfo,ovsdb_server,SimInfo#simulation.ovsdb_servers),
+	ok.
+
+generate_server(SimInfo,mqtt_server,auto)->
+	inventory:make_server(SimInfo#simulation.ca,"mqtt-1-",mqtt_server);
+generate_server(SimInfo,ovsdb_server,auto)->
+	inventory:make_server(SimInfo#simulation.ca,"ovsdb-1-",ovsdb_server);
+generate_server(_,_,_)->
+	ok.
+
+
+
+

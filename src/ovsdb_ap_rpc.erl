@@ -106,23 +106,20 @@ table_query ([_,#{<<"table">>:=T, <<"op">>:= <<"update">>, <<"row">>:=C, <<"wher
 	Res = ets:select(S,M),
 	D = ets:select_delete(S,[setelement(3,hd(M),[true])]),
 	ets:insert(S,update_records(T,C,Res,[])),
-	case network_update(C) of
-		true ->
-			ovsdb_ap:reset_comm(self()),
-			#{<<"count">> => D};
-		_ ->
-			#{<<"count">> => D}
-	end.
+	check_update_actions(C),
+	#{<<"count">> => D}.
 	
 
+%--------check_update_actions/1----------special handling for some updates that need to trigger actions
 
-%--------network_update/1----------------special handling if any network address hase changed
+-spec check_update_actions (Updates :: #{binary()=>any()}) -> ok.
 
--spec network_update (Updates :: #{binary()=>any()}) -> true | false.
+check_update_actions (#{<<"manager_addr">>:=_}) ->
+	ovsdb_ap:reset_comm(self());
 
-network_update (#{<<"manager_addr">>:=_}) -> true;
-network_update (#{<<"redirector_addr">>:=_}) -> true;
-network_update (_) -> false.
+check_update_actions (#{<<"mqtt_settings">>:=[<<"map">>,MQTT]}) ->
+	Map = maps:from_list([{K,V}||[K,V]<-MQTT]),
+	ovsdb_ap:mqtt_conf(self(),Map).
 
 
 

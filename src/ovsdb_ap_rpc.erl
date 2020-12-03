@@ -32,11 +32,12 @@ eval_req(<<"echo">>, Id, _Data, _Store) ->
 	{ok, make_result(Id,#{})};
 
 eval_req(<<"transact">>,Id,#{<<"params">>:=P},Store) ->
-	?L_I(?DBGSTR("RPC request: ~s (~s)",[<<"transact">>,Id])),
+	[DB,#{<<"table">>:=T, <<"op">>:=OP}] = P,
+	?L_I(?DBGSTR("RPC request: ~s (~s) => DB: ~s, table: ~s, operation: ~s",[<<"transact">>,Id,DB,T,OP])),
 	Qr = table_query(P,Store),
 	{ok, make_result(Id,Qr)};
 
-eval_req(<<"get_schema">>,Id,_,_Store) ->
+eval_req(<<"get_schema">>, Id,_,_Store) ->
 	?L_I(?DBGSTR("RPC request: ~s (~s)",[<<"get_schema">>,Id])),
 	{ok, ignore};
 
@@ -94,8 +95,12 @@ eval_resp (Id, _Data, Queue, _Store) ->
 table_query ([_,#{<<"table">>:=T, <<"op">>:= <<"select">>, <<"columns">>:=C, <<"where">>:=W}],S) ->
 	Res = ets:select(S,create_match_spec(T,C,W)),
 	#{ <<"rows">> => make_res_rows(Res,C,[])};
-	
 
+table_query ([_,#{<<"table">>:=T, <<"op">>:= <<"delete">>, <<"where">>:=W}],S) ->
+	M = create_match_spec(T,[],W),
+	D = ets:select_delete(S,[setelement(3,hd(M),[true])]),
+	#{ <<"count">> => D};
+	
 table_query ([_,#{<<"table">>:=T, <<"op">>:= <<"update">>, <<"row">>:=C, <<"where">>:=W}],S) ->
 	M = create_match_spec(T,[],W),
 	Res = ets:select(S,M),
@@ -171,7 +176,7 @@ mk_fp (Val,IndexFields) ->
 
 
 
-%--------update_recors/4-----------------create an updated record to eb inserted into ETS from RCP call
+%--------update_records/4-----------------create an updated record to eb inserted into ETS from RCP call
 
 -spec update_records (TableName :: binary(), NewValues :: #{binary():=any()}, Records :: [[any()]], Acc :: [[any()]]) -> [tuple()].
 
@@ -184,12 +189,21 @@ update_records (T,V,[R|Rest],Acc)  ->
 	update_records(T,V,Rest,[Updt|Acc]).
 
 
+
 %%------------------------------------------------------------------------------
 %% record convertion helpers
 
 
 -spec rec_fields (RecordName :: binary()) -> Fieldnames :: [binary()].
 
+rec_fields (<<"Wifi_Radio_State">>) ->
+	[atom_to_binary(X)||X<-record_info(fields,'Wifi_Radio_State')];
+
+rec_fields (<<"Wifi_Inet_State">>) ->
+	[atom_to_binary(X)||X<-record_info(fields,'Wifi_Inet_State')];
+
 rec_fields (<<"AWLAN_Node">>) ->
 	[atom_to_binary(X)||X<-record_info(fields,'AWLAN_Node')].
+
+
 

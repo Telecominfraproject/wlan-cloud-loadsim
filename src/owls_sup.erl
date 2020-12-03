@@ -31,8 +31,9 @@ init([]) ->
       simengine:creation_info();
 		node ->
 			?L_I("Simulation Node starting."),
+			mqtt_client_manager:creation_info() ++
 			simnode:creation_info() ++
-      		node_rest_api:creation_info();
+      node_rest_api:creation_info();
 		undefined ->
 			lager:error("No role has been defined in configuration (must be manager or node)")
 	end,

@@ -75,7 +75,7 @@ options(Req0, State) ->
 	Req1 = case State#request_state.resource of
 						<<"cas">> -> cowboy_req:set_resp_header(<<"Access-Control-Allow-Methods">>, <<"GET, OPTIONS">>, Req0);
 					  <<"ouis">> -> cowboy_req:set_resp_header(<<"Access-Control-Allow-Methods">>, <<"GET, OPTIONS">>, Req0);
-						<<"makers">> -> cowboy_req:set_resp_header(<<"Access-Control-Allow-Methods">>, <<"GET, OPTIONS">>, Req0);
+						<<"vendors">> -> cowboy_req:set_resp_header(<<"Access-Control-Allow-Methods">>, <<"GET, OPTIONS">>, Req0);
 					  _ -> cowboy_req:set_resp_header(<<"Access-Control-Allow-Methods">>, <<"GET, OPTIONS">>, Req0)
 	       end,
 	Req2 = cowboy_req:set_resp_header(
@@ -110,25 +110,25 @@ do( ?HTTP_GET , Req , #request_state{ resource = <<"ouis">> } = State ) ->
 	OUI = State#request_state.id,
 	case oui_server:lookup_oui(binary_to_list(OUI)) of
 		{ok,Maker} ->
-			JSON = binary:list_to_bin([<<"{ \"OUI\" : \"">> , OUI, <<"\" , \"Manufacturer\" : \"">>, Maker, <<"\" }">>]),
+			JSON = binary:list_to_bin([<<"{ \"OUI\" : \"">> , OUI, <<"\" , \"Vendor\" : \"">>, Maker, <<"\" }">>]),
 			{JSON,restutils:add_CORS(Req),State};
 		{error,Reason} ->
 			JSON = restutils:generate_error(101,Reason),
 			{JSON,restutils:add_CORS(Req),State}
 	end;
 
-do( ?HTTP_GET , Req , #request_state{ resource = <<"makers">> , id = nothing } = State ) ->
+do( ?HTTP_GET , Req , #request_state{ resource = <<"vendors">> , id = nothing } = State ) ->
 	PaginationParameters = restutils:get_pagination_parameters(Req),
-	{ok,Makers}=oui_server:get_vendors(),
-	{ SubList , PaginationInfo } = restutils:paginate(PaginationParameters,Makers),
-	JSON = restutils:create_paginated_return("Manufacturers",SubList,PaginationInfo),
+	{ok,Vendors}=oui_server:get_vendors(),
+	{ SubList , PaginationInfo } = restutils:paginate(PaginationParameters,Vendors),
+	JSON = restutils:create_paginated_return("Vendors",SubList,PaginationInfo),
 	{JSON,restutils:add_CORS(Req),State};
 
-do( ?HTTP_GET , Req , #request_state{ resource = <<"makers">> } = State ) ->
+do( ?HTTP_GET , Req , #request_state{ resource = <<"vendors">> } = State ) ->
 	Maker = State#request_state.id,
 	case oui_server:lookup_vendor(binary_to_list(Maker)) of
 		{ok,OUIs} ->
-			JSON = binary:list_to_bin([<<"{ \"Manufacturer\" : \"">> , Maker, <<"\" , \"OUIs\" : [ ">>, restutils:dump_string_array(OUIs), <<" ] }">>]),
+			JSON = binary:list_to_bin([<<"{ \"Vendor\" : \"">> , Maker, <<"\" , \"OUIs\" : [ ">>, restutils:dump_string_array(OUIs), <<" ] }">>]),
 			{JSON,restutils:add_CORS(Req),State};
 		{error,Reason} ->
 			JSON = restutils:generate_error(101,Reason),
@@ -148,6 +148,13 @@ do( ?HTTP_GET , Req , #request_state{ resource = <<"nodes">> , id = nothing } = 
 	{ok,Nodes}=manager:connected_nodes(),
 	{ SubList, PaginationInfo }  = restutils:paginate(PaginationParameters,Nodes),
 	JSON = restutils:create_paginated_return( "Nodes" , SubList, PaginationInfo),
+	{JSON,restutils:add_CORS(Req),State};
+
+do( ?HTTP_GET ,Req,#request_state{resource = <<"hardware_definitions">>,id=nothing}=State)->
+	PaginationParameters = restutils:get_pagination_parameters(Req),
+	{ok,Definitions}=hardware:get_definitions(),
+	{SubList,PaginationInfo} = restutils:paginate(PaginationParameters,Definitions),
+	JSON = restutils:create_paginated_return("HardwareDefinitions",SubList,PaginationInfo,hardware_info),
 	{JSON,restutils:add_CORS(Req),State};
 
 do( ?HTTP_HEAD , Req , State) ->

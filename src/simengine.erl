@@ -201,7 +201,7 @@ run_batch([],_,_,_)->
 run_batch([H|T],BatchSize,SimInfo,BatchNumber)->
 	BatchName = binary:list_to_bin([SimInfo#simulation.name,<<"-">>,integer_to_binary(BatchNumber)]),
 	Attributes = #{ id => H, name => BatchName, serial => H, mac => <<>> },
-	inventory:make_clients(SimInfo#simulation.ca,
+	_ = inventory:make_clients(SimInfo#simulation.ca,
 	                       1,
 	                       min(BatchSize,SimInfo#simulation.num_devices - (BatchSize * (BatchNumber-1))),
 													Attributes,
@@ -215,8 +215,8 @@ progress(BatchNumber,Id,SimName)->
 
 %% Create the servers - only if they are pon automatic mode
 split_build_servers(SimInfo,Notification)->
-	generate_server(SimInfo,mqtt_server,SimInfo#simulation.mqtt_servers),
-	generate_server(SimInfo,ovsdb_server,SimInfo#simulation.ovsdb_servers),
+	_ = generate_server(SimInfo,mqtt_server,SimInfo#simulation.mqtt_servers),
+	_ = generate_server(SimInfo,ovsdb_server,SimInfo#simulation.ovsdb_servers),
 	ok.
 
 generate_server(SimInfo,mqtt_server,auto)->

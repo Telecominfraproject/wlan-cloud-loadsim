@@ -12,7 +12,7 @@
 -include("../include/common.hrl").
 
 %% API
--export([create_paginated_return/3,dump_string_array/1,get_access_token/1,add_CORS/1,generate_error/2,get_pagination_parameters/1,paginate/2,validate_token/1]).
+-export([create_paginated_return/3,create_paginated_return/4,dump_string_array/1,get_access_token/1,add_CORS/1,generate_error/2,get_pagination_parameters/1,paginate/2,validate_token/1]).
 
 -record(pagination_info,{limit=0, offset=0, previous_offset=0,
 	next_offset=0, current_page=0, page_count=0, total_count=0}).
@@ -24,6 +24,13 @@ create_paginated_return(Header,List,PaginationInfo )->
 			dump_string_array(List),
 				" ] }, " ++
 				dump_pagination_info(PaginationInfo),"} "]).
+
+create_paginated_return(Header,List,PaginationInfo,Type )->
+	binary:list_to_bin(
+		[ "{ \"Items\": { \"" ++ Header ++ "\" : [ ",
+		  dump_record_array(List,Type),
+		  " ] }, " ++
+		  dump_pagination_info(PaginationInfo),"} "]).
 
 dump_pagination_info(PI) ->
 	"\"Meta\": {
@@ -46,6 +53,17 @@ dump_string_array([H1,H2|T],Blob)->
 	dump_string_array([H2|T],binary:list_to_bin([Blob, $" , H1, $", $,]));
 dump_string_array([H1|_],Blob)->
 	binary:list_to_bin([ Blob, $" , H1, $" ]).
+
+dump_record_array(L,Type)->
+	dump_record_array(L,Type,<<>>).
+
+dump_record_array([],_,Blob)->
+	Blob;
+dump_record_array([H1,H2|T],Type,Blob)->
+	dump_record_array([H2|T],binary:list_to_bin([Blob, ${ , Type:to_json(H1), $}, $,]));
+dump_record_array([H1|_],Type,Blob)->
+	binary:list_to_bin([ Blob, ${ , Type:to_json(H1), $} ]).
+
 
 get_access_token(Req) ->
 	Result = case cowboy_req:header(<<"x-api-key">>, Req) of

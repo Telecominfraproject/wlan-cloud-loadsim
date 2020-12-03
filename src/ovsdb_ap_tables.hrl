@@ -39,15 +39,30 @@
 
 -record ('AWLAN_Node',{
 	row_idx = 0 :: integer(),
-	mqtt_settings = [map,[]] :: [map|[proplists:proplist()]],
+	mqtt_settings = [<<"map">>,[]] :: [binary()|[proplists:proplist()]],
 	redirector_addr = <<>> :: binary(),
 	manager_addr = <<>> :: binary(),
-	sku_number = [set,[]] :: [set|[proplists:proplist()]],
+	sku_number = [<<"set">>,[]] :: [binary()|[proplists:proplist()]],
 	serial_number = <<>> :: binary(),
 	model = <<>>:: binary(),
 	firmware_version = <<>> :: binary(),
 	platform_version = <<>> :: binary(),
 	revision = <<>> :: binary(),
-	version_matrix = [map,[]] :: [map|[proplists:proplist()]]
+	version_matrix = [<<"map">>,[]] :: [binary()|[any()]]
 }).
 
+
+-record ('Wifi_Inet_State',{
+	row_idx = 0 :: integer(),
+	inet_addr = <<>> :: binary(),
+    hwaddr = <<>> :: binary(),
+    if_name = <<>> :: binary(),
+    if_type = <<>> :: binary()
+}).
+
+
+-record ('Wifi_Radio_State',{
+	row_idx = 0 :: integer(),
+	freq_band = <<>> :: binary(),
+	if_name = <<>> :: binary()
+}).

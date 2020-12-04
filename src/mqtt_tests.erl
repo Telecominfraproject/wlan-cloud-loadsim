@@ -19,6 +19,7 @@ simple_test() ->
 connection_packet_encoding_decoding_test() ->
 	?DBGTRC("Starting"),
 	PacketVariableHeader = #mqtt_connect_variable_header{
+		protocol_version = ?MQTT_PROTOCOL_VERSION_5,
 		username_flag = 1 ,
 		password_flag = 1,
 		username = <<"Stephb">>,
@@ -28,6 +29,7 @@ connection_packet_encoding_decoding_test() ->
 		keep_alive = 60,
 		client_identifier = <<"test_device_1">>,
 		will_topic = <<"topics/a">>,
+		will_message = <<>>,
 		clean_start_flag = 1,
 		will_properties = [{will_delay_interval,1000},
 		                   {payload_format_indicator,1},

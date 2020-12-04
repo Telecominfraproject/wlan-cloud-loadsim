@@ -48,6 +48,7 @@
 	cert = <<>> :: binary(),
 	decrypt = <<>> :: binary(),
 	csr = <<>> :: binary(),
+	cacert = <<>> :: binary(),
 	attributes = #{} :: attribute_list()
 }).
 
@@ -66,6 +67,7 @@
 	cert = <<>> :: binary(),
 	decrypt = <<>> :: binary(),
 	csr = <<>> :: binary(),
+	cacert = <<>> :: binary(),
 	attributes = #{} :: attribute_list()
 }).
 

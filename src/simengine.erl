@@ -214,7 +214,7 @@ progress(BatchNumber,Id,SimName)->
 	io:format("~nSimulation ~s preparation progress: ID=~s Batch=~p~n",[binary_to_list(SimName),binary_to_list(Id),BatchNumber]).
 
 %% Create the servers - only if they are pon automatic mode
-split_build_servers(SimInfo,Notification)->
+split_build_servers(SimInfo,_Notification)->
 	_ = generate_server(SimInfo,mqtt_server,SimInfo#simulation.mqtt_servers),
 	_ = generate_server(SimInfo,ovsdb_server,SimInfo#simulation.ovsdb_servers),
 	ok.

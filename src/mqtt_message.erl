@@ -324,12 +324,26 @@ inner_encode( #mqtt_connect_variable_header{} = Header )->
 		                      true -> mqttlib:enc_binary(Header#mqtt_connect_variable_header.password);
 		                      false -> <<>>
 	                      end,
-	Payload = << (mqttlib:enc_string(Header#mqtt_connect_variable_header.client_identifier))/binary,
-		(set_properties_section((Header#mqtt_connect_variable_header.will_properties)))/binary,
-		(mqttlib:enc_string(Header#mqtt_connect_variable_header.will_topic))/binary,
-		(mqttlib:enc_binary(Header#mqtt_connect_variable_header.will_payload))/binary,
-		UserNamePayload/binary,
-		UserPasswordPayload/binary>>,
+	WillTopic = case Header#mqtt_connect_variable_header.will_flag == 1 of
+								true -> <<(mqttlib:enc_string(Header#mqtt_connect_variable_header.will_topic))/binary,
+								          (mqttlib:enc_binary(Header#mqtt_connect_variable_header.will_message))/binary>>;
+								false -> <<>>
+	            end,
+	Payload = case Header#mqtt_connect_variable_header.protocol_version of
+		          ?MQTT_PROTOCOL_VERSION_5 ->
+			          << (mqttlib:enc_string(Header#mqtt_connect_variable_header.client_identifier))/binary,
+			             (set_properties_section((Header#mqtt_connect_variable_header.will_properties)))/binary,
+			             WillTopic/binary,
+			             (mqttlib:enc_binary(Header#mqtt_connect_variable_header.will_payload))/binary,
+			             UserNamePayload/binary,
+			             UserPasswordPayload/binary>>;
+		          ?MQTT_PROTOCOL_VERSION_3_11 ->
+			          << (mqttlib:enc_string(Header#mqtt_connect_variable_header.client_identifier))/binary,
+			             WillTopic/binary,
+			             (mqttlib:enc_binary(Header#mqtt_connect_variable_header.will_payload))/binary,
+			             UserNamePayload/binary,
+			             UserPasswordPayload/binary>>
+	          end,
 	Blob = <<0:8,4:8,$M,$Q,$T,$T,(Header#mqtt_connect_variable_header.protocol_version):8,Flags/binary,(Header#mqtt_connect_variable_header.keep_alive):16,Payload/binary>>,
 	{?MQTT_CONNECT, 0, Blob};
 

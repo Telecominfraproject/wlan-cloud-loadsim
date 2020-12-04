@@ -165,6 +165,7 @@
 	keep_alive = 0 :: integer(),
 	client_identifier = <<>> :: binary(),
 	will_topic = <<>> :: binary(),
+	will_message = <<>> :: binary(),
 	will_properties = [] :: list(),
 	will_payload = <<>> :: binary(),
 	username = <<>> :: binary(),
@@ -271,7 +272,7 @@
 	packet_type = 0 :: integer(),
 	flags = 0 :: integer(),
 	remaining_length = 0 :: integer(),
-	variable_header }).
+	variable_header = none :: none | mqtt_msg_any() }).
 
 -record(mqtt_connection_stats,{
 	client_identifier = <<>> :: binary(),

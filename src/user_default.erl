@@ -137,7 +137,7 @@ show_plan(_SimName)->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -spec create_ca(CAName::string())-> generic_result().
 create_ca(CAName) when is_list(CAName)->
-	create_ca(CAName,"password").
+	create_ca(CAName,"").
 
 -spec create_ca(CAName::string(),Password::string())-> generic_result().
 create_ca(CAName,Password) when is_list(CAName),is_list(Password)->

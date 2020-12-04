@@ -433,18 +433,22 @@ create_ca(CaName,Password,State,_Pid)->
 	CaKeyCertFileName = filename:join([CaDir,binary_to_list(CaName) ++ "_cert.pem"]),
 	CaConfigFileName = filename:join([CaDir,binary_to_list(CaName)++".cnf"]),
 
-	Cmd0 = io_lib:format("openssl genrsa -passout pass:~s -aes256 -out ~s 4096",[Password,CaKeyFileName]),
+	Cmd0 = case Password == <<>> of
+		       false -> io_lib:format("openssl genrsa -passout pass:~s -aes256 -out ~s 4096",[Password,CaKeyFileName]);
+		       true -> io_lib:format("openssl genrsa -out ~s 4096",[CaKeyFileName])
+	       end,
 	_CommandResult0 = os:cmd(Cmd0),
 	_ = file:change_mode(CaKeyFileName,8#0400),
-%%	io:format("~p> CMD0: ~s, RESULT: ~s~n~n",[Pid,Cmd0,CommandResult0]),
-	Cmd1 = io_lib:format("openssl req -config ~s -batch -new -x509 -days 3000 -sha256 -extensions v3_ca -passin pass:~s -key ~s -out ~s",
-		[ CaConfigFileName,
-			Password,
-			CaKeyFileName,
-			CaKeyCertFileName ]),
+	%% io:format("> CMD0: ~s, RESULT: ~s~n~n",[Cmd0,CommandResult0]),
+	Cmd1 = case Password == <<>> of
+		       false -> io_lib:format("openssl req -config ~s -batch -new -x509 -days 3000 -sha256 -extensions v3_ca -passin pass:~s -key ~s -out ~s",
+									[ CaConfigFileName,	Password, CaKeyFileName, CaKeyCertFileName ]);
+		       true -> io_lib:format("openssl req -config ~s -batch -new -x509 -days 3000 -sha256 -extensions v3_ca -key ~s -out ~s",
+		                              [ CaConfigFileName,	CaKeyFileName, CaKeyCertFileName ])
+	       end,
 	_CommandResult1 = os:cmd(Cmd1),
 	_ = file:change_mode(CaKeyCertFileName,8#0444),
-%%	io:format("~p> CMD1: ~s, RESULT: ~s~n~n",[Pid,Cmd1,CommandResult1]),
+	%% io:format("> CMD1: ~s, RESULT: ~s~n~n",[Cmd1,CommandResult1]),
 
 	ok = file:write_file( filename:join([CaDir, "index.txt"]),<<>>),
 	ok = file:write_file( filename:join([CaDir, "serial.txt"]),<<$0,$1>>),
@@ -550,29 +554,49 @@ create_server(CAInfo,Name,Type,State,_Pid)->
 	ServerCertCsr = filename:join([BaseDir,"server-" ++ binary_to_list(Name) ++ "-cert.csr"]),
 	ServerCertPem = filename:join([BaseDir,"server-" ++ binary_to_list(Name) ++ "-cert.pem"]),
 	Subject = "\"/C=CA/ST=BC/L=Vancouver/O=Arilia Wireless Inc./OU=Servers/CN=" ++ binary_to_list(Name) ++ "\"",
-	Cmd1 = io_lib:format("openssl req -config ~s -batch -passout pass:~s -newkey rsa:2048 -sha256 -keyout ~s -out ~s -outform PEM",
-		[ binary_to_list(CAInfo#ca_info.config_file_name),
-		  binary_to_list(CAInfo#ca_info.password),
-			ServerKeyPem,
-			ServerCertCsr]),
+	Cmd1 = case CAInfo#ca_info.password == <<>> of
+					 false ->
+						 io_lib:format("openssl req -config ~s -batch -passout pass:~s -newkey rsa:2048 -sha256 -keyout ~s -out ~s -outform PEM -nodes",
+						               [ binary_to_list(CAInfo#ca_info.config_file_name),
+						                 binary_to_list(CAInfo#ca_info.password),
+						                 ServerKeyPem,
+						                 ServerCertCsr]);
+					 true ->
+						 io_lib:format("openssl req -config ~s -batch -newkey rsa:2048 -sha256 -keyout ~s -out ~s -outform PEM -nodes",
+						               [ binary_to_list(CAInfo#ca_info.config_file_name),
+						                 ServerKeyPem,
+						                 ServerCertCsr])
+%%						                "openssl req -config ~s -batch -newkey rsa:2048 -sha256 -keyout ~s -out ~s -outform PEM -nodes"
+	       end,
 	_CommandResult1 = os:cmd(Cmd1),
-	%% io:format("~p> CMD1: ~s, RESULT: ~s~n~n",[Pid,Cmd1,CommandResult1]),
-	Cmd2 = io_lib:format("openssl ca -batch -passin pass:~s -config ~s -subj ~s -keyfile ~s -cert ~s -extensions server_cert -policy policy_loose -out ~s -infiles ~s",
-		[ binary_to_list(CAInfo#ca_info.password),
-		  binary_to_list(CAInfo#ca_info.config_file_name),
-			Subject,
-			binary_to_list(CAInfo#ca_info.key_file_name),
-			binary_to_list(CAInfo#ca_info.cert_file_name),
-			ServerCertPem,
-			ServerCertCsr]),
+	%% io:format("> CMD1: ~s, RESULT: ~s~n~n",[Cmd1,CommandResult1]),
+	Cmd2 = case CAInfo#ca_info.password == <<>> of
+					 false -> io_lib:format("openssl ca -batch -passin pass:~s -config ~s -subj ~s -keyfile ~s -cert ~s -extensions server_cert -policy policy_loose -out ~s -infiles ~s",
+					                        [ binary_to_list(CAInfo#ca_info.password),
+					                          binary_to_list(CAInfo#ca_info.config_file_name),
+					                          Subject,
+					                          binary_to_list(CAInfo#ca_info.key_file_name),
+					                          binary_to_list(CAInfo#ca_info.cert_file_name),
+					                          ServerCertPem,
+					                          ServerCertCsr]);
+					 true -> io_lib:format("openssl ca -batch -config ~s -subj ~s -keyfile ~s -cert ~s -extensions server_cert -policy policy_loose -out ~s -infiles ~s",
+					                       [ binary_to_list(CAInfo#ca_info.config_file_name),
+					                         Subject,
+					                         binary_to_list(CAInfo#ca_info.key_file_name),
+					                         binary_to_list(CAInfo#ca_info.cert_file_name),
+					                         ServerCertPem,
+					                         ServerCertCsr])
+	       end,
 	_CommandResult2 = os:cmd(Cmd2),
-	%% io:format("~p> CMD2: ~s, RESULT: ~s~n~n",[Pid,Cmd2,CommandResult2]),
-	Cmd3 = io_lib:format("openssl rsa -passin pass:~s -in ~s -out ~s",
-		[	binary_to_list(CAInfo#ca_info.password),
-		  ServerKeyPem,
-      ServerKeyDec]),
+	%% io:format("> CMD2: ~s, RESULT: ~s~n~n",[Cmd2,CommandResult2]),
+	Cmd3 = case CAInfo#ca_info.password == <<>> of
+           false ->io_lib:format("openssl rsa -passin pass:~s -in ~s -out ~s",
+											[	binary_to_list(CAInfo#ca_info.password), ServerKeyPem, ServerKeyDec]);
+					 true -> io_lib:format("openssl rsa -in ~s -out ~s",
+					                       [ ServerKeyPem, ServerKeyDec])
+				 end,
 	_CommandResult3 = os:cmd(Cmd3),
-	%% io:format("~p> CMD3: ~s, RESULT: ~s~n~n",[Pid,Cmd3,CommandResult3]),
+	%% io:format("> CMD3: ~s, RESULT: ~s~n~n",[Cmd3,CommandResult3]),
 
 	{ok,KeyPemData} = file:read_file(ServerKeyPem),
 	{ok,ServerKeyDecPemData} = file:read_file(ServerKeyDec),
@@ -586,7 +610,8 @@ create_server(CAInfo,Name,Type,State,_Pid)->
 		key = KeyPemData,
 		cert = ServerCertPemData,
 		decrypt = ServerKeyDecPemData,
-		csr = ServerCertCsrPemData
+		csr = ServerCertCsrPemData,
+		cacert = CAInfo#ca_info.cert_data
 	},
 
 	_ = add_record(NewServerInfo),
@@ -612,23 +637,35 @@ create_client(CAInfo,Attributes,State)->
 	ClientCertCsr = filename:join([BaseDir,"client-" ++ binary_to_list(Name) ++ "-cert.csr"]),
 	ClientCertPem = filename:join([BaseDir,"client-" ++ binary_to_list(Name) ++ "-cert.pem"]),
 	Subject = "\"/C=CA/ST=BC/L=Vancouver/O=Arilia Wireless Inc./OU=Clients/CN=" ++ binary_to_list(Name) ++ "\"",
-	Cmd1 = io_lib:format("openssl req -config ~s -batch -passout pass:~s -newkey rsa:2048 -sha256 -keyout ~s -out ~s -outform PEM -nodes",
-		[ CAInfo#ca_info.config_file_name, CAInfo#ca_info.password, ClientKeyPem,ClientCertCsr]),
+
+	Cmd1 = case CAInfo#ca_info.password == <<>> of
+		         false -> io_lib:format("openssl req -config ~s -batch -passout pass:~s -newkey rsa:2048 -sha256 -keyout ~s -out ~s -outform PEM -nodes",
+															[ binary_to_list(CAInfo#ca_info.config_file_name), binary_to_list(CAInfo#ca_info.password), ClientKeyPem,ClientCertCsr]);
+						 true ->  io_lib:format("openssl req -config ~s -batch -newkey rsa:2048 -sha256 -keyout ~s -out ~s -outform PEM -nodes",
+			                        [ binary_to_list(CAInfo#ca_info.config_file_name), ClientKeyPem, ClientCertCsr])
+				 end,
 	_CommandResult1 = os:cmd(Cmd1),
 	%% io:format("CMD1: ~s, RESULT: ~s~n~n",[Cmd1,CommandResult1]),
-	Cmd2 = io_lib:format("openssl ca -batch -passin pass:~s -config ~s -subj ~s -keyfile ~s -cert ~s -extensions usr_cert -policy policy_loose -out ~s -infiles ~s",
-		[ binary_to_list(CAInfo#ca_info.password),
-		  binary_to_list(CAInfo#ca_info.config_file_name),
-			Subject,
-			binary_to_list(CAInfo#ca_info.key_file_name),
-			binary_to_list(CAInfo#ca_info.cert_file_name),
-			ClientCertPem	,
-			ClientCertCsr
-			]),
+	Cmd2 = case CAInfo#ca_info.password == <<>> of
+		       false -> io_lib:format("openssl ca -batch -passin pass:~s -config ~s -subj ~s -keyfile ~s -cert ~s -extensions usr_cert -policy policy_loose -out ~s -infiles ~s",
+						[ binary_to_list(CAInfo#ca_info.password),
+						  binary_to_list(CAInfo#ca_info.config_file_name),
+							Subject,
+							binary_to_list(CAInfo#ca_info.key_file_name),
+							binary_to_list(CAInfo#ca_info.cert_file_name),
+							ClientCertPem	,
+							ClientCertCsr
+							]);
+					 true -> io_lib:format("openssl ca -batch -config ~s -subj ~s -keyfile ~s -cert ~s -extensions usr_cert -policy policy_loose -out ~s -infiles ~s",
+	             [ binary_to_list(CAInfo#ca_info.config_file_name), Subject, binary_to_list(CAInfo#ca_info.key_file_name), binary_to_list(CAInfo#ca_info.cert_file_name),
+	               ClientCertPem	, ClientCertCsr ])
+				 end,
 	_CommandResult2 = os:cmd(Cmd2),
 	%% io:format("CMD2: ~s, RESULT: ~s~n~n",[Cmd2,CommandResult2]),
-	Cmd3 = io_lib:format("openssl rsa -passin pass:~s -in ~s -out ~s",
-		[	binary_to_list(CAInfo#ca_info.password), ClientKeyPem, ClientKeyDec]),
+	Cmd3 = case CAInfo#ca_info.password == <<>> of
+					 false -> io_lib:format("openssl rsa -passin pass:~s -in ~s -out ~s", [	binary_to_list(CAInfo#ca_info.password), ClientKeyPem, ClientKeyDec]);
+					 true -> io_lib:format("openssl rsa -in ~s -out ~s", [	ClientKeyPem, ClientKeyDec])
+	       end,
 	_CommandResult3 = os:cmd(Cmd3),
 	%% io:format("CMD3: ~s, RESULT: ~s~n~n",[Cmd3,CommandResult3]),
 
@@ -647,6 +684,7 @@ create_client(CAInfo,Attributes,State)->
 		key = ClientKeyPemData,
 		cert = ClientCertPemData,
 		decrypt = ClientKeyDecData,
+		cacert = CAInfo#ca_info.cert_data,
 		csr = ClientCertCsrData
 	},
 
@@ -704,6 +742,8 @@ valid_ca_name([H|T],Pos) when (((H >= $0) and (H =< $9)) or ((H >= $a) and (H =<
 valid_ca_name(_,_Pos)->
 	false.
 
+valid_password("")->
+	true;
 valid_password(Password)->
 	valid_password(Password,1).
 valid_password([],Pos) when Pos >= 8 ->

@@ -11,7 +11,6 @@
 
 -include("../include/common.hrl").
 
-
 %%-----------------------------------------------------------------------------
 %% types and specifications
 
@@ -29,8 +28,7 @@
 	socket :: none | ssl:sslsocket(),
 	ap :: pid(),
 	status :: active | idle,
-	restarts = 0 :: integer(),
-	max_restarts = 50 :: integer(),
+	restart = 250 :: integer(),
 	rxb = <<"">> :: binary()
 }).
 
@@ -159,17 +157,15 @@ start_connection (#c_state{options=Opts}=State) ->
 
 
 
+%--------try_reconnect/1-----------------reconnect to broken sockets with exponential back-off and random jitter
+
 -spec try_reconnect (State :: #c_state{}) -> NewState :: #c_state{}.
 
-try_reconnect (#c_state{restarts=R, max_restarts=MR, ap=AP}=State) when R < MR ->
-	?L_I(?DBGSTR("socket closed by server, trying to reconnect (~B of ~B)",[R+1,MR])),
-	_ = timer:send_after(1000,{start, AP}),
-	State#c_state{socket=none, restarts=R+1};
-
-try_reconnect (#c_state{ap=AP}=State) ->
-	?L_E(?DBGSTR("socket closed by server too many times, bailing out :(")),
-	self() ! {down, AP},
-	State#c_state{socket=none}.
+try_reconnect (#c_state{restart=R, ap=AP}=State) ->
+	Rj = R + rand:uniform(250) - 125,
+	?L_I(?DBGSTR("socket closed by server, trying to reconnect in ~.2fsec",[Rj/1000])),
+	_ = timer:send_after(Rj,{start, AP}),
+	State#c_state{socket=none, restart=min(R*2,32000)}.
 
 
 

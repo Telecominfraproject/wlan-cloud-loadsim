@@ -160,8 +160,7 @@ create_table ('Wifi_Inet_State',APC,Store) ->
 create_table ('AWLAN_Node',APC,Store) -> 
 	ets:insert(Store, #'AWLAN_Node'{
 		row_idx = 0,
-		redirector_addr = list_to_binary([proplists:get_value(tip_host,APC),":",
-										integer_to_list(proplists:get_value(tip_port,APC))]),
+		redirector_addr = proplists:get_value(tip_redirector,APC),									
 		serial_number = proplists:get_value(serial,APC),
 		model = proplists:get_value(type,APC),
 		revision = <<"1">>,

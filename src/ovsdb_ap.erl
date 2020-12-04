@@ -22,7 +22,7 @@
 -export([start_ap/1,stop_ap/1,pause_ap/1,cancel_ap/1]).
 
 %% comm API
--export([rpc_cmd/2,reset_comm/1]).
+-export([rpc_cmd/2,reset_comm/1,mqtt_conf/2]).
 
 
 %% gen_server callbacks
@@ -41,6 +41,7 @@
 	status = init :: ap_status(),	% internal status
 	config :: ovsdb_ap_config:cfg(),
 	comm = none :: none | pid(),
+	mqtt = idle :: idle | running,
 	store :: ets:tid(),
 	req_queue :: ets:tid(),
 	stats_ets :: ets:tid()
@@ -109,7 +110,13 @@ rpc_cmd (Node,Rpc) ->
 -spec reset_comm (Node :: pid()) -> ok.
 
 reset_comm (Node) ->
-	gen_server:cast(Node,reset_comm).
+	gen_server:cast(Node, reset_comm).
+
+
+-spec mqtt_conf (Node :: pid(), Config :: map()) -> ok.
+
+mqtt_conf (Node, Conf) ->
+	gen_server:cast(Node, {mqtt_conf,Conf}).
 
 
 
@@ -180,6 +187,9 @@ handle_cast (reset_comm, State) ->
 
 handle_cast (ctlr_start_comm, State) ->
 	{noreply, ctlr_start_comm(State)};
+
+handle_cast ({mqtt_conf,Conf}, State) ->
+	{noreply, configure_mqtt(Conf,State)};
 
 handle_cast (R,State) ->
 	?L_E(?DBGSTR("got unknown request: ~p",[R])),
@@ -462,3 +472,11 @@ ctlr_start_comm (#ap_state{comm=Comm}=State) ->
 	State.
 
 
+
+%--------configure_mqtt/2----------------send configuration to MQTT client to establish a connection
+
+-spec configure_mqtt (Config :: #{binary():=binary()}, #ap_state{}) -> NewState :: #ap_state{}.
+
+configure_mqtt (Cfg,State) ->
+	?L_I(?DBGSTR("AP->MQTT set configuration to: ~w",[Cfg])),
+	State#ap_state{mqtt=running}.

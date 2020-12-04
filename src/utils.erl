@@ -10,7 +10,8 @@
 -author("stephb").
 
 %% API
--export([make_dir/1,uuid/0,get_addr/0,get_addr2/0,app_name/0,app_name/1,priv_dir/0,app_env/2,to_string_list/2,to_binary_list/2,print_nodes_info/1]).
+-export([make_dir/1,uuid/0,get_addr/0,get_addr2/0,app_name/0,app_name/1,priv_dir/0,app_env/2,to_string_list/2,to_binary_list/2,print_nodes_info/1,
+					do/2]).
 
 -spec make_dir( DirName::string() ) -> ok | { error, atom() }.
 make_dir(DirName)->
@@ -138,5 +139,12 @@ to_binary_list([H|T],R) when is_atom(H)->
 	to_binary_list(T,[list_to_binary(atom_to_list(H))|R]);
 to_binary_list([H|T],R) when is_binary(H)->
 	to_binary_list(T,[H|R]).
+
+-spec do(boolean(),{atom(),atom(),term()})->ok.
+do(true,{M,F,A})->
+	_=apply(M,F,A), ok;
+do(false,_)->
+	ok.
+
 
 

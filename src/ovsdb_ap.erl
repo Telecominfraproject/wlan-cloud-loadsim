@@ -550,7 +550,7 @@ ctlr_start_comm (#ap_state{comm=Comm}=State) ->
 configure_mqtt (Cfg,#ap_state{ca_name=CAName, id=ID, mqtt=idle}=State) ->
 	?L_I(?DBGSTR("AP->MQTT set configuration to: ~w",[Cfg])),
 	post_event(mqtt,{<<"set_config">>},<<"start an MQTT client">>),
-	mqtt_client_manager:start_client(CAName,ID,Cfg),
+	_ = mqtt_client_manager:start_client(CAName,ID,Cfg),
 	State#ap_state{mqtt=running};
 
 configure_mqtt (_,State) ->

@@ -23,7 +23,8 @@
 	make_server/3,get_server/2,make_servers/3,
 	make_client/2,make_clients/5,generate_client_batch/6,get_client/2,
 	all_files_exist/1,valid_ca_name/1,valid_password/1,
-	delete_server/2,import_ca/2,create_tables/0]).
+	delete_server/2,import_ca/2,create_tables/0,
+	list_clients/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -128,7 +129,7 @@ make_client(CAName,Attributes)->
 			{error,missing_attributes}
 	end.
 
--spec make_clients(CAName::string()|binary(),Start::integer(),HowMany::integer(),Attributes::#{ atom() => term() }, Notification::notification_cb() ) -> {ok,HowManyDone::integer()} | {error,Reason::term()}.
+-spec make_clients(CAName::string()|binary(),Start::integer(),HowMany::integer(),Attributes::#{ atom() => term() }, Notification::notification_cb() ) -> {ok,HowManyDone::integer()} | generic_error().
 make_clients(CAName,Start,HowMany,Attributes,Notification) ->
 	case validate_attributes(Attributes) of
 		true -> gen_server:call(?SERVER,{make_many_clients,safe_binary(CAName),Start,HowMany,Attributes,Notification});
@@ -138,9 +139,13 @@ make_clients(CAName,Start,HowMany,Attributes,Notification) ->
 validate_attributes(Attrs) when is_map(Attrs)->
 	maps:is_key(serial,Attrs) and maps:is_key(name,Attrs) and maps:is_key(mac,Attrs) and maps:is_key(id,Attrs).
 
--spec get_client(CAName::string()|binary(),Id::string()|binary())-> { ok , Client::client_info() } | {error,Reason::term()}.
+-spec get_client(CAName::string()|binary(),Id::string()|binary())-> { ok , Client::client_info() } | generic_error().
 get_client(CAName,Id)->
 	gen_server:call(?SERVER,{get_client,safe_binary(CAName),safe_binary(Id)}).
+
+-spec list_clients(CAName::string()|binary())-> { ok , [Client::client_info()] } | generic_error().
+list_clients(CAName)->
+	gen_server:call(?SERVER,{list_clients,safe_binary(CAName)}).
 
 %% @doc Spawns the server and registers the local name (unique)
 -spec(start_link() ->
@@ -341,6 +346,19 @@ handle_call({get_client,Ca,Id}, _From, State = #inventory_state{}) ->
 						false ->
 							{ reply , {error, unknown_client},State}
 					end;
+				Error ->
+					{ reply, {error, Error}, State}
+			end
+	end;
+
+handle_call({list_clients,CAName}, _From, State = #inventory_state{}) ->
+	case ets:lookup(?CADB_TABLE,CAName) of
+		[] ->
+			{reply,{error,unknown_ca},State};
+		[_CAInfo] ->
+			case list_ca_clients(CAName) of
+				{atomic,Records} ->
+					{ reply, {ok,Records},State};
 				Error ->
 					{ reply, {error, Error}, State}
 			end
@@ -805,3 +823,14 @@ get_record(R) when is_record(R,client_info)->
 	mnesia:transaction( fun() ->
 												mnesia:read(clients,R#client_info.name)
 	                    end).
+
+list_ca_clients(CAName) ->
+	mnesia:transaction( fun() ->
+												mnesia:foldr( fun(R,A) ->
+																					case R#client_info.ca == CAName of
+																						true -> [binary_to_list(R#client_info.name)|A];
+																						false-> A
+																					end
+																			end,[],clients)
+				              end).
+

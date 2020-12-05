@@ -19,14 +19,7 @@
 %%------------------------------------------------------------------------------
 %% request handling
 
--spec eval_req (Method, Id, Data, Store) -> {ok, ignore} | {ok, Result} | {error, Reason} when
-		Method :: binary(),
-		Id :: binary(),
-		Data :: map(),
-		Store :: ets:tid(),
-		Result :: map(),
-		Reason :: term().
-
+-spec eval_req (Method :: binary(), Id :: binary(), Data :: map(), Store :: ets:tid()) -> {ok, ignore} | {ok, Result :: map()} | generic_error().
 eval_req(<<"echo">>, Id, _Data, _Store) ->
 	?L_I(?DBGSTR("RPC request: ~s (~s)",[<<"echo">>,Id])),
 	{ok, make_result(Id,#{})};
@@ -45,17 +38,13 @@ eval_req (Method, Id, _Data, _Store) ->
 	?L_I(?DBGSTR("RPC request: ~s (~s)",[Method,Id])),
 	{error,io_lib:format("~s not recognized",[Method])}.
 
-
-
 -spec make_result (Id :: binary(), Result :: map()) -> map().
-
 make_result (Id, Res) when map_size(Res) == 0 ->
 	#{
 		<<"result">> => [],
 		<<"id">> => Id,
 		<<"error">> => null
 	};
-
 make_result (Id, Res) ->
 	#{
 		<<"result">> => [Res],
@@ -63,17 +52,10 @@ make_result (Id, Res) ->
 		<<"error">> => null
 	}.
 
-
 %%------------------------------------------------------------------------------
 %% response handling
 
--spec eval_resp (Id, Data, Queue, Store) -> ok | {error, Reason} when
-		Id :: binary(),
-		Data :: map(),
-		Queue :: ets:tid(),
-		Store :: ets:tid(),
-		Reason :: term().
-
+-spec eval_resp (Id :: binary(), Data :: map(), Queue :: ets:tid(), Store :: ets:tid()) -> ok | generic_error().
 eval_resp (Id, _Data, Queue, _Store) ->
 	case ets:lookup(Queue,Id) of
 		[] ->
@@ -113,36 +95,24 @@ table_query ([_,#{<<"table">>:=T, <<"op">>:= <<"update">>, <<"row">>:=C, <<"wher
 %--------check_update_actions/1----------special handling for some updates that need to trigger actions
 
 -spec check_update_actions (Updates :: #{binary()=>any()}) -> ok.
-
 check_update_actions (#{<<"manager_addr">>:=_}) ->
 	timer:apply_after(250,ovsdb_ap,reset_comm,[self()]);   % delay to give a chance to empty buffer before we close socket
-
 check_update_actions (#{<<"mqtt_settings">>:=[<<"map">>,MQTT]}) ->
 	Map = maps:from_list([{K,V}||[K,V]<-MQTT]),
 	ovsdb_ap:mqtt_conf(self(),Map).
 
-
-
 %--------make_res_rows/3-----------------formats query results into proper rows map
-
 -spec make_res_rows (Record :: binary(), Res :: [[{binary(),any()}]], Cols :: [binary()], Acc :: [#{}]) -> [#{}].
-
 make_res_rows (R,Res,[],Acc) ->
 	make_res_rows (R,Res,rec_fields(R),Acc);
-
 make_res_rows (_,[],_,Acc) ->
 	lists:reverse(Acc);
-
 make_res_rows (R,[H|T],C,Acc) ->
 	M =  maps:from_list([{F,V}|| {F,V}<-lists:zip(rec_fields(R),H), lists:member(F,C)]),
 	make_res_rows(R,T,C,[M|Acc]).
 
-
-
 %--------create_match_spec/3-------------creates proper match specification from RPC command for ETS search
-
 -spec create_match_spec (TableName :: binary(), Where :: []) -> [{tuple(),list(),list()}].
-
 create_match_spec (R,W) ->
 	Op = #{<<"==">>=>'==', <<"!=">>=>'/=', <<"<=">>=>'<=', <<"<">>=>'<', <<">=">>=>'>=', <<">">>=>'>'},
 	Fields = rec_fields(R),
@@ -150,17 +120,13 @@ create_match_spec (R,W) ->
 	C = [{maps:get(O,Op,'=='),field_idx(A1,Fields,1),field_idx(A2,Fields,1)}|| [A1,O,A2] <- W],
 	[{list_to_tuple([binary_to_atom(R)|MP]),C,['$$']}].
 
-
 field_idx (F,[],_) -> F;
 field_idx (F,[F|_],N) -> binary_to_atom(list_to_binary([$$,integer_to_list(N)]));
 field_idx (F,[_|T],N) -> field_idx(F,T,N+1).
 
-
-
 %--------update_records/4-----------------create an updated record to eb inserted into ETS from RCP call
 
 -spec update_records (TableName :: binary(), NewValues :: #{binary():=any()}, Records :: [[any()]], Acc :: [[any()]]) -> [tuple()].
-
 update_records (T,_,[],Acc) ->
 	[list_to_tuple([binary_to_atom(T)|X]) || X <- Acc];
 
@@ -169,19 +135,12 @@ update_records (T,V,[R|Rest],Acc)  ->
 	Updt = [Uv || {F,Ov} <- Cand, case maps:is_key(F,V) of true -> Uv=maps:get(F,V), true; _ -> Uv=Ov, true end],
 	update_records(T,V,Rest,[Updt|Acc]).
 
-
-
 %%------------------------------------------------------------------------------
 %% record convertion helpers
-
-
 -spec rec_fields (RecordName :: binary()) -> Fieldnames :: [binary()].
-
 rec_fields (<<"Wifi_Radio_State">>) ->
 	[atom_to_binary(X)||X<-record_info(fields,'Wifi_Radio_State')];
-
 rec_fields (<<"Wifi_Inet_State">>) ->
 	[atom_to_binary(X)||X<-record_info(fields,'Wifi_Inet_State')];
-
 rec_fields (<<"AWLAN_Node">>) ->
 	[atom_to_binary(X)||X<-record_info(fields,'AWLAN_Node')].

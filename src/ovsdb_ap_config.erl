@@ -36,13 +36,10 @@
 
 
 -spec new (CAName :: string() | binary(), Id :: string(), Store :: ets:tid()) -> Config :: cfg().
-
 new (CAName,Id,Store) ->
 	#cfg{ca_name=CAName, id=Id, store_ref = Store}.
 
-
 -spec configure (Config :: cfg()) -> NewConfig :: cfg().
-
 configure (Config) ->
 	%% @TODO: remote provisioned configuration
 	%% in the meantime read a sample config from a file
@@ -55,51 +52,41 @@ configure (Config) ->
 		client_cert = proplists:get_value(client_cert,APC)
 	}.
 
-
-
 -spec initialize_ap_tables (Store :: ets:tid(), APConfig :: proplists:proplist()) -> true.
-
 initialize_ap_tables (Store, APC) ->
 	create_table('AWLAN_Node',APC,Store),
 	create_table('Wifi_Radio_State',APC,Store),
 	create_table('Wifi_Inet_State',APC,Store).
 	
-
-
-
 %%------------------------------------------------------------------------------
 %% accessor API - direct config settings
 
 -spec id (Config :: cfg()) -> Id :: string().
-id (Cfg) -> Cfg#cfg.id.
+id (Cfg) ->
+	Cfg#cfg.id.
 
 -spec ca_certs (Config :: cfg()) -> binary().
-ca_certs (Cfg) -> Cfg#cfg.ca_certs.
+ca_certs (Cfg) ->
+	Cfg#cfg.ca_certs.
 
 -spec client_cert (Config :: cfg()) -> binary().
-client_cert (Cfg) -> Cfg#cfg.client_cert.
-
+client_cert (Cfg) ->
+	Cfg#cfg.client_cert.
 
 %%------------------------------------------------------------------------------
 %% accessor API from Store tables
 
 -spec tip_redirector (Part :: host | port, Config :: cfg()) -> string() | integer().
-
-tip_redirector (Part,#cfg{store_ref=Store}) -> 
+tip_redirector (Part,#cfg{store_ref=Store}) ->
 	[#'AWLAN_Node'{redirector_addr=R}|_] = ets:lookup(Store,'AWLAN_Node'),
 	get_host_or_port(Part,R).
 
-
 -spec tip_manager (Part :: host | port, Config :: cfg()) -> string() | integer().
-
-tip_manager (Part,#cfg{store_ref=Store}) -> 
+tip_manager (Part,#cfg{store_ref=Store}) ->
 	[#'AWLAN_Node'{manager_addr=R}|_] = ets:lookup(Store,'AWLAN_Node'),
 	get_host_or_port(Part,R).
 
-
-
 -spec get_host_or_port (Part :: host | port, Addr :: binary()) -> string() | integer().
-
 get_host_or_port (Part, Addr) when is_binary(Addr) ->
 	Parts = string:split(Addr,":",all),
 	case Part of
@@ -115,15 +102,11 @@ get_host_or_port (Part, Addr) when is_binary(Addr) ->
 				end
 	end.
 
-
-
-
 %%------------------------------------------------------------------------------
 %% table creation
 
 -spec create_table (Table :: atom(), AP_Config :: [{atom(),term()}], Store :: ets:tid()) -> true.
-
-create_table ('Wifi_Radio_State',_APC,Store) -> 
+create_table ('Wifi_Radio_State',_APC,Store) ->
 	ets:insert(Store, #'Wifi_Radio_State'{
 		row_idx = 0,
 		freq_band = <<"5GU">>,

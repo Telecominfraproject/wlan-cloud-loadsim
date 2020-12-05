@@ -115,7 +115,7 @@ table_query ([_,#{<<"table">>:=T, <<"op">>:= <<"update">>, <<"row">>:=C, <<"wher
 -spec check_update_actions (Updates :: #{binary()=>any()}) -> ok.
 
 check_update_actions (#{<<"manager_addr">>:=_}) ->
-	ovsdb_ap:reset_comm(self());
+	timer:apply_after(250,ovsdb_ap,reset_comm,[self()]);   % delay to give a chance to empty buffer before we close socket
 
 check_update_actions (#{<<"mqtt_settings">>:=[<<"map">>,MQTT]}) ->
 	Map = maps:from_list([{K,V}||[K,V]<-MQTT]),

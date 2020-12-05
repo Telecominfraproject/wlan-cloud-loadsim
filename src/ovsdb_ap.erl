@@ -18,11 +18,11 @@
 
 
 %% API
--export([launch/2]).
+-export([launch/3]).
 -export([start_ap/1,stop_ap/1,pause_ap/1,cancel_ap/1]).
 
 %% comm API
--export([rpc_cmd/2,reset_comm/1,mqtt_conf/2]).
+-export([rpc_cmd/2,reset_comm/1,mqtt_conf/2,sock_recon/2,post_event/4,post_event/3]).
 
 
 %% gen_server callbacks
@@ -32,19 +32,46 @@
 
 %% data structures
 
--type ap_status() :: init | ready | running | paused | stopped.
+-type ap_status() :: init | ready | running | paused.
 -export_type([ap_status/0]).
 
 -record(ap_state, { 	
-	sim_manager :: tuple(), 	% manager to be contacted to get configuration	
-	timer :: owls_timers:tms(),
-	status = init :: ap_status(),	% internal status
-	config :: ovsdb_ap_config:cfg(),
-	comm = none :: none | pid(),
-	mqtt = idle :: idle | running,
-	store :: ets:tid(),
-	req_queue :: ets:tid(),
-	stats_ets :: ets:tid()
+	id :: UUID::string(),				% the ID of the access point we cary around
+	ca_name :: string() | binary(),		% ???
+	status = init :: ap_status(),		% internal status
+	config :: ovsdb_ap_config:cfg(),	% simulated AP configuration (model, serial etc.)
+	comm = none :: none | pid(),		% OVSDB SSL communication
+	mqtt = idle :: idle | running,		% mqtt status (external process)
+	store :: ets:tid(),					% the tables where OVSDB server stores info
+	req_queue :: ets:tid(),				% not used at the moment ... used to que request IDs
+	reporting :: timer:tref(),			% statistics reporting interval timer reference
+	stats_ets :: ets:tid()				% statistics table
+}).
+
+
+-record (ap_events, {
+	stamp :: {Time :: integer(), UMI :: integer()},
+	event :: atom(),
+	args :: tuple(),
+	comment :: binary()
+}).
+
+-record (stats_vars, {
+	dummy = 0 :: integer (),  % keypos shoudl alwys be first entry
+	recon_backoff = 250 :: integer(),
+	stats_count = 0 :: integer()
+}).
+
+
+-record (stats_entry, {
+	stamp :: integer(),		% erlang system time
+	interval :: integer(),  % evaluation period in ms
+	rx_bytes :: integer(),  % received bytes
+	tx_bytes :: integer(),  % transmitted bytes
+	rx_bps :: float(),		% received bytes per sec.
+	tx_bps :: float(),		% transmitted bytes per sec.
+	dropped :: integer(),	% number of dropped connections
+	latency :: integer()	% network latency from HB in ms		
 }).
 
 
@@ -55,14 +82,15 @@
 %%%============================================================================
 
 
--spec launch (Id, SimMan) -> {ok, Pid} | {error, Reason} when
+-spec launch (CAName, Id, Options) -> {ok, Pid} | {error, Reason} when
+		CAName :: string() | binary(),
 		Id :: UUID::string(),
-		SimMan :: tuple(),
+		Options :: [{atom(),term()}],
 		Pid :: pid(),
 		Reason :: term().
 
-launch (Id, SimMan) ->
-	gen_server:start_link(?MODULE, {Id, SimMan}, []).
+launch (CAName, Id, Options) ->
+	gen_server:start_link(?MODULE, {CAName, Id, Options}, []).
 
 
 
@@ -97,7 +125,7 @@ cancel_ap (Node) ->
 
 
 %%%============================================================================
-%%% Comm module API
+%%% Internal module API
 %%%============================================================================
 
 
@@ -119,19 +147,39 @@ mqtt_conf (Node, Conf) ->
 	gen_server:cast(Node, {mqtt_conf,Conf}).
 
 
+-spec sock_recon (Node :: pid(), Delay :: integer()) -> ok.
+
+sock_recon (Node, Delay) ->
+	gen_server:cast(Node, {stats_update, {sock_recon, {Delay}, io_lib:format("socket abnormally closed -> reconnect attempt in ~.2fsec",[Delay/1000])}}).
+
+
+-spec post_event (Node :: pid(), Event :: atom(), Args :: tuple(), Comment :: binary() | string()) -> ok.
+
+post_event (Node, Event, Args, Comment) ->
+	gen_server:cast(Node,{stats_update, {Event, Args, Comment}}).
+
+
+-spec post_event (Event :: atom(), Args :: tuple(), Comment :: binary() | string()) -> ok.
+
+post_event (Event, Args, Comment) ->
+	post_event(self(),Event,Args,Comment).
+
+
+
 
 %%%============================================================================
 %%% GEN_SERVER callbacks
 %%%============================================================================
 
--spec init ({Id, SimMan}) -> {ok, State}  when
+-spec init ({CAName, Id, Options}) -> {ok, State}  when
+		CAName :: string() | binary(),
 		Id :: UUID::string(),
-		SimMan :: tuple(),
+		Options :: [{atom(),term()}],
 		State :: #ap_state{}.
 
-init ({Id,SimMan}) ->
+init ({CAName, Id, Options}) ->
 	process_flag(trap_exit, true),
-	InitialState = prepare_state(Id,SimMan),
+	InitialState = prepare_state(CAName,Id,Options),
 	gen_server:cast(self(),start_up),
 	{ok, InitialState}.
 
@@ -158,7 +206,7 @@ handle_cast (ap_start, #ap_state{status=paused}=State) ->
 	{noreply, run_simulation(State)};
 
 handle_cast (ap_start, State) ->
-	?L_E(?DBGSTR("can not run simulation if not in ready or paused state")),
+	?L_E(?DBGSTR("can not run simulation if not in ready or paused  state")),
 	{noreply, State};
 
 handle_cast (ap_stop, #ap_state{status=paused}=State) ->
@@ -190,6 +238,13 @@ handle_cast (ctlr_start_comm, State) ->
 
 handle_cast ({mqtt_conf,Conf}, State) ->
 	{noreply, configure_mqtt(Conf,State)};
+
+handle_cast ({stats_update,Event},State) ->
+	true = update_statistics(Event,State#ap_state.stats_ets),
+	{noreply, State};
+
+handle_cast (send_report,State) ->
+	{noreply, report_statistics(State)};
 
 handle_cast (R,State) ->
 	?L_E(?DBGSTR("got unknown request: ~p",[R])),
@@ -323,21 +378,28 @@ code_change (_,OldState,_) ->
 
 %---------prepare_state/2----------------convert Spec proplist into internal state 
 
--spec prepare_state (ID, SimMan) -> State when
+-spec prepare_state (CAName, ID, Options) -> State when
+		CAName :: string() | binary(),
 		ID :: UUID::string(),
-		SimMan :: tuple(),
+		Options :: [{atom(),term()}],
 		State :: #ap_state{}.
 
-prepare_state (ID, SimMan) ->
+prepare_state (CAName, ID, Options) ->
 	Store = ets:new(ovsdb_ap,[bag,private,{keypos, 1}]),
+	Stats = ets:new(ovsdb_ap_stats,[ordered_set,private,{keypos, 2}]),
+	{'ok', Tref} = timer:apply_interval(proplists:get_value(report_int,Options,15000),
+										gen_server,cast,[self(),send_report]),
+	update_statistics({report_mark,{},<<>>},Stats),
+	ets:insert(Stats,#stats_vars{}),
 	#ap_state{
-		sim_manager = SimMan,
-		config = ovsdb_ap_config:new(ID,Store),
-		timer = owls_timers:new(millisecond),
+		id = ID,
+		ca_name = CAName,
+		config = ovsdb_ap_config:new(CAName,ID,Store),
 		status = init,
 		store = Store,
 		req_queue = ets:new(ovsdb_ap_req,[ordered_set,private,{keypos, 1}]),
-		stats_ets = ets:new(ovsdb_ap_stats,[set,private,{keypos, 2}])
+		reporting = Tref,
+		stats_ets = Stats
 	}.
 
 
@@ -352,6 +414,7 @@ prepare_state (ID, SimMan) ->
 
 set_status (Status, #ap_state{status=OldStatus, config=Cfg}=State) ->
 	ovsdb_client_handler:ap_status(Status,ovsdb_ap_config:id(Cfg)),
+	post_event(status_change,{OldStatus,Status},io_lib:format("status change := ~p -> ~p",[OldStatus,Status])),
 	?L_I(?DBGSTR("AP ~p : status change := ~p -> ~p",[self(),OldStatus,Status])),
 	State#ap_state{status=Status}.
 
@@ -362,8 +425,8 @@ set_status (Status, #ap_state{status=OldStatus, config=Cfg}=State) ->
 
 -spec startup_ap (State :: #ap_state{}) -> NewState :: #ap_state{}.
 
-startup_ap (#ap_state{status=init, config=Cfg, sim_manager=Man}=State) ->
-	NewCfg =  ovsdb_ap_config:configure(Man,Cfg),
+startup_ap (#ap_state{status=init, config=Cfg}=State) ->
+	NewCfg =  ovsdb_ap_config:configure(Cfg),
 	set_status(ready,State#ap_state{config=NewCfg, comm=none}).
 
 
@@ -409,6 +472,7 @@ pause_simulation (State) ->
 -spec cancel_simulation (State :: #ap_state{}) -> NewState :: #ap_state{}.
 
 cancel_simulation (State) ->
+	_ = timer:cancel(State#ap_state.reporting),
 	State.
 
 
@@ -427,14 +491,17 @@ ctrl_connect (#ap_state{comm=none, status=ready, config=Cfg}=State) ->
 	],
 	{ok, Comm} = ovsdb_ap_comm:start_link(Opts),
 	gen_server:cast(self(),ctlr_start_comm),
+	post_event(tip_connect,{<<"redirector">>},<<"connecting to the TIP controller (redirector)">>),
 	State#ap_state{comm=Comm};
 
 ctrl_connect (#ap_state{comm=none, status=running, config=Cfg}=State) ->
 	O = case ovsdb_ap_config:tip_manager(host,Cfg) of
 		[] ->
+			post_event(tip_connect,{<<"redirector">>},<<"connecting to the TIP controller (redirector)">>),
 			[{host, ovsdb_ap_config:tip_redirector(host,Cfg)},
 			 {port, ovsdb_ap_config:tip_redirector(port,Cfg)}];
 		_ ->
+			post_event(tip_connect,{<<"manager">>},<<"connecting to the TIP controller (manager)">>),
 			[{host, ovsdb_ap_config:tip_manager(host,Cfg)},
 			 {port, ovsdb_ap_config:tip_manager(port,Cfg)}]
 	end,
@@ -445,6 +512,7 @@ ctrl_connect (#ap_state{comm=none, status=running, config=Cfg}=State) ->
 
 ctrl_connect (#ap_state{comm=Comm}=State) ->
 	ovsdb_ap_comm:end_comm(Comm),
+	post_event(tip_connect,{<<"down">>},<<"TIP contoller connection relinquished">>),
 	ctrl_connect (State#ap_state{comm=none}).
 
 
@@ -459,6 +527,7 @@ ctrl_disconnect (#ap_state{comm=none}=State) ->
 
 ctrl_disconnect (#ap_state{comm=Comm}=State) ->
 	ovsdb_ap_comm:end_comm(Comm),
+	post_event(tip_connect,{<<"down">>},<<"TIP contoller connection relinquished">>),
 	State#ap_state{comm=none}.
 
 
@@ -469,6 +538,7 @@ ctrl_disconnect (#ap_state{comm=Comm}=State) ->
 
 ctlr_start_comm (#ap_state{comm=Comm}=State) ->
 	ovsdb_ap_comm:start_comm(Comm),
+	post_event(tip_connect,{<<"start_comm">>},<<"TIP contoller start communication">>),
 	State.
 
 
@@ -477,6 +547,103 @@ ctlr_start_comm (#ap_state{comm=Comm}=State) ->
 
 -spec configure_mqtt (Config :: #{binary():=binary()}, #ap_state{}) -> NewState :: #ap_state{}.
 
-configure_mqtt (Cfg,State) ->
+configure_mqtt (Cfg,#ap_state{ca_name=CAName, id=ID, mqtt=idle}=State) ->
 	?L_I(?DBGSTR("AP->MQTT set configuration to: ~w",[Cfg])),
-	State#ap_state{mqtt=running}.
+	post_event(mqtt,{<<"set_config">>},<<"start an MQTT client">>),
+	mqtt_client_manager:start_client(CAName,ID,Cfg),
+	State#ap_state{mqtt=running};
+
+configure_mqtt (_,State) ->
+	?L_E(?DBGSTR("MQTT client already running!")),
+	State.
+	
+
+
+
+
+
+%%==============================================================================
+%% managing statistics of access point
+
+-spec update_statistics (Event :: tuple(), Stats :: ets:tid()) -> true.
+
+update_statistics ({Event,Args,Comment},Stats) ->
+	ETag = {erlang:system_time(),erlang:unique_integer([monotonic])},
+	ets:insert(Stats,#ap_events{
+			stamp = ETag,
+			event = Event,
+			args = Args,
+			comment = case Comment of
+						A when is_binary(A) -> A;
+						A when is_list(A) -> list_to_binary(A);
+						_ -> <<>>
+					end
+		}).
+	
+
+
+%--------report_statistics/1-------------generate an AP specific statistics report and send it to the handler
+
+-spec report_statistics (State :: #ap_state{}) -> NewState :: #ap_state{}.
+
+report_statistics (#ap_state{status=ready}=State) ->
+	State;
+
+report_statistics (#ap_state{stats_ets=Stats}=State) ->
+	%D = ets:match(Stats,'$1'),
+	%io:format("all DATA: ~n~p~n",[D]),
+	Ri = report_interval(Stats),
+	RX = received_bytes(Stats),
+	TX = sent_bytes(Stats),
+	Drop = comm_dropped(Stats),
+	%Res = comm_restart(Stats),
+	io:format("RX: ~.3fbytes/sec | TX: ~.3fbytes/sec~n | dropped: ~B, restart_delay: ",[RX/Ri*1000,TX/Ri*1000,Drop]),
+	ets:delete_all_objects(Stats),
+	update_statistics({report_mark,{},<<>>},Stats),
+	State.
+
+
+
+-spec report_interval(S :: ets:tid()) -> IntervalInMs :: integer().
+
+report_interval (S) ->
+	case ets:match(S,{ap_events,{'$1','_'},report_mark,'_','_'}) of
+		[[R]] ->
+			erlang:convert_time_unit(erlang:system_time()-R, native, millisecond);
+		_ -> 
+			1000
+	end.
+
+
+
+-spec received_bytes (S :: ets:tid()) -> Bytes :: integer().
+
+received_bytes (S) ->
+	case ets:match(S,{ap_events,'_',comm_event,{<<"RX">>,'$1'},'_'}) of
+		[] -> 0;
+		R ->
+			lists:foldl(fun(X,A) -> X+A end,0,[V||[V]<-R])
+	end.
+
+
+
+-spec sent_bytes (S :: ets:tid()) -> Bytes :: integer().
+
+sent_bytes (S) ->
+	case ets:match(S,{ap_events,'_',comm_event,{<<"TX">>,'$1'},'_'}) of
+		[] -> 0;
+		R ->
+			lists:foldl(fun(X,A) -> X+A end,0,[V||[V]<-R])
+	end.
+
+
+
+-spec comm_dropped (S :: ets:tid()) -> ErrorCount :: integer().
+
+comm_dropped (S) ->
+	case ets:match(S,{ap_events,'_',comm_error,{<<"socket_closed">>,'$1'},'_'}) of
+		[] -> 0;
+		R ->
+			lists:foldl(fun(X,A) -> X+A end,0,[V||[V]<-R])
+	end.
+

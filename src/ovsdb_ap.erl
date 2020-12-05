@@ -597,7 +597,7 @@ report_statistics (#ap_state{stats_ets=Stats}=State) ->
 	TX = sent_bytes(Stats),
 	Drop = comm_dropped(Stats),
 	%Res = comm_restart(Stats),
-	io:format("RX: ~.3fbytes/sec | TX: ~.3fbytes/sec~n | dropped: ~B, restart_delay: ",[RX/Ri*1000,TX/Ri*1000,Drop]),
+	io:format("RX: ~.3fbytes/sec | TX: ~.3fbytes/sec~n | dropped: ~B, restart_delay: ~n",[RX/Ri*1000,TX/Ri*1000,Drop]),
 	ets:delete_all_objects(Stats),
 	update_statistics({report_mark,{},<<>>},Stats),
 	State.

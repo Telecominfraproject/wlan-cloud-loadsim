@@ -44,7 +44,7 @@
 %%%============================================================================
 %%% API
 %%%============================================================================
--spec launch (Id::string(), SimMan::tuple()) -> {ok, Pid::pid()} | {error, Reason::term()}.
+-spec launch (Id::string(), SimMan::tuple()) -> {ok, Pid::pid()} | generic_error().
 launch (Id, SimMan) ->
 	gen_server:start_link(?MODULE, {Id, SimMan}, []).
 
@@ -229,21 +229,13 @@ code_change (_,OldState,_) ->
 	?L_E(?DBGSTR("code change requested")),
 	{ok, OldState}.
 
-
-
-
 %%%============================================================================
 %%% internal functions
 %%%============================================================================
 
+%---------prepare_state/2----------------convert Spec proplist into internal state
 
-%---------prepare_state/2----------------convert Spec proplist into internal state 
-
--spec prepare_state (ID, SimMan) -> State when
-		ID :: UUID::string(),
-		SimMan :: tuple(),
-		State :: #ap_state{}.
-
+-spec prepare_state (ID::string(), SimMan :: tuple()) -> State :: #ap_state{}.
 prepare_state (ID, SimMan) ->
 	Store = ets:new(ovsdb_ap,[bag,private,{keypos, 1}]),
 	#ap_state{
@@ -256,84 +248,51 @@ prepare_state (ID, SimMan) ->
 		stats_ets = ets:new(ovsdb_ap_stats,[set,private,{keypos, 2}])
 	}.
 
-
-
-
 %--------set_status/1--------------------sets internal status + broadcast status to handler
 
--spec set_status (Status, State) -> NewState when
-		Status :: ap_status(),
-		State :: #ap_state{},
-		NewState :: #ap_state{}.
-
+-spec set_status (Status :: ap_status(), State :: #ap_state{}) -> NewState :: #ap_state{}.
 set_status (Status, #ap_state{status=OldStatus, config=Cfg}=State) ->
 	ovsdb_client_handler:ap_status(Status,ovsdb_ap_config:id(Cfg)),
 	?L_I(?DBGSTR("AP ~p : status change := ~p -> ~p",[self(),OldStatus,Status])),
 	State#ap_state{status=Status}.
 
-
-
-
 %--------startup_ap/1--------------------initiate startup sequence
 
 -spec startup_ap (State :: #ap_state{}) -> NewState :: #ap_state{}.
-
 startup_ap (#ap_state{status=init, config=Cfg, sim_manager=Man}=State) ->
 	NewCfg =  ovsdb_ap_config:configure(Man,Cfg),
 	set_status(ready,State#ap_state{config=NewCfg, comm=none}).
 
-
-
-
 %--------run_simulation/1----------------start or resume simulation
 
 -spec run_simulation (State :: #ap_state{}) -> NewState :: #ap_state{}.
-
 run_simulation (#ap_state{status=ready}=State) ->
 	NewState = ctrl_connect(State),
 	set_status(running,NewState);
-
 run_simulation (#ap_state{status=paused}=State) ->
 	set_status(running,State).
-	
-
-
 
 %--------stop_simulation/1----------------stops a simulation (clears internal state to ready)
 
 -spec stop_simulation (State :: #ap_state{}) -> NewState :: #ap_state{}.
-
 stop_simulation (State) ->
 	NewState = ctrl_disconnect(State),
 	set_status(ready, NewState).
 
-
-
-
 %--------pause_simulation/1----------------halts simulation (tear down of connections) but keeps internal state
 
 -spec pause_simulation (State :: #ap_state{}) -> NewState :: #ap_state{}.
-
 pause_simulation (State) ->
 	set_status(paused, State).
 
-
-
-
 %--------cancel_simulation/1----------------shutdown and exit simulation (AP exits)
-
 -spec cancel_simulation (State :: #ap_state{}) -> NewState :: #ap_state{}.
-
 cancel_simulation (State) ->
 	State.
-
-
-
 
 %--------ctrl_connect/1------------------connect to either the tip redirector or manager based on state / old connections are closed if open
 
 -spec ctrl_connect (State :: #ap_state{}) -> NewState :: #ap_state{}.
-
 ctrl_connect (#ap_state{comm=none, status=ready, config=Cfg}=State) ->
 	Opts = [
 		{host, ovsdb_ap_config:tip_redirector(host,Cfg)},
@@ -363,36 +322,25 @@ ctrl_connect (#ap_state{comm=Comm}=State) ->
 	ovsdb_ap_comm:end_comm(Comm),
 	ctrl_connect (State#ap_state{comm=none}).
 
-
-
-
 %--------ctrl_disconnect/1---------------disconnect and closes communication port but otherwise does not chenge status
 
 -spec ctrl_disconnect (State :: #ap_state{}) -> NewState :: #ap_state{}.
-
 ctrl_disconnect (#ap_state{comm=none}=State) ->
 	State;
-
 ctrl_disconnect (#ap_state{comm=Comm}=State) ->
 	ovsdb_ap_comm:end_comm(Comm),
 	State#ap_state{comm=none}.
 
-
-
 %--------ctlr_start_comm/1---------------asychrounously starts the connection after comm is created
 
 -spec ctlr_start_comm (State :: #ap_state{}) -> NewState :: #ap_state{}.
-
 ctlr_start_comm (#ap_state{comm=Comm}=State) ->
 	ovsdb_ap_comm:start_comm(Comm),
 	State.
 
-
-
 %--------configure_mqtt/2----------------send configuration to MQTT client to establish a connection
 
 -spec configure_mqtt (Config :: #{binary():=binary()}, #ap_state{}) -> NewState :: #ap_state{}.
-
 configure_mqtt (Cfg,State) ->
 	?L_I(?DBGSTR("AP->MQTT set configuration to: ~w",[Cfg])),
 	State#ap_state{mqtt=running}.

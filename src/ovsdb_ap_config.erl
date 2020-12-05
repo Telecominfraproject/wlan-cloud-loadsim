@@ -16,6 +16,7 @@
 %% types and specifications
 
 -record (cfg, {
+	ca_name :: string() | binary(),
 	id :: string(),
 	store_ref :: ets:tid(),
 	ca_certs = <<"">> :: binary(),		% pem file (in memory) of the server certificate chain
@@ -23,12 +24,10 @@
 }).
 
 -opaque cfg() :: #cfg{}.
-
-
 -export_type([cfg/0]).
 
 
--export([new/2,configure/2]).
+-export([new/3,configure/1]).
 -export ([id/1,ca_certs/1,client_cert/1,tip_redirector/2,tip_manager/2]).
 
 
@@ -36,16 +35,16 @@
 %% API
 
 
--spec new (Id :: string(), Store :: ets:tid()) -> Config :: cfg().
+-spec new (CAName :: string() | binary(), Id :: string(), Store :: ets:tid()) -> Config :: cfg().
 
-new (Id,Store) ->
-	#cfg{id=Id, store_ref = Store}.
+new (CAName,Id,Store) ->
+	#cfg{ca_name=CAName, id=Id, store_ref = Store}.
 
 
--spec configure (Manager :: tuple(), Config :: cfg()) -> NewConfig :: cfg().
+-spec configure (Config :: cfg()) -> NewConfig :: cfg().
 
-configure (_Manager,Config) ->
-	%% @TODO: remote procisioned configuration
+configure (Config) ->
+	%% @TODO: remote provisioned configuration
 	%% in the meantime read a sample config from a file
 	File = filename:join([code:priv_dir(?OWLS_APP),"ovsdb","test_ap.cfg"]),
 	{ok, [M]} = file:consult(File),

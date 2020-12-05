@@ -136,6 +136,7 @@ code_change(_OldVsn, State = #mqtt_client_manager_state{}, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
 -spec start_client_process(CAName::binary(),Id::binary(),Configuration::map(),State::#mqtt_client_manager_state{}) -> NewState::#mqtt_client_manager_state{}.
 start_client_process(CAName,Id,Configuration,State)->
 	io:format("MQTT-Client ~p starting.~n",[Id]),

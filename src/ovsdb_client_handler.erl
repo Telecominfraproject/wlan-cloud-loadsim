@@ -16,12 +16,14 @@
 
 -define(SERVER, ?MODULE).
 -define(MAX_STARTUP_TIME,10000).
--define(STATS_INTERVAL,30000).
+-define(AP_STATS_INTERVAL,2000).
+-define(AP_REPORT_INTERVAL,10000).
+-define(MGR_REPORT_INTERVAL,20000).
 
 %% API
 -export([start_link/0]).
 -export([set_configuration/1, start/1, stop/1, pause/1, resume/1, cancel/1, report/0]).
--export([ap_status/2]).
+-export([ap_status/2,dump_clients/0]).
 
 
 %% gen_server callbacks
@@ -32,8 +34,6 @@
 %% data structures
 
 -type client_status() :: available | dead | ovsdb_ap:ap_status().
--type client_states() :: #{UUID::string() := {client_status(), none | pid()}}.
--type client_transition() :: {client_status(), TimeStamp::integer()}.
 
 -record (command,{
 	cmd :: clients_start | clients_stop | clients_pause | clients_resume | clients_cancel,
@@ -42,10 +42,22 @@
 
 -type command() :: #command{}.
 
+
+-record (ap_client, {						%% don't modif -- if thern check all ets:match operations
+	id :: UUID::string(),
+	ca_name :: string() | binary(),
+	status :: client_status(),
+	process :: none | pid(),
+	transitions :: [{client_status(), TimeStamp::integer()}]
+}).
+
+-record (ap_proc_map, {
+	process :: pid(),
+	id :: UUID::string()
+}).
+
 -record (hdl_state, {
-	clients = #{} :: client_states(),
-	client_pid_map = #{} :: #{pid() := UUID::string()},
-	client_trans = #{} :: #{UUID::string() := [client_transition(),...]},
+	clients = ets:tid(),
 	cmd_queue = [] :: [command()],
 	config = #{} :: #{},
 	timer :: owls_timers:tms()
@@ -77,6 +89,8 @@ start_link () ->
 	gen_server:start_link({local, ?SERVER},?MODULE, [], []).
 
 
+dump_clients () ->
+	gen_server:call(?SERVER,dump_clients).
 
 %%% gen_sim_clients behaviour
 
@@ -173,8 +187,9 @@ init (_) ->
 		{error, Reason} ->
 			{stop, Reason};
 		ok ->
-			{ok, _} = timer:apply_after(?STATS_INTERVAL,gen_server,call,[self(),update_stats]),
-			{ok, #hdl_state{timer=owls_timers:new(millisecond)}}
+			{ok, _} = timer:apply_after(?MGR_REPORT_INTERVAL,gen_server,call,[self(),update_stats]),
+			Tid = ets:new(ovsdb_clients,[ordered_set,private,{keypos, 2}]),
+			{ok, #hdl_state{timer=owls_timers:new(millisecond), clients=Tid}}
 	end.
 
 
@@ -232,27 +247,36 @@ handle_call (update_stats, _From, State) ->
 	NewState = update_client_statistics(State),
 	{reply, ok, NewState};
 
+handle_call (dump_clients,_From, #hdl_state{clients=Clients}=State) ->
+	C = ets:match_object(Clients,'$1'),
+	{reply,C,State};
+
 handle_call (_, _, State) ->
 	{reply, invalid, State}.
 
 
 
 
--spec handle_info (Msg, State) -> {noreply, NewState} when
+-spec handle_info (Msg, State) -> {noreply, State} when
 		Msg :: term(),
-		State :: #hdl_state{},
-		NewState :: #hdl_state{}.
+		State :: #hdl_state{}.
 
-handle_info({'EXIT',From,Reason}, #hdl_state{clients=C, client_trans=T, client_pid_map=M}=State) when is_map_key(From,M) ->
-	#{From := Id} = M,
-	#{Id := L} = T,
-	Cpm = maps:remove(From,M),
-	{Cl, R} = case Reason of
-			normal	-> {C#{Id := {available, none}}, cancelled};
-				_ 	-> {C#{Id := {dead, none}}, crashed}
-	end,
-	{noreply, State#hdl_state{client_pid_map=Cpm, clients=Cl, client_trans=T#{Id := [{R,os:system_time()}|L]}}};
-
+handle_info({'EXIT',From,Reason}, #hdl_state{clients=CTid}=State) ->
+	case get_client_with_pid(CTid,From) of
+		{ok, C} ->
+			T = C#ap_client.transitions,
+			UpdC = case Reason of
+				normal -> 
+					C#ap_client{process=none, transitions=[{cancelled,erlang:system_time()}|T]};
+				_ ->
+					C#ap_client{process=none, transitions=[{crashed,erlang:system_time()}|T]}
+			end,
+			ets:insert(CTid,UpdC),
+			ets:match_delete(CTid,{ap_proc_map,From,'_'}),
+			{noreply, State};
+		_ ->
+			{noreply, State}
+	end;
 	
 handle_info(_, State) ->
 	{noreply, State}.
@@ -312,7 +336,7 @@ trigger_execute (D, State) ->
 		NewState :: #hdl_state{}.
 
 queue_command (Where,Cmd, all, #hdl_state{clients=Clients}=State) ->
-	queue_command (Where,Cmd,[K || {K,_} <- maps:to_list(Clients)],State);
+	queue_command (Where,Cmd,[ID || #ap_client{id=ID} <- ets:match_object(Clients,'$1')],State);
 
 queue_command (Where,Cmd,Refs,#hdl_state{cmd_queue=Q}=State) ->
 	NewQueue = case Where of
@@ -344,29 +368,35 @@ queue_command (Command, Refs, State) ->
 		Cfg :: #{},
 		NewState :: #hdl_state{}.
 
-apply_config (Cfg, State) when is_map_key(file,Cfg) ->
+apply_config (Cfg, #hdl_state{clients=Clients}=State) when is_map_key(file,Cfg) ->
 	#{file := CfgFile} = Cfg,
 	Path = case filelib:is_regular(CfgFile) of
 		true -> CfgFile;
 		_ -> filename:join([code:priv_dir(?OWLS_APP),CfgFile])
 	end,
-	case file:consult(Path) of
-		{ok, [ClientIds|_]} ->
-			Clients = maps:from_list([{X,{available,none}}||X<-ClientIds]),
-			Transitions = maps:from_list([{X,{available,os:system_time()}}||X<-ClientIds]),
-			State#hdl_state{clients=Clients, client_trans=Transitions};
-
+	_ = case file:consult(Path) of
+		{ok, [Refs]} ->
+			C = [#ap_client{id=ID,ca_name=CA,status=available,process=none,transitions=[{available,erlang:system_time()}]} || {CA,ID}<-Refs],
+			ets:insert(Clients,C);
+			
 		{error, Err} ->
-			?L_E(?DBGSTR("invalid config file at '~s' with error: '~p'",[Path,Err])),
-			State
-	end;
+			?L_E(?DBGSTR("invalid config file at '~s' with error: '~p'",[Path,Err]))	
+	end,
+	State;
 
-apply_config (Cfg, State) when is_map_key(internal,Cfg) ->
-	Clients = #{"a68d41fa-dd12-4fb7-bc44-e834667280b4" => {available,none}},
-	Transitions = #{"a68d41fa-dd12-4fb7-bc44-e834667280b4" => [{available,os:system_time()}]},
-	State#hdl_state{clients=Clients, client_trans=Transitions};
+apply_config (Cfg, #hdl_state{clients=Clients}=State) when is_map_key(internal,Cfg) ->
+	C = #ap_client{
+		id="a68d41fa-dd12-4fb7-bc44-e834667280b4",
+		ca_name="i_am_the_boss",
+		status = available,
+		process = none,
+		transitions = [{available,erlang:system_time()}]
+	},
+	ets:insert(Clients,C),
+	State;
 
-apply_config (_Cfg, State) ->
+apply_config (Cfg, State) ->
+	io:format("GOT CONFIG!!! ~p~n~n",[Cfg]),
 	State.
 
 
@@ -380,32 +410,81 @@ apply_config (_Cfg, State) ->
 		HandlerState :: #hdl_state{},
 		NewHandlerSate :: #hdl_state{}.
 
-update_client_status (ClS, Id, #hdl_state{clients=C, client_trans=T}=State) when is_map_key(Id,C), is_map_key(Id,T) ->
-	#{Id := {_,P}} = C,
-	#{Id := L} = T,
-	State#hdl_state{clients=C#{Id := {ClS,P}}, client_trans=T#{Id := [{ClS,os:system_time()}|L]}};
-	
-update_client_status (_, _, State) ->
+update_client_status (ClS, Id, #hdl_state{clients=Clients}=State) ->
+	{ok, C} = get_client_with_id(Clients,Id),
+	ets:insert(Clients,C#ap_client{status=ClS}),
 	State.
+	
 
 
 
 %--------get_clients_in_state/3----------filter all clients with state
 
--spec get_clients_in_state (State, Clients, Candidates) -> Available when
-		State :: available | dead | ovsdb_ap:ap_status(),
-		Clients :: client_states(),
-		Candidates :: all | [UUID::string()],
-		Available :: [UUID::string()].
+-spec get_client_ids_in_state (Clients :: ets:tid(), State :: client_status() | tuple(), Refs :: all | [UUID::string()]) ->  [UUID::string()].
+							
+get_client_ids_in_state (Tid, State, Refs) when is_atom(State) ->
+	get_client_ids_in_state (Tid,{State},Refs);
 
-get_clients_in_state (State, Clients, Which) ->
-	get_clients_with_sate_pred (fun(X) -> X=:=State end, Clients, Which).
+get_client_ids_in_state (Tid, States, Refs) ->
+	MSpec = [{{ap_client,'_','_',X,'_','_'},[],['$_']}||X<-tuple_to_list(States)],
+	Clients = ets:select(Tid,MSpec),
+	Cids = [ID||#ap_client{id=ID}<-Clients],
+	%io:format("MSPEC: ~p~nCLIENTS: ~p~nREFS: ~p~n, CIDS: ~p~n",[MSpec,Clients,Refs,Cids]),
+	case Refs of
+		all ->
+			Cids;
+		Cand when is_list(Cand) ->
+			[ID || ID <- Cids, lists:member(ID,Cand)]
+	end.
 
-get_clients_with_sate_pred (Pred, Clients, all) ->
-	[K || {K,{V,_}} <- maps:to_list(Clients), Pred(V)];
 
-get_clients_with_sate_pred (Pred, Clients, Candidates) ->
-	[K || {K,{V,_}} <- maps:to_list(Clients), Pred(V) and lists:member(K,Candidates)].
+-spec get_clients_with_ids (Clients::ets:tid(),Ids::[UUID::string()]) -> [#ap_client{}].
+
+get_clients_with_ids (CTid, Ids) ->
+	get_clients_with_ids (CTid, Ids, []).
+
+get_clients_with_ids (_,[],Acc) ->
+	Acc;
+
+get_clients_with_ids (CTid,[ID|Rest],Acc) ->
+	case ets:match_object(CTid,{ap_client,ID,'_','_','_','_'}) of
+		[R] ->
+			get_clients_with_ids (CTid,Rest,[R|Acc]);
+		_ ->
+			io:format("ID> ~s~n",[ID]),
+			[]
+	end.
+
+
+
+
+
+
+ -spec get_client_with_pid (Clients :: ets:tid(), Pid :: pid()) -> {ok, #ap_client{}} | {error, not_found}.
+
+get_client_with_pid (Tid, Pid) ->
+	case ets:match_object(Tid,{ap_proc_map,Pid,'_'}) of
+		[] ->
+			{error, not_found};
+		[{_,_,Id}] ->
+			get_client_with_id(Tid,Id)
+	end.
+
+
+-spec get_client_with_id (Clients :: ets:tid(), Id :: string()) -> {ok, #ap_client{}} | {error, not_found}.
+
+get_client_with_id (Tid, Id) ->
+	case ets:match_object(Tid,{ap_client,Id,'_','_','_','_'}) of
+		[] ->
+			{error, not_found};
+		[R|_] ->
+			{ok, R}
+	end.
+
+
+
+
+
 
 %--------cmd_startup_sim/2--------------lauches the start-up sequence of simulation clients
 
@@ -416,8 +495,8 @@ get_clients_with_sate_pred (Pred, Clients, Candidates) ->
 
 cmd_startup_sim (#hdl_state{timer=T, clients=Clients}=State, Which) ->
 	T2 = owls_timers:mark("startup",T),
-	ToLaunch = get_clients_with_sate_pred (fun(X) -> (X=:=available) orelse (X=:=dead) end, Clients, Which),
-	ToStart = get_clients_in_state (ready,Clients, Which),
+	ToLaunch = get_client_ids_in_state (Clients, {available, dead}, Which),
+	ToStart = get_client_ids_in_state (Clients, ready, Which),
 	if
 		length(ToLaunch) + length(ToStart) > 0 ->
 			NewState = cmd_launch_clients(ToLaunch,State#hdl_state{timer=T2}),
@@ -429,7 +508,6 @@ cmd_startup_sim (#hdl_state{timer=T, clients=Clients}=State, Which) ->
 
 
 
-
 %--------cmd_launch_clients/2--------------------lauch processes for clients (synchrounsly)
 
 -spec cmd_launch_clients (ToLauch,State) -> NewState when
@@ -437,13 +515,16 @@ cmd_startup_sim (#hdl_state{timer=T, clients=Clients}=State, Which) ->
 		State :: #hdl_state{},
 		NewState :: #hdl_state{}.
 
-cmd_launch_clients (ToLauch, State) ->
-	%% @TODO: pass in the real manager
-	L = [ {V, ovsdb_ap:launch(V,{global,manager})} || V <- ToLauch],
-	Pm = maps:merge(State#hdl_state.client_pid_map, maps:from_list([{P,Id} || {Id, {ok, P}} <- L])),
-	C = maps:merge(State#hdl_state.clients, maps:from_list([{V,{init,P}} || {V, {ok, P}} <- L])),
+cmd_launch_clients (ToLauch, #hdl_state{clients=Clients}=State) ->
+	Opt = [{report_int,?AP_REPORT_INTERVAL},{stats_int,?AP_STATS_INTERVAL}],
+	F = fun (#ap_client{id=ID,ca_name=CAName}=C) -> 
+			{ok, Pid} = ovsdb_ap:launch(CAName,ID,Opt), 
+			[#ap_proc_map{id=ID, process=Pid},C#ap_client{process=Pid}]
+		end,
+	L = [F(C) || C <- get_clients_with_ids(Clients,ToLauch)],
+	ets:insert(Clients,lists:flatten(L)),
 	T = owls_timers:mark("launched",State#hdl_state.timer),
-	State#hdl_state{clients=C, client_pid_map=Pm, timer=T}.
+	State#hdl_state{timer=T}.
 
 
 
@@ -491,7 +572,7 @@ execute_cmd (#hdl_state{cmd_queue=Q}=State) ->
 		State :: #hdl_state{},
 		NewState :: #hdl_state{}.
 
-clients_start (Refs, #hdl_state{timer=T}=State) ->	 
+clients_start (Refs, #hdl_state{clients=Clients, timer=T}=State) ->	 
 	Elapsed = owls_timers:delta("launched",T),
 	if
 		Elapsed > ?MAX_STARTUP_TIME ->
@@ -499,7 +580,7 @@ clients_start (Refs, #hdl_state{timer=T}=State) ->
 			?L_I(?DBGSTR("Cancelling simulation start request")),
 			trigger_execute (0, queue_command (front,clients_cancel,Refs,State));
 		true ->
-			Ready = get_clients_in_state (ready,State#hdl_state.clients,Refs),
+			Ready = get_client_ids_in_state (Clients,ready,Refs),
 			check_client_startup(Ready,Refs,State)
 	end.
 
@@ -510,10 +591,10 @@ clients_start (Refs, #hdl_state{timer=T}=State) ->
 		State :: #hdl_state{},
 		NewState :: #hdl_state{}.
 
-check_client_startup (Ready, ToStart, #hdl_state{clients=C,timer=T}=State) ->
+check_client_startup (Ready, ToStart, #hdl_state{clients=Clients,timer=T}=State) ->
 	if
-		length(Ready) == length(ToStart) ->
-			lists:foreach(fun(I) -> #{I:={ready,P}}=C, ovsdb_ap:start_ap(P) end, Ready),
+		length(Ready) == length(ToStart) ->			
+			[ovsdb_ap:start_ap(P) || #ap_client{process=P} <- get_clients_with_ids(Clients,Ready)],
 			State#hdl_state{timer=owls_timers:mark("sim_started",T)};
 		true ->
 			trigger_execute (500, queue_command (front,clients_start,ToStart,State))
@@ -529,10 +610,10 @@ check_client_startup (Ready, ToStart, #hdl_state{clients=C,timer=T}=State) ->
 		State :: #hdl_state{},
 		NewState :: #hdl_state{}.
 
-clients_stop (Refs, #hdl_state{clients=C, timer=T}=State) ->
+clients_stop (Refs, #hdl_state{clients=Clients, timer=T}=State) ->
 	T2 = owls_timers:mark("stop_called",T),
-	ToStop = get_clients_with_sate_pred (fun(X) -> (X=:=running) or (X=:=paused) end, C, Refs),
-	lists:foreach(fun(I) -> #{I:={_,P}}=C, ovsdb_ap:stop_ap(P) end, ToStop),
+	ToStop = get_clients_with_ids(Clients,get_client_ids_in_state(Clients,{running,paused},Refs)),
+	[ovsdb_ap:stop_ap(P) || #ap_client{process=P} <- ToStop],
 	State#hdl_state{timer=owls_timers:mark("stop_executed",T2)}.
 
 
@@ -544,10 +625,10 @@ clients_stop (Refs, #hdl_state{clients=C, timer=T}=State) ->
 		State :: #hdl_state{},
 		NewState :: #hdl_state{}.
 
-clients_pause (Refs, #hdl_state{clients=C, timer=T}=State) ->
+clients_pause (Refs, #hdl_state{clients=Clients, timer=T}=State) ->
 	T2 = owls_timers:mark("pause_called",T),
-	ToPause = get_clients_in_state (running,C, Refs),
-	lists:foreach(fun(I) -> #{I:={_,P}}=C, ovsdb_ap:pause_ap(P) end, ToPause),
+	ToPause = get_clients_with_ids(Clients,get_client_ids_in_state(Clients,running,Refs)),
+	[ovsdb_ap:pause_ap(P) || #ap_client{process=P} <- ToPause],
 	State#hdl_state{timer=owls_timers:mark("pause_executed",T2)}.
 
 
@@ -559,10 +640,10 @@ clients_pause (Refs, #hdl_state{clients=C, timer=T}=State) ->
 		State :: #hdl_state{},
 		NewState :: #hdl_state{}.
 
-clients_resume (Refs, #hdl_state{clients=C, timer=T}=State) ->
+clients_resume (Refs, #hdl_state{clients=Clients, timer=T}=State) ->
 	T2 = owls_timers:mark("resume_called",T),
-	ToResume = get_clients_in_state (paused,C, Refs),
-	lists:foreach(fun(I) -> #{I:={_,P}}=C, ovsdb_ap:start_ap(P) end, ToResume),
+	ToResume = get_clients_with_ids(Clients,get_client_ids_in_state(Clients,paused,Refs)),
+	[ovsdb_ap:start_ap(P) || #ap_client{process=P} <- ToResume],
 	State#hdl_state{timer=owls_timers:mark("resume_executed",T2)}.
 
 
@@ -574,10 +655,11 @@ clients_resume (Refs, #hdl_state{clients=C, timer=T}=State) ->
 		State :: #hdl_state{},
 		NewState :: #hdl_state{}.
 
-clients_cancel (Refs, #hdl_state{clients=C, timer=T}=State) ->
+clients_cancel (Refs, #hdl_state{clients=Clients, timer=T}=State) ->
 	T2 = owls_timers:mark("cancel_called",T),
-	ToCancel = get_clients_with_sate_pred (fun(X) -> (X=/=available) and (X=/=dead) end, C, Refs),
-	lists:foreach(fun(I) -> #{I:={_,P}}=C, ovsdb_ap:cancel_ap(P) end, ToCancel),
+	ToCancel = get_clients_with_ids(Clients,get_client_ids_in_state(Clients,{running,paused,stopped},Refs)),
+		
+	[ovsdb_ap:cancel_ap(P) || #ap_client{process=P} <- ToCancel],
 	State#hdl_state{timer=owls_timers:mark("cancel_executed",T2)}.
 
 
@@ -613,13 +695,15 @@ update_client_statistics (#hdl_state{clients=C}=State) ->
 	Stats = #statistics{
 			seq = Seq + 1,
 			stamp = os:system_time(),
-			configured = maps:size(C),
-			running = length(get_clients_in_state(running,C,all)),
-			paused = length(get_clients_in_state(paused,C,all)),
+			configured = length(ets:match_object(C,{ap_client,'_','_','_','_','_'})),
+			running = length(get_client_ids_in_state(C,running,all)),
+			paused = length(get_client_ids_in_state(C,paused,all)),
 			dropped = 0,
 			avg_latency = 0,
 			avg_speed = 0
 		},
 	ok = dets:insert(?MODULE,[{seq,seq,Seq+1},Stats]),
-	{ok, _} = timer:apply_after(?STATS_INTERVAL,gen_server,call,[self(),update_stats]),
+	{ok, _} = timer:apply_after(?MGR_REPORT_INTERVAL,gen_server,call,[self(),update_stats]),
 	State.
+
+

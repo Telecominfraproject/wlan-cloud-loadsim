@@ -27,7 +27,7 @@
 	options :: options(),
 	socket :: none | ssl:sslsocket(),
 	ap :: pid(),
-	status :: active | idle,
+	status :: active | idle | error,
 	restart = 250 :: integer(),
 	rxb = <<"">> :: binary()
 }).
@@ -96,6 +96,7 @@ comm_loop (#c_state{socket=S, rxb=Rx, ap=AP}=State) ->
 	receive 
 		{ssl, S, Data} ->
 			Buffer = process_rx_data(<<Rx/binary,Data/binary>>,AP),
+			ovsdb_ap:post_event(AP,comm_event,{<<"RX">>,size(Data)},io_lib:format("receive ~Bbytes",[size(Data)])),
 			case ssl:setopts(S,[{active,once}]) of
 				ok ->
 					comm_loop(State#c_state{status=active, rxb=Buffer});
@@ -104,32 +105,41 @@ comm_loop (#c_state{socket=S, rxb=Rx, ap=AP}=State) ->
 			end;
 
 		{ssl_closed, S} ->
+			ovsdb_ap:post_event(AP,comm_error,{<<"socket_closed">>},<<>>),
 			comm_loop(try_reconnect(State));
 
     	{ssl_error, S, Reason} ->
 			?L_E(?DBGSTR("socket error ~p",[Reason])),
-			ssl:close(S);
+			ovsdb_ap:post_event(AP,comm_error,{<<"undefined">>},io_lib:format("got SSL error: ~p",[Reason])),
+			_ = ssl:close(S),
+			comm_loop(try_reconnect(State));
 
 		{send, AP, Data} ->
 			case S of
 				none ->
-					?L_E(?DBGSTR("trying to send data with no socker"));
+					?L_E(?DBGSTR("trying to send data with no socket")),
+					ovsdb_ap:post_event(AP,comm_error,{<<"send_error">>},<<"trying to send data with no socket">>),
+					comm_loop(State#c_state{status=error});
 				_ ->
 					ToSend = jiffy:encode(Data),
 					?L_I(?DBGSTR("Sending: ~B bytes of date",[size(ToSend)])),
 					case ssl:send(S,ToSend) of
 						ok ->
+							ovsdb_ap:post_event(AP,comm_event,{<<"TX">>,size(ToSend)},io_lib:format("sending ~Bbytes",[size(ToSend)])),
 							comm_loop(State#c_state{status=active});
 						{error, closed} ->
+							ovsdb_ap:post_event(AP,comm_error,{<<"send_error">>},<<"trying to send data with no socket">>),
 							comm_loop(try_reconnect(State))
 					end
 			end;
 
 		{start, AP} ->
 			NewState = start_connection(State),
+			ovsdb_ap:post_event(AP,comm_event,{<<"started">>},<<>>),
 			comm_loop(NewState);
 
 		{down, AP} ->
+			ovsdb_ap:post_event(AP,comm_event,{<<"shutdown">>},<<>>),
 			case S of 
 				none -> ok; 
 				_ -> ssl:close(S)
@@ -137,6 +147,7 @@ comm_loop (#c_state{socket=S, rxb=Rx, ap=AP}=State) ->
 
 	after
 		10000 ->
+			ovsdb_ap:post_event(AP,comm_event,{<<"idle">>},<<>>),
 			comm_loop(State#c_state{status=idle})
 	end.
 
@@ -165,7 +176,8 @@ try_reconnect (#c_state{restart=R, ap=AP}=State) ->
 	Rj = R + rand:uniform(250) - 125,
 	?L_I(?DBGSTR("socket closed by server, trying to reconnect in ~.2fsec",[Rj/1000])),
 	_ = timer:send_after(Rj,{start, AP}),
-	State#c_state{socket=none, restart=min(R*2,32000)}.
+	ovsdb_ap:sock_recon(AP,Rj),
+	State#c_state{socket=none, status=error, restart=min(R*2,32000)}.
 
 
 

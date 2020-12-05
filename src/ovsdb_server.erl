@@ -17,28 +17,19 @@
 %% API
 -export([start_link/0,creation_info/0]).
 
-
 %% OVSDB_SERVER API
-
 %-export ([]).
-
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,code_change/3]).
 
-
 -define(SERVER, ?MODULE).
-
-
 
 %==============================================================================
 % OSVDB specific API
 
-
-
 %==============================================================================
 % API
-
 -spec creation_info () -> Info :: [map()].
 creation_info () ->
 	[
@@ -52,10 +43,7 @@ creation_info () ->
         } 
     ].
 
--spec start_link () -> {ok, Pid} | ignore | {error, Reason} when
-            Pid :: pid(),
-            Reason :: string().
-
+-spec start_link () -> {ok, Pid :: pid()} | ignore | generic_error().
 start_link () ->
 	gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
@@ -64,49 +52,27 @@ init([]) ->
 	Cfg = create_config(),
 	{ok, #ovsdb_state{config = Cfg}}.
 
-
 %----------SYNC CALLS----------------------------------------------------------
-
--spec handle_call (Request,From,State) -> {reply, Result, State} when
-            Request :: term(),
-            From :: term(),
-            State :: #{},
-            Result :: ok.
-
+-spec handle_call (Request :: term(),From :: term(),State :: #{}) -> {reply, Result :: ok, State :: #{}}.
 handle_call(_, _, State) ->
 	{reply, ok, State}.
 
-
-
-
 %--------ASYNC CALLS-----------------------------------------------------------
-
 handle_cast(_Request, State) ->
 	{noreply, State}.
-
 
 handle_info(_Info, State) ->
 	{noreply, State}.
 
-
 terminate(_Reason, _State) ->
 	ok.
-
 
 code_change(_OldVsn, State, _Extra) ->
 	{ok, State}.
 
-
-
-
-
-
 %==============================================================================
 % internals
-
--spec create_config () -> Config when
-            Config :: ovsdb_cfg().
-
+-spec create_config () -> Config :: ovsdb_cfg().
 create_config () ->
     ?DBGTRC("creating configuration"),
     Rport = utils:app_env(osvdb_rport,?OVSDB_DEFAULT_REFLECTOR_PORT),

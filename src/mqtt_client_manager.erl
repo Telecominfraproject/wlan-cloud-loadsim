@@ -11,6 +11,8 @@
 
 -behaviour(gen_server).
 
+-include("../include/common.hrl").
+
 %% API
 -export([start_link/0]).
 
@@ -35,11 +37,13 @@ creation_info() ->
 	       type => worker,
 	       modules => [?MODULE]} ].
 
+-spec start_client(CAName::string()|binary(),Id::string()|binary(),Configuration::#{ binary() => term()}) -> ok | generic_error().
 start_client(CAName,Id,Configuration)->
-	gen_server:call(?SERVER,{new_client,CAName,Id,Configuration}).
+	gen_server:call(?SERVER,{new_client,utils:safe_binary(CAName),utils:safe_binary(Id),Configuration}).
 
+-spec stop_client(CAName::string()|binary(),Id::string()|binary()) -> ok | generic_error().
 stop_client(CAName,Id)->
-	gen_server:call(?SERVER,{stop_client,CAName,Id}).
+	gen_server:call(?SERVER,{stop_client,utils:safe_binary(CAName),utils:safe_binary(Id)}).
 
 %% @doc Spawns the server and registers the local name (unique)
 -spec(start_link() ->
@@ -70,7 +74,7 @@ init([]) ->
 	                 {stop, Reason :: term(), Reply :: term(), NewState :: #mqtt_client_manager_state{}} |
 	                 {stop, Reason :: term(), NewState :: #mqtt_client_manager_state{}}).
 handle_call({new_client,CAName,Id,Configuration}, _From, State = #mqtt_client_manager_state{}) ->
-	NewState = start_client(CAName,Id,Configuration,State),
+	NewState = start_client_process(CAName,Id,Configuration,State),
 	{reply, ok, NewState};
 handle_call({stop_client,_CAName,Id}, _From, State = #mqtt_client_manager_state{}) ->
 	case maps:get(Id,State#mqtt_client_manager_state.client_configurations,none) of
@@ -132,8 +136,8 @@ code_change(_OldVsn, State = #mqtt_client_manager_state{}, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
--spec start_client(Id::binary(),Configuration::map(),State::#mqtt_client_manager_state{}) -> NewState::#mqtt_client_manager_state{}.
-start_client(CAName,Id,Configuration,State)->
+-spec start_client_process(CAName::binary(),Id::binary(),Configuration::map(),State::#mqtt_client_manager_state{}) -> NewState::#mqtt_client_manager_state{}.
+start_client_process(CAName,Id,Configuration,State)->
 	io:format("MQTT-Client ~p starting.~n",[Id]),
 	Pid = spawn_link(mqtt_client,start,[CAName,Id,Configuration,self()]),
 	NewState = State#mqtt_client_manager_state{

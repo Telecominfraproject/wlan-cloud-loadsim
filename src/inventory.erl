@@ -278,7 +278,7 @@ handle_call({get_server,Ca,Id,_Pid}, _From, State = #inventory_state{}) ->
 			Server = #server_info{ name = Id },
 			case get_record(Server) of
 				{atomic,[Record]} ->
-					case Record#client_info.ca == CAInfo#ca_info.name of
+					case Record#server_info.ca == CAInfo#ca_info.name of
 						true ->
 							{ reply, {ok,Record},State};
 						false ->
@@ -598,10 +598,11 @@ create_server(CAInfo,Name,Type,State,_Pid)->
 	_CommandResult3 = os:cmd(Cmd3),
 	%% io:format("> CMD3: ~s, RESULT: ~s~n~n",[Cmd3,CommandResult3]),
 
-	{ok,KeyPemData} = file:read_file(ServerKeyPem),
+	{ok,KeyPemData} = utils:pem_to_key(ServerKeyPem),
+	{ok,ServerCertPemData} = utils:pem_to_cert(ServerCertPem),
+
 	{ok,ServerKeyDecPemData} = file:read_file(ServerKeyDec),
 	{ok,ServerCertCsrPemData} = file:read_file(ServerCertCsr),
-	{ok,ServerCertPemData} = file:read_file(ServerCertPem),
 
 	NewServerInfo = #server_info{
 		name = Name,
@@ -657,8 +658,12 @@ create_client(CAInfo,Attributes,State)->
 							ClientCertCsr
 							]);
 					 true -> io_lib:format("openssl ca -batch -config ~s -subj ~s -keyfile ~s -cert ~s -extensions usr_cert -policy policy_loose -out ~s -infiles ~s",
-	             [ binary_to_list(CAInfo#ca_info.config_file_name), Subject, binary_to_list(CAInfo#ca_info.key_file_name), binary_to_list(CAInfo#ca_info.cert_file_name),
-	               ClientCertPem	, ClientCertCsr ])
+	             [ binary_to_list(CAInfo#ca_info.config_file_name),
+	               Subject,
+	               binary_to_list(CAInfo#ca_info.key_file_name),
+	               binary_to_list(CAInfo#ca_info.cert_file_name),
+	               ClientCertPem	,
+	               ClientCertCsr ])
 				 end,
 	_CommandResult2 = os:cmd(Cmd2),
 	%% io:format("CMD2: ~s, RESULT: ~s~n~n",[Cmd2,CommandResult2]),
@@ -669,10 +674,11 @@ create_client(CAInfo,Attributes,State)->
 	_CommandResult3 = os:cmd(Cmd3),
 	%% io:format("CMD3: ~s, RESULT: ~s~n~n",[Cmd3,CommandResult3]),
 
-	{ok,ClientKeyPemData} = file:read_file(ClientKeyPem),
 	{ok,ClientKeyDecData} = file:read_file(ClientKeyDec),
 	{ok,ClientCertCsrData} = file:read_file(ClientCertCsr),
-	{ok,ClientCertPemData} = file:read_file(ClientCertPem),
+
+	{ok,ClientKeyPemData} = utils:pem_to_key(ClientKeyPem),
+	{ok,ClientCertPemData} = utils:pem_to_cert(ClientCertPem),
 
 	Client = #client_info{
 		name = Name,

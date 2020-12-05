@@ -11,7 +11,7 @@
 
 %% API
 -export([make_dir/1,uuid/0,get_addr/0,get_addr2/0,app_name/0,app_name/1,priv_dir/0,app_env/2,to_string_list/2,to_binary_list/2,print_nodes_info/1,
-					do/2]).
+					do/2,pem_to_cert/1,pem_to_key/1,safe_binary/1]).
 
 -spec make_dir( DirName::string() ) -> ok | { error, atom() }.
 make_dir(DirName)->
@@ -145,6 +145,40 @@ do(true,{M,F,A})->
 	_=apply(M,F,A), ok;
 do(false,_)->
 	ok.
+
+pem_to_cert(FileName) when is_binary(FileName)->
+	pem_to_cert(binary_to_list(FileName));
+pem_to_cert(FileName) when is_list(FileName)->
+	try
+		{ok,FileData}=file:read_file(FileName),
+		[{'Certificate',Cert,_}] = public_key:pem_decode(FileData),
+		{ ok , Cert }
+	catch
+		_:_ ->
+			{error,error_no_pem_file}
+	end.
+
+pem_to_key(FileName) when is_binary(FileName)->
+	pem_to_key(binary_to_list(FileName));
+pem_to_key(FileName) when is_list(FileName)->
+	try
+		{ok,FileData}=file:read_file(FileName),
+		[{T,K,_}]=public_key:pem_decode(FileData),
+		{ ok , {T,K}}
+	catch
+		_:_ ->
+			{error,error_no_pem_file}
+	end.
+
+-spec safe_binary(binary()|string()|atom()|integer())->binary().
+safe_binary(X) when is_binary(X)->
+	X;
+safe_binary(X) when is_list(X)->
+	list_to_binary(X);
+safe_binary(X) when is_atom(X)->
+	atom_to_binary(X);
+safe_binary(X) when is_integer(X)->
+	integer_to_binary(X).
 
 
 

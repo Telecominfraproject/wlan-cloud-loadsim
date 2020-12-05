@@ -19,7 +19,7 @@
 
 %% API
 -export([start_link/0,creation_info/0,create/1,create_tables/0,get/1,list/0,
-         prepare/2,prepare_assets/2,progress/3]).
+         prepare/2,prepare_assets/2,run_batch/4]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -190,28 +190,24 @@ split_build_clients(SimInfo,_Notification)->
 	{ok,HardwareDefinitions} = hardware:get_definitions(),
 	Ids = [ X#hardware_info.id || X <- HardwareDefinitions ],
 	BatchSize = SimInfo#simulation.num_devices div length(Ids),
-	run_batch(Ids,BatchSize,SimInfo),
+	_=run_batch(Ids,BatchSize,SimInfo),
 	ok.
 
 run_batch(Ids,BatchSize,SimInfo)->
 	run_batch(Ids,BatchSize,SimInfo,1).
 
-run_batch([],_,_,_)->
+run_batch([],_,SimInfo,_)->
+	io:format("~s: done creating ~p clients.~n",[binary_to_list(SimInfo#simulation.name),SimInfo#simulation.num_devices]),
 	ok;
 run_batch([H|T],BatchSize,SimInfo,BatchNumber)->
+	io:format("~s: creating ~p clients.~n",[binary_to_list(SimInfo#simulation.name),BatchSize]),
 	BatchName = binary:list_to_bin([SimInfo#simulation.name,<<"-">>,integer_to_binary(BatchNumber)]),
 	Attributes = #{ id => H, name => BatchName, serial => H, mac => <<>> },
 	_ = inventory:make_clients(SimInfo#simulation.ca,
 	                       1,
 	                       min(BatchSize,SimInfo#simulation.num_devices - (BatchSize * (BatchNumber-1))),
 													Attributes,
-                         {?MODULE,progress,[BatchNumber,H,SimInfo#simulation.name]}),
-%%	io:format(">>>Start: ~p, HowMany: ~p, BatchSize: ~p Number:~p~n",[1,min(BatchSize,SimInfo#simulation.num_devices - (BatchSize * (BatchNumber-1))),BatchSize,BatchNumber]),
-	io:format("Starting batch ~p.~n",[BatchNumber]),
-	run_batch(T,BatchSize,SimInfo,BatchNumber+1).
-
-progress(BatchNumber,Id,SimName)->
-	io:format("~nSimulation ~s preparation progress: ID=~s Batch=~p~n",[binary_to_list(SimName),binary_to_list(Id),BatchNumber]).
+                         {?MODULE,run_batch,[T,BatchSize,SimInfo,BatchNumber+1]}).
 
 %% Create the servers - only if they are pon automatic mode
 split_build_servers(SimInfo,_Notification)->
@@ -220,9 +216,9 @@ split_build_servers(SimInfo,_Notification)->
 	ok.
 
 generate_server(SimInfo,mqtt_server,auto)->
-	inventory:make_server(SimInfo#simulation.ca,"mqtt-1-",mqtt_server);
+	inventory:make_server(SimInfo#simulation.ca,"mqtt-1",mqtt_server);
 generate_server(SimInfo,ovsdb_server,auto)->
-	inventory:make_server(SimInfo#simulation.ca,"ovsdb-1-",ovsdb_server);
+	inventory:make_server(SimInfo#simulation.ca,"ovsdb-1",ovsdb_server);
 generate_server(_,_,_)->
 	ok.
 

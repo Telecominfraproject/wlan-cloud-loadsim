@@ -44,7 +44,7 @@
 	description = <<>> :: binary(),
 	type = <<>> :: binary(),
 	id = <<>> :: binary(),              %% hardware ID
-	key = <<>> :: binary(),
+	key = {none,<<>>} :: {atom(), binary()},
 	cert = <<>> :: binary(),
 	decrypt = <<>> :: binary(),
 	csr = <<>> :: binary(),
@@ -63,7 +63,7 @@
 	version  = <<>> :: binary(),
 	ports = [] :: [integer()],
 	addresses = [] :: [inet:ip_address()],
-	key = <<>> :: binary(),
+	key = {none,<<>>} :: {atom(), binary()},
 	cert = <<>> :: binary(),
 	decrypt = <<>> :: binary(),
 	csr = <<>> :: binary(),

@@ -14,7 +14,7 @@
 -include("../include/mqtt_definitions.hrl").
 
 %% API
--export([start/4,send_ping/1]).
+-export([start/4,send_ping/1,c_cfg/0,s_cfg/0,t1/0,t2/0]).
 
 -record(client_state,{id = <<>> :: binary(),
                       manager_pid :: pid(),
@@ -36,12 +36,14 @@ start(CAName,Id,Configuration,ManagerPid)->
 	_ = case ssl:connect(binary_to_list(Broker),list_to_integer(binary_to_list(Port)), [{session_tickets,auto},{versions, ['tlsv1.2','tlsv1.3']},{cert,DeviceConfiguration#client_info.cert},
 																																									{key,DeviceConfiguration#client_info.key},{active,false },binary]) of
 		{ok,SSLSocket} ->
+			%% io:format(">>>Connected~n"),
 			CS = #client_state{ id=Id, manager_pid = ManagerPid, topics = Topics, compress = Compress , configuration = Configuration, details = DeviceConfiguration },
 			run_client(SSLSocket,CS),
 			utils:do(CS#client_state.keep_alive_ref =/= undefined,{timer,cancel,[CS#client_state.keep_alive_ref]}),
 			ssl:close(SSLSocket);
 		{error,_}=Error->
-			Error
+			%% io:format(">>>Cannot connect: ~p~n",[Error]),
+			?L_IA("MQTT Client cannot connect: ~p.",[Error])
 	end,
 	timer:sleep(5000),
 	start(CAName,Id,Configuration,ManagerPid).
@@ -63,8 +65,10 @@ run_client(SSLSocket,CS)->
 	ConnectMessage = mqtt_message:encode(M),
 	_=case ssl:send(SSLSocket,ConnectMessage) of
 		ok ->
+			%% io:format("Sent connection message...~n"),
 			manage_connection(SSLSocket,CS#client_state{ current_state = waiting_for_hello });
 		Error ->
+			%% io:format("Failed connection message...~n"),
 			?L_IA("MQTT_CONNECTION for ID=~p failed (~p)",[CS#client_state.id,Error])
 	end,
 	ok.
@@ -72,7 +76,7 @@ run_client(SSLSocket,CS)->
 manage_connection(Socket,CS) ->
 	receive
 		{ssl,Socket,Data} ->
-			io:format("Received ~p bytes: ~p.~n",[size(Data),Data]),
+			%% io:format("Received ~p bytes: ~p.~n",[size(Data),Data]),
 			case manage_state(Data,CS) of
 				{ none, NewState } ->
 					manage_connection(Socket,NewState);
@@ -82,8 +86,9 @@ manage_connection(Socket,CS) ->
 			end;
 		{ssl_closed,Socket} ->
 			io:format("Closing socket.~n");
-		{info,Message } ->
-			io:format("Received a message: ~p~n",[Message]),
+		{ send_data,Data } ->
+			%% io:format("Received a message: ~p~n",[Message]),
+			_ = ssl:send(Socket,Data),
 			manage_connection(Socket,CS#client_state{ internal_messages = 1+CS#client_state.internal_messages });
 		Anything ->
 			io:format("Unknown message: ~p.~n",[Anything]),
@@ -108,7 +113,7 @@ manage_state(Data,CS)->
 
 %% this is responsible for sending the ping at 1 minutes interval.
 send_ping(Pid)->
-	Blob = mqtt:encode(#mqtt_msg{ variable_header = #mqtt_pingreq_variable_header_v4{} }),
+	Blob = mqtt_message:encode(#mqtt_msg{ variable_header = #mqtt_pingreq_variable_header_v4{} }),
 	Pid ! { send_data, Blob }.
 
 process( M, CS ) when is_record(M,mqtt_connack_variable_header_v4) ->
@@ -123,4 +128,21 @@ process( M, CS ) when is_record(M,mqtt_connack_variable_header_v4) ->
 process( M, CS ) when is_record(M,mqtt_pingreq_variable_header_v4) ->
 	Response = mqtt_message:encode(#mqtt_msg{ variable_header = #mqtt_pingresp_variable_header_v4{} }),
 	{ Response, CS#client_state{ messages = 1+CS#client_state.messages }}.
+
+c_cfg()->
+	#{<<"broker">> => <<"renegademac.arilia.com">>,
+	  <<"compress">> => <<"zlib">>,<<"port">> => <<"1883">>,
+	  <<"qos">> => <<"0">>,<<"remote_log">> => <<"1">>,
+	  <<"topics">> => <<"/ap/Open_AP_21P10C69717951/opensync">>}.
+
+s_cfg()->
+	#{<<"port">> => 1883,
+		<<"num_listeners">> => 10,
+		<<"secure">> => true }.
+
+t1()->
+	mqtt_server_manager:start_server(<<"sim1">>,<<"mqtt-1">>,s_cfg()).
+
+t2()->
+	mqtt_client_manager:start_client(<<"sim1">>,<<"sim1-1-00002D">>,c_cfg()).
 

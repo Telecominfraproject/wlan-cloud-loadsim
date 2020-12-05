@@ -15,8 +15,6 @@
 
 -define(SERVER, ?MODULE).
 
-
-
 %% API
 -export([launch/2]).
 -export([start_ap/1,stop_ap/1,pause_ap/1,cancel_ap/1]).
@@ -24,14 +22,10 @@
 %% comm API
 -export([rpc_cmd/2,reset_comm/1,mqtt_conf/2]).
 
-
 %% gen_server callbacks
 -export([init/1, handle_cast/2, handle_call/3, handle_info/2, terminate/2, code_change/3]).
 
-
-
 %% data structures
-
 -type ap_status() :: init | ready | running | paused | stopped.
 -export_type([ap_status/0]).
 
@@ -47,103 +41,61 @@
 	stats_ets :: ets:tid()
 }).
 
-
-
-
 %%%============================================================================
 %%% API
 %%%============================================================================
-
-
--spec launch (Id, SimMan) -> {ok, Pid} | {error, Reason} when
-		Id :: UUID::string(),
-		SimMan :: tuple(),
-		Pid :: pid(),
-		Reason :: term().
-
+-spec launch (Id::string(), SimMan::tuple()) -> {ok, Pid::pid()} | {error, Reason::term()}.
 launch (Id, SimMan) ->
 	gen_server:start_link(?MODULE, {Id, SimMan}, []).
-
-
-
 
 %%%============================================================================
 %%% HANDLER API Implementation
 %%%============================================================================
-
 -spec start_ap (Node :: pid()) -> ok.
-
-start_ap (Node) -> 
+start_ap (Node) ->
 	gen_server:cast(Node,ap_start).
 
-
 -spec stop_ap (Node :: pid()) -> ok.
-
-stop_ap (Node) -> 
+stop_ap (Node) ->
 	gen_server:cast(Node,ap_stop).
 
-
 -spec pause_ap (Node :: pid()) -> ok.
-
-pause_ap (Node) -> 
+pause_ap (Node) ->
 	gen_server:cast(Node,ap_pause).
 
-
 -spec cancel_ap (Node :: pid()) -> ok.
-
-cancel_ap (Node) -> 
+cancel_ap (Node) ->
 	gen_server:cast(Node,ap_cancel).
-
-
 
 %%%============================================================================
 %%% Comm module API
 %%%============================================================================
 
-
 -spec rpc_cmd (Node :: pid(), Rpc :: term()) -> ok | invalid.
-
 rpc_cmd (Node,Rpc) ->
 	gen_server:call(Node,{exec_rpc,Rpc}).
 
-
 -spec reset_comm (Node :: pid()) -> ok.
-
 reset_comm (Node) ->
 	gen_server:cast(Node, reset_comm).
 
-
 -spec mqtt_conf (Node :: pid(), Config :: map()) -> ok.
-
 mqtt_conf (Node, Conf) ->
 	gen_server:cast(Node, {mqtt_conf,Conf}).
-
 
 
 %%%============================================================================
 %%% GEN_SERVER callbacks
 %%%============================================================================
 
--spec init ({Id, SimMan}) -> {ok, State}  when
-		Id :: UUID::string(),
-		SimMan :: tuple(),
-		State :: #ap_state{}.
-
+-spec init ({Id::string(), SimMan :: tuple()}) -> {ok, State :: #ap_state{}}.
 init ({Id,SimMan}) ->
 	process_flag(trap_exit, true),
 	InitialState = prepare_state(Id,SimMan),
 	gen_server:cast(self(),start_up),
 	{ok, InitialState}.
 
-
-
-
--spec handle_cast (Request, State) -> {noreply, NewState} | {stop, Reason, NewState} when
-		Request :: term(),
-		State :: #ap_state{},
-		NewState :: #ap_state{},
-		Reason :: string().
-
+-spec handle_cast (Request :: term(), State :: #ap_state{}) -> {noreply, NewState :: #ap_state{}} | {stop, Reason :: string(), NewState :: #ap_state{}}.
 handle_cast (start_up, #ap_state{status=init}=State) ->
 	{noreply, startup_ap(State)};
 
@@ -195,17 +147,7 @@ handle_cast (R,State) ->
 	?L_E(?DBGSTR("got unknown request: ~p",[R])),
 	{noreply, State}.
 
-
-
-
--spec handle_call (Request, From, State) -> {reply, Reply, NewState} | {stop, Reason, Reply, NewState} when
-		Request :: term(),
-		From :: {pid(),Tag::term()},
-		State :: #ap_state{},
-		Reply :: ok | invalid | ignored,
-		Reason :: term(),
-		NewState :: #ap_state{}.
-
+-spec handle_call (Request::term(), From::{pid(),Tag::term()}, State::#ap_state{}) -> {reply, Reply:: ok | invalid | ignored, NewState:: #ap_state{}} | {stop, Reason:: term(), Reply:: ok | invalid | ignored, NewState:: #ap_state{}}.
 handle_call ({exec_rpc, RPC}, _From, #ap_state{status=paused}=State) when is_map(RPC) andalso
 												 						  is_map_key(<<"method">>,RPC) andalso
 												 						  is_map_key(<<"id">>,RPC) ->
@@ -267,48 +209,22 @@ handle_call (Request, From, State) ->
 	?L_E(?DBGSTR("got unknow request ~p from ~p",[Request,From])),
 	{reply, invalid, State}.
 
-
-
-
--spec handle_info (Msg, State) -> {noreply, NewState} | {stop, Reason, NewState} when
-		Msg :: term(),
-		State :: #ap_state{},
-		Reason :: term(),
-		NewState :: #ap_state{}.
-
-
+-spec handle_info (Msg::term(), State::#ap_state{}) -> {noreply, NewState::#ap_state{}} | {stop, Reason::term(), NewState:: #ap_state{}}.
 handle_info({'EXIT', _Pid, normal}, State) ->
 	{noreply, State};
-
 handle_info({'EXIT', Pid, Reason}, State) ->
 	?L_E(?DBGSTR("Abnormal exit from ~p with reason: ~p",[Pid,Reason])),
 	{noreply, State};
-
-
 handle_info (Msg,State) ->
 	?L_E(?DBGSTR("got unexpected info message ~p",[Msg])),
 	{noreply, State}.
 
-
-
-
--spec terminate (Reason, State) -> ok when
-		Reason :: shutdown | normal,
-		State :: #ap_state{}.
-
+-spec terminate (Reason :: shutdown | normal, State :: #ap_state{}) -> ok.
 terminate (_Reason, #ap_state{stats_ets=Tab}) ->
 	ets:delete(Tab),
 	ok.
 
-
-
-
--spec code_change (OldVersion, OldState, Extra) -> {ok, NewState} when
-		OldVersion :: term(),
-		OldState ::#ap_state{},
-		Extra :: term(),
-		NewState :: #ap_state{}.
-
+-spec code_change (OldVersion :: term(), OldState ::#ap_state{}, Extra :: term()) -> {ok, NewState :: #ap_state{}}.
 code_change (_,OldState,_) ->
 	?L_E(?DBGSTR("code change requested")),
 	{ok, OldState}.

@@ -10,7 +10,7 @@
 -author("helge").
 
 -include("../include/common.hrl").
--include("ovsdb_ap_tables.hrl").
+-include("../include/ovsdb_ap_tables.hrl").
 
 %%------------------------------------------------------------------------------
 %% types and specifications

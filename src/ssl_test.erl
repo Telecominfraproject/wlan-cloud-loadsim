@@ -12,13 +12,13 @@
 %% API
 -export([start/0,server/0,client/0]).
 
--define(S_CERT,"certs/test_certs/server-mqtt-1--cert.pem").
--define(S_KEY ,"certs/test_certs/server-mqtt-1--key.pem").
--define(S_DKEY,"certs/test_certs/server-mqtt-1--key_dec.pem").
+-define(S_CERT,"certs_db/sim1/servers/server-mqtt-1--cert.pem").
+-define(S_KEY ,"certs_db/sim1/servers/server-mqtt-1--key.pem").
+-define(S_DKEY,"certs_db/sim1/servers/server-mqtt-1--key_dec.pem").
 
--define(C_CERT,"certs/test_certs/client-sim1-1-000032-cert.pem").
--define(C_KEY ,"certs/test_certs/client-sim1-1-000032-key.pem").
--define(C_DKEY,"certs/test_certs/client-sim1-1-000032-key_dec.pem").
+-define(C_CERT,"certs_db/sim1/clients/client-sim1-1-00002D-cert.pem").
+-define(C_KEY ,"certs_db/sim1/clients/client-sim1-1-00002D-key.pem").
+-define(C_DKEY,"certs_db/sim1/clients/client-sim1-1-00002D-key_dec.pem").
 -define(C_CA  ,"certs/test_certs/sim1_cert.pem").
 
 -define(PORT,11000).
@@ -30,6 +30,9 @@ start()->
 	spawn(?MODULE,client,[]).
 
 server()->
+	{ok,Cert}=utils:pem_to_cert(?S_CERT),
+	{ok,Key}=utils:pem_to_key(?S_KEY),
+
 	{ ok , ListenSocket } = ssl:listen(?PORT,[
 %%				                        {log_level,debug},
 				                        {session_tickets,stateless},
@@ -37,8 +40,8 @@ server()->
 				                        {versions,['tlsv1.2','tlsv1.3']},
 				                        {active,false},
 				                        {reuseaddr,true},
-				                        {certfile,?S_CERT},
-				                        {keyfile,?S_KEY}
+				                        {cert,Cert},
+				                        {key,Key}
 ]),
 	accept(ListenSocket).
 
@@ -82,13 +85,15 @@ server_processor_active(Socket)->
 
 client()->
 %%	{ok,Cacerts}=file:read_file(?C_CA),
+	{ok,Cert}=utils:pem_to_cert(?C_CERT),
+	{ok,Key}=utils:pem_to_key(?C_KEY),
 	{ok,SSL}=ssl:connect("renegademac.arilia.com",?PORT,
 	                     [
 		                     %% {log_level,debug},
 		                     {session_tickets,auto},
 		                     {versions, ['tlsv1.2','tlsv1.3']},
-		                     {certfile,?C_CERT},
-		                     {keyfile,?C_KEY},
+		                     {cert,Cert},
+		                     {key,Key},
 		                     {active,false },
 		                     binary]),
 	send_data(SSL).

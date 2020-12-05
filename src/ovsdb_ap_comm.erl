@@ -40,44 +40,30 @@
 
 
 -spec start_link (Options :: options()) -> {ok, pid()}.
-
 start_link (Options) ->
 	Pid = spawn_link(?MODULE,create_comm,[Options,self()]),
 	{ok, Pid}.
-	
 
-
--spec send_term(Comm :: pid(), Data :: term()) -> ok | {error, Reason :: string()}.
-
+-spec send_term(Comm :: pid(), Data :: term()) -> ok | generic_error().
 send_term (Comm, Data) when is_pid(Comm) andalso is_map(Data) ->
 	Comm ! {send, self(), Data},
 	ok;
-
 send_term (_,_) ->
 	{error,"Data needs to be a map"}.
 
-
-
 -spec end_comm (Comm :: pid()) -> ok.
-
 end_comm (Comm) ->
 	Comm ! {down, self()},
 	ok.
 
-
 -spec start_comm (Comm :: pid()) -> ok.
-
 start_comm (Comm) ->
 	Comm ! {start, self()},
 	ok.
 
-
-
 %%------------------------------------------------------------------------------
 %% internals
-
 -spec create_comm (Options :: options(), AP :: pid()) -> ok.
-
 create_comm (Opts, AP) ->
 	State = #c_state{
 		options = Opts,
@@ -87,11 +73,7 @@ create_comm (Opts, AP) ->
 	},
 	comm_loop(State).
 
-
-
-
 -spec comm_loop (State :: #c_state{}) -> ok.
-
 comm_loop (#c_state{socket=S, rxb=Rx, ap=AP}=State) ->
 	receive 
 		{ssl, S, Data} ->
@@ -151,10 +133,7 @@ comm_loop (#c_state{socket=S, rxb=Rx, ap=AP}=State) ->
 			comm_loop(State#c_state{status=idle})
 	end.
 
-
-
 -spec start_connection (State :: #c_state{}) -> NewState :: #c_state{}.
-
 start_connection (#c_state{options=Opts}=State) ->
 	H = proplists:get_value(host,Opts),
 	P = proplists:get_value(port,Opts),
@@ -166,12 +145,8 @@ start_connection (#c_state{options=Opts}=State) ->
 		status = active
 	}.
 
-
-
 %--------try_reconnect/1-----------------reconnect to broken sockets with exponential back-off and random jitter
-
 -spec try_reconnect (State :: #c_state{}) -> NewState :: #c_state{}.
-
 try_reconnect (#c_state{restart=R, ap=AP}=State) ->
 	Rj = R + rand:uniform(250) - 125,
 	?L_I(?DBGSTR("socket closed by server, trying to reconnect in ~.2fsec",[Rj/1000])),
@@ -182,16 +157,14 @@ try_reconnect (#c_state{restart=R, ap=AP}=State) ->
 
 
 
--spec connect_to_server (Host, Port, CAs, Cert, Key) -> Socket when
-		Host :: string(),					%% host name to connect to (can be IP address in string format)
-		Port :: integer(),					%% port to connect to
-		CAs:: [public_key:der_encoded()],	%% server certificate
-		Cert :: public_key:der_encoded(),	%% client certificate
-		Key :: {atom(),public_key:der_encoded()},	%% private key for client cert
-		Socket :: ssl:sslsocket().			
-
-
-connect_to_server (Host, Port, CAs, Cert, Key) -> 
+%% Host :: string(),					%% host name to connect to (can be IP address in string format)
+%% Port :: integer(),					%% port to connect to
+%% CAs:: [public_key:der_encoded()],	%% server certificate
+%% Cert :: public_key:der_encoded(),	%% client certificate
+%% Key :: {atom(),public_key:der_encoded()},	%% private key for client cert
+%% Socket :: ssl:sslsocket().
+-spec connect_to_server (Host :: string(), Port :: integer(), CAs:: [public_key:der_encoded()], Cert :: public_key:der_encoded(), Key :: {atom(),public_key:der_encoded()}) -> Socket :: ssl:sslsocket().
+connect_to_server (Host, Port, CAs, Cert, Key) ->
 	Opts = [{cacerts, CAs},
 			{cert,Cert},
 			{key,Key},
@@ -209,13 +182,8 @@ connect_to_server (Host, Port, CAs, Cert, Key) ->
 			exit(Reason)
 	end.
 
-
-
-
 %--------process_rx_data/2---------------process data in buffer and ensures only valid decoded JSON is sent to AP
-
 -spec process_rx_data (Data :: binary(), AP :: pid()) -> Buffer :: binary().
-
 process_rx_data (Data, AP) ->
 	try jiffy:decode(Data,[return_maps,copy_strings,return_trailer]) of
 		{has_trailer,Map,Tail} ->

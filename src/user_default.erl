@@ -205,6 +205,30 @@ create_server(SimName,Name) when is_list(SimName)->
 	io:format("create_server: invalid server type ~p. Must be mqtt_server, ovsdb_server, all.~n",[Name]),
 	{ error , unknown_server_type }.
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%  AccessPoint management functions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-spec create_ap_clients(SimName::string(),Number::integer()) -> generic_result().
+create_ap_clients(SimName,Number) ->
+	_ = case whereis(ovsdb_client_handler) of
+		undefined ->
+			ovsdb_client_handler:start_link();
+		_ ->
+			true
+	end,
+	ovsdb_client_handler:set_configuration(#{internal=>SimName,clients=>Number}).
+
+-spec start_ap_clients(ClientIDs::all|[binary()]) -> generic_result().
+start_ap_clients(ClientsToStart) ->
+	ovsdb_client_handler:start(ClientsToStart).
+
+-spec stop_ap_clients() -> generic_result().
+stop_ap_clients() ->
+	ovsdb_client_handler:stop(all).
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%  Misc management functions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

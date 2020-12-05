@@ -11,6 +11,7 @@
 
 -include("../include/common.hrl").
 -include("../include/ovsdb_ap_tables.hrl").
+-include("../include/inventory.hrl").
 
 %%------------------------------------------------------------------------------
 %% types and specifications
@@ -40,19 +41,19 @@ new (CAName,Id,Store) ->
 	#cfg{ca_name=CAName, id=Id, store_ref = Store}.
 
 -spec configure (Config :: cfg()) -> NewConfig :: cfg().
-configure (Config) ->
-	%% @TODO: remote provisioned configuration
-	%% in the meantime read a sample config from a file
-	File = filename:join([code:priv_dir(?OWLS_APP),"ovsdb","test_ap.cfg"]),
-	{ok, [M]} = file:consult(File),
-	APC = maps:get(Config#cfg.id,M),
-	initialize_ap_tables(Config#cfg.store_ref,APC),
+configure (#cfg{ca_name=CAName, id=ID}=Config) ->
+	{ok,Info} = inventory:get_client(CAName,ID),
+	File = filename:join([code:priv_dir(?OWLS_APP),"ovsdb","default_ap.cfg"]),
+	{ok, [Defaults]} = file:consult(File),
+	APC1 = lists:keyreplace(serial,1,Defaults,{serial,Info#client_info.serial}),
+	APC2 = lists:keyreplace(type,1,APC1,{type,Info#client_info.type}),
+	initialize_ap_tables(Config#cfg.store_ref,APC2),
 	Config#cfg{
-		ca_certs = proplists:get_value(ca_certs,APC),
-		client_cert = proplists:get_value(client_cert,APC)
+		ca_certs = proplists:get_value(ca_certs,APC2),			% replace this when proper certs come down with the one from inventory Info
+		client_cert = proplists:get_value(client_cert,APC2)
 	}.
 
--spec initialize_ap_tables (Store :: ets:tid(), APConfig :: proplists:proplist()) -> true.
+-spec initialize_ap_tables (Store :: ets:tid(), Config :: proplists:proplist()) -> true.
 initialize_ap_tables (Store, APC) ->
 	create_table('AWLAN_Node',APC,Store),
 	create_table('Wifi_Radio_State',APC,Store),

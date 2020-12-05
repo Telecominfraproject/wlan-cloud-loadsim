@@ -96,7 +96,7 @@ dump_clients () ->
 
 
 -spec set_configuration (Cfg) -> ok | {error, Reason} when
-		Cfg :: #{},
+		Cfg :: #{any() => any()},
 		Reason :: term().
 
 set_configuration (Cfg) ->
@@ -385,13 +385,16 @@ apply_config (Cfg, #hdl_state{clients=Clients}=State) when is_map_key(file,Cfg) 
 	State;
 
 apply_config (Cfg, #hdl_state{clients=Clients}=State) when is_map_key(internal,Cfg) ->
-	C = #ap_client{
-		id="a68d41fa-dd12-4fb7-bc44-e834667280b4",
-		ca_name="i_am_the_boss",
-		status = available,
-		process = none,
-		transitions = [{available,erlang:system_time()}]
-	},
+	#{internal:=SimName, clients:=Num} = Cfg,
+	F = fun (X) -> #ap_client{
+						id=lists:flatten(io_lib:format("~s-1-~6.16.0B",[SimName,X])),
+						ca_name=SimName,
+						status=available,
+						process=none,
+						transitions=[{available,erlang:system_time()}]
+					}
+		end,
+	C = [F(X)||X<-lists:seq(1,Num)],
 	ets:insert(Clients,C),
 	State;
 

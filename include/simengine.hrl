@@ -8,7 +8,6 @@
 %%%-------------------------------------------------------------------
 -author("stephb").
 
-
 -record( sim_entry, {
 	name = <<>> :: binary(),
 	type = none :: none | clients | mqtt_clients | ovsdb_clients | mqtt_server | ovsdb_server,
@@ -18,8 +17,6 @@
 	port_reflector :: integer(),
 	names = [] :: [binary()]
 }).
-
--type sim_entry()::#sim_entry{}.
 
 -record( simulation, { name = <<>> :: binary(),
 	ca = <<>> :: binary(),
@@ -33,5 +30,6 @@
 }).
 
 -type simulation() :: #simulation{}.
+-type sim_entry()::#sim_entry{}.
 
 -export_type([simulation/0,sim_entry/0]).

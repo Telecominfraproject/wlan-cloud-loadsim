@@ -22,7 +22,7 @@
 -export([start_link/0,creation_info/0,connect/1,disconnect/0,find_manager/2,connected/0,
 	set_configuration/1,reset_configuration/1,set_operation_state/2,execute/1,set_client/2,
 	get_configuration/0,set_configuration/2,get_configuration/1,register_handler/2,
-	update_stats/3,send_stats/0]).
+	update_stats/3,send_os_stats/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -112,8 +112,8 @@ start_link() ->
 update_stats(Client,Role,Stats)->
 	gen_server:cast(?SERVER,{update_stats,Client,Role,Stats}).
 
-send_stats()->
-	manager:send_os_stats_report(create_os_stats_report()).
+send_os_stats()->
+	statistics:submit_report(os_details,create_os_stats_report()).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -127,7 +127,7 @@ send_stats()->
 init([]) ->
 	NodeId = utils:app_env(node_id,1),
 	{ok,NodeFinder} = timer:apply_interval(7500,?MODULE,find_manager,[self(),NodeId]),
-	{ok,StatsUpdater} = timer:apply_interval(5000,?MODULE,send_stats,[]),
+	{ok,StatsUpdater} = timer:apply_interval(5000,?MODULE,send_os_stats,[]),
 	{ok,#simnode_state{ node_finder = NodeFinder, os_stats_updater = StatsUpdater , node_id = NodeId, manager = none }}.
 
 %% @private

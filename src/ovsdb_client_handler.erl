@@ -386,7 +386,8 @@ apply_config (Cfg, State) ->
 		NewHandlerSate :: #hdl_state{}.
 update_client_status (ClS, Id, #hdl_state{clients=Clients}=State) ->
 	{ok, C} = get_client_with_id(Clients,Id),
-	ets:insert(Clients,C#ap_client{status=ClS}),
+	T = C#ap_client.transitions,
+	ets:insert(Clients,C#ap_client{status=ClS,transitions=[{ClS,erlang:system_time()}|T]}),
 	State.
 	
 

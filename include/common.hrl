@@ -19,7 +19,7 @@
 -type generic_error() :: { error, Reason::term() }.
 -type generic_result() :: ok | generic_error().
 -type notification_cb() ::  { Module::atom(), Function::atom(),Args::[term()]}.
--type ets_dont_care() :: '_'.
+-type ets_dont_care() :: '_' | '$1' | '$2' | '$3' | '$4' | '$5' | '$6' | '$7' | '$8'.
 
 -export_type([attribute_list/0,generic_error/0,generic_result/0,notification_cb/0]).
 

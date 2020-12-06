@@ -210,8 +210,8 @@ create_server(SimName,Name) when is_list(SimName)->
 %%  AccessPoint management functions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--spec create_ap_clients(SimName::string(),Number::integer()) -> generic_result().
-create_ap_clients(SimName,Number) ->
+-spec ap_create_clients(SimName::string(),Number::integer()) -> generic_result().
+ap_create_clients(SimName,Number) ->
 	_ = case whereis(ovsdb_client_handler) of
 		undefined ->
 			ovsdb_client_handler:start_link();
@@ -220,13 +220,17 @@ create_ap_clients(SimName,Number) ->
 	end,
 	ovsdb_client_handler:set_configuration(#{internal=>SimName,clients=>Number}).
 
--spec start_ap_clients(ClientIDs::all|[binary()]) -> generic_result().
-start_ap_clients(ClientsToStart) ->
+-spec ap_start_clients(ClientIDs::all|[binary()]) -> generic_result().
+ap_start_clients(ClientsToStart) ->
 	ovsdb_client_handler:start(ClientsToStart).
 
--spec stop_ap_clients() -> generic_result().
-stop_ap_clients() ->
+-spec ap_stop_clients() -> generic_result().
+ap_stop_clients() ->
 	ovsdb_client_handler:stop(all).
+
+-spec ap_client_stats(NumberOfRecords::non_neg_integer()) -> generic_result().
+ap_client_stats(N) ->
+	ovsdb_client_stats:show_statistics(N).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

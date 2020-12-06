@@ -18,7 +18,7 @@
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
-         code_change/3,creation_info/0,start_client/3,stop_client/2]).
+         code_change/3,creation_info/0,start_client/3,stop_client/2,is_running/2]).
 
 -define(SERVER, ?MODULE).
 
@@ -37,13 +37,17 @@ creation_info() ->
 	       type => worker,
 	       modules => [?MODULE]} ].
 
--spec start_client(CAName::string()|binary(),Id::string()|binary(),Configuration::#{ binary() => term()}) -> ok | generic_error().
+-spec start_client(CAName::string()|binary(),Id::string()|binary(),Configuration::gen_configuration()) -> ok | generic_error().
 start_client(CAName,Id,Configuration)->
 	gen_server:call(?SERVER,{new_client,utils:safe_binary(CAName),utils:safe_binary(Id),Configuration}).
 
 -spec stop_client(CAName::string()|binary(),Id::string()|binary()) -> ok | generic_error().
 stop_client(CAName,Id)->
 	gen_server:call(?SERVER,{stop_client,utils:safe_binary(CAName),utils:safe_binary(Id)}).
+
+-spec is_running(CAName::string()|binary(),Id::string()|binary()) -> { ok , { Pid::pid, Configuration::gen_configuration()}} | generic_error().
+is_running(CAName,Id)->
+	gen_server:call(?SERVER,{is_running,utils:safe_binary(CAName),utils:safe_binary(Id)}).
 
 %% @doc Spawns the server and registers the local name (unique)
 -spec(start_link() ->
@@ -83,6 +87,13 @@ handle_call({stop_client,_CAName,Id}, _From, State = #mqtt_client_manager_state{
 		{Pid,_} ->
 			exit(Pid,kill),
 			{reply, ok, State}
+	end;
+handle_call({is_running,_CAName,Id}, _From, State = #mqtt_client_manager_state{}) ->
+	case maps:get(Id,State#mqtt_client_manager_state.client_configurations,none) of
+		none ->
+			{reply, { error, not_running }, State};
+		{_Pid,_Configuration}=Client ->
+			{reply, {ok,Client} , State}
 	end;
 handle_call(_Request, _From, State = #mqtt_client_manager_state{}) ->
 	{reply, ok, State}.

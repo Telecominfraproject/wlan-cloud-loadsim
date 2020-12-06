@@ -13,6 +13,7 @@
 
 -include("../include/common.hrl").
 -include("../include/ovsdb_definitions.hrl").
+-include("../include/ovsdb_ap_tables.hrl").
 
 
 -define(SERVER, ?MODULE).
@@ -123,37 +124,26 @@ cancel_ap (Node) ->
 
 
 -spec rpc_cmd (Node :: pid(), Rpc :: term()) -> ok | invalid.
-
 rpc_cmd (Node,Rpc) ->
 	gen_server:call(Node,{exec_rpc,Rpc}).
 
-
 -spec reset_comm (Node :: pid()) -> ok.
-
 reset_comm (Node) ->
 	gen_server:cast(Node, reset_comm).
 
-
 -spec mqtt_conf (Node :: pid(), Config :: map()) -> ok.
-
 mqtt_conf (Node, Conf) ->
 	gen_server:cast(Node, {mqtt_conf,Conf}).
 
-
 -spec sock_recon (Node :: pid(), Delay :: integer()) -> ok.
-
 sock_recon (Node, Delay) ->
 	gen_server:cast(Node, {stats_update, {sock_recon, {Delay}, io_lib:format("socket abnormally closed -> reconnect attempt in ~.2fsec",[Delay/1000])}}).
 
-
 -spec post_event (Node :: pid(), Event :: atom(), Args :: tuple(), Comment :: binary() | string()) -> ok.
-
 post_event (Node, Event, Args, Comment) ->
 	gen_server:cast(Node,{stats_update, {Event, Args, Comment}}).
 
-
 -spec post_event (Event :: atom(), Args :: tuple(), Comment :: binary() | string()) -> ok.
-
 post_event (Event, Args, Comment) ->
 	post_event(self(),Event,Args,Comment).
 
@@ -230,7 +220,7 @@ handle_cast (ctlr_start_comm, State) ->
 	{noreply, ctlr_start_comm(State)};
 
 handle_cast ({mqtt_conf,Conf}, State) ->
-	{noreply, configure_mqtt(Conf,State)};
+	{noreply, check_mqtt(Conf,State)};
 
 handle_cast ({stats_update,Event},State) ->
 	true = update_statistics(Event,State#ap_state.stats_ets),
@@ -503,6 +493,9 @@ ctrl_connect (#ap_state{comm=none, status=running, config=Cfg}=State) ->
 	gen_server:cast(self(),ctlr_start_comm),
 	State#ap_state{comm=Comm};
 
+ctrl_connect (#ap_state{comm=none}=State) ->
+	State;
+
 ctrl_connect (#ap_state{comm=Comm}=State) ->
 	ovsdb_ap_comm:end_comm(Comm),
 	post_event(tip_connect,{<<"down">>},<<"TIP contoller connection relinquished">>),
@@ -529,25 +522,54 @@ ctrl_disconnect (#ap_state{comm=Comm}=State) ->
 
 -spec ctlr_start_comm (State :: #ap_state{}) -> NewState :: #ap_state{}.
 
-ctlr_start_comm (#ap_state{comm=Comm}=State) ->
+ctlr_start_comm (#ap_state{comm=Comm, store=Store}=State) ->
 	ovsdb_ap_comm:start_comm(Comm),
 	post_event(tip_connect,{<<"start_comm">>},<<"TIP contoller start communication">>),
-	State.
+	case ets:match(Store,#'AWLAN_Node'{mqtt_settings='$1',_='_'}) of
+		[[[<<"map">>,MQTT]]] when is_list(MQTT) andalso length(MQTT)>0 ->
+			Map = maps:from_list([{K,V}||[K,V]<-MQTT]),
+			check_mqtt(Map,State);
+		_ ->
+			State
+	end.
 
 
 
 %%==============================================================================
 %% managing mqtt
 
--spec configure_mqtt (Config :: #{binary():=binary()}, #ap_state{}) -> NewState :: #ap_state{}.
-configure_mqtt (Cfg,#ap_state{ca_name=CAName, id=ID, mqtt=idle}=State) ->
-	?L_I(?DBGSTR("AP->MQTT set configuration to: ~p",[Cfg])),
+-spec check_mqtt (Config :: #{binary():=binary()}, #ap_state{}) -> NewState :: #ap_state{}.
+check_mqtt (Cfg,#ap_state{ca_name=CAName, id=ID}=State) ->
+	?L_I(?DBGSTR("AP->MQTT check configuration")),
+	case mqtt_client_manager:is_running(CAName,ID) of
+		{ ok , {_, MQTTCfgCurr}} ->
+			case mqtt_needs_restart(MQTTCfgCurr,Cfg) of
+				true ->
+					_ = stop_mqtt(State),
+					start_mqtt(Cfg,State);
+				false ->
+					State#ap_state{mqtt=running}
+			end;
+		_ -> 
+			start_mqtt(Cfg,State)
+	end.
+
+-spec mqtt_needs_restart (ActiveConfig :: #{binary():=binary()}, NewConfig :: #{binary():=binary()}) -> boolean().
+mqtt_needs_restart (#{<<"broker">>:=CurBroker, <<"port">>:=CurPort},#{<<"broker">>:=NewBroker, <<"port">>:=NewPort}) when CurBroker==NewBroker andalso CurPort==NewPort ->
+	false;
+mqtt_needs_restart (_,_) ->
+	true.
+
+-spec start_mqtt(Config :: #{binary():=binary()}, #ap_state{}) -> NewState :: #ap_state{}.
+start_mqtt (Cfg,#ap_state{ca_name=CAName, id=ID, mqtt=idle}=State) ->
 	post_event(mqtt,{<<"set_config">>},<<"start an MQTT client">>),
 	_ = mqtt_client_manager:start_client(CAName,ID,Cfg),
 	State#ap_state{mqtt=running};
-configure_mqtt (_,State) ->
+start_mqtt (_,State) ->
+	io:format("MQTT start request, but already running ...~n"),
 	?L_E(?DBGSTR("MQTT client already running!")),
 	State.
+
 
 -spec stop_mqtt (State::#ap_state{}) -> NewState::#ap_state{}.
 stop_mqtt(#ap_state{mqtt=idle}=State) ->

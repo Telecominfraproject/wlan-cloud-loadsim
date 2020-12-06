@@ -38,17 +38,17 @@
 
 
 -record ('AWLAN_Node',{
-	row_idx = 0 :: integer(),
-	mqtt_settings = [<<"map">>,[]] :: [binary()|[proplists:proplist()]],
-	redirector_addr = <<>> :: binary(),
-	manager_addr = <<>> :: binary(),
-	sku_number = [<<"set">>,[]] :: [binary()|[proplists:proplist()]],
-	serial_number = <<>> :: binary(),
-	model = <<>>:: binary(),
-	firmware_version = <<>> :: binary(),
-	platform_version = <<>> :: binary(),
-	revision = <<>> :: binary(),
-	version_matrix = [<<"map">>,[]] :: [binary()|[any()]]
+	row_idx = 0 :: integer() | ets_dont_care(),
+	mqtt_settings = [<<"map">>,[]] :: [binary()|[proplists:proplist()]] | ets_dont_care(),
+	redirector_addr = <<>> :: binary() | ets_dont_care(),
+	manager_addr = <<>> :: binary() | ets_dont_care(),
+	sku_number = [<<"set">>,[]] :: [binary()|[proplists:proplist()]] | ets_dont_care(),
+	serial_number = <<>> :: binary() | ets_dont_care(),
+	model = <<>>:: binary() | ets_dont_care(),
+	firmware_version = <<>> :: binary() | ets_dont_care(),
+	platform_version = <<>> :: binary() | ets_dont_care(),
+	revision = <<>> :: binary() | ets_dont_care(),
+	version_matrix = [<<"map">>,[]] :: [binary()|[any()]] | ets_dont_care()
 }).
 
 

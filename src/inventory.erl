@@ -476,8 +476,8 @@ create_ca(CaName,Password,State,_Pid)->
 	ok = utils:make_dir(filename:join([CaDir,"crl"])),
 	ok = utils:make_dir(filename:join([CaDir,"private"])),
 
-	{ok,CertData}=file:read_file(CaKeyCertFileName),
-	{ok,KeyData}=file:read_file(CaKeyFileName),
+	{ok,CertData}=utils:pem_to_cert(CaKeyCertFileName),
+	{ok,KeyData}=utils:pem_to_key(CaKeyFileName),
 
 	NewCa = #ca_info{ name = CaName,
 										dir_name = list_to_binary(CaDir),
@@ -486,8 +486,8 @@ create_ca(CaName,Password,State,_Pid)->
 										cert_file_name = list_to_binary(CaKeyCertFileName),
 										key_file_name =  list_to_binary(CaKeyFileName),
 										config_file_name = list_to_binary(CaConfigFileName),
-										cert_data = CertData,
-	                  key_data = KeyData,
+										cert = CertData,
+	                  key = KeyData,
 										password = Password,
 								    config_data = list_to_binary(NewConf)
 			},
@@ -531,8 +531,9 @@ import_ca(CaName,Attributes,State,_Pid)->
 	ok = utils:make_dir(filename:join([CaDir,"crl"])),
 	ok = utils:make_dir(filename:join([CaDir,"private"])),
 
-	{ok,CertData}=file:read_file(CaKeyCertFileName),
-	{ok,KeyData}=file:read_file(CaKeyFileName),
+
+	{ok,CertData}=utils:pem_to_cert(CaKeyCertFileName),
+	{ok,KeyData}=utils:pem_to_key(CaKeyFileName),
 
 	NewCa = #ca_info{ name = CaName,
 	                  dir_name = list_to_binary(CaDir),
@@ -541,8 +542,8 @@ import_ca(CaName,Attributes,State,_Pid)->
 	                  cert_file_name = list_to_binary(CaKeyCertFileName),
 	                  key_file_name =  list_to_binary(CaKeyFileName),
 	                  config_file_name = list_to_binary(CaConfigFileName),
-	                  cert_data = CertData,
-	                  key_data = KeyData,
+	                  cert = CertData,
+	                  key = KeyData,
 	                  password = list_to_binary(OPassword),
 	                  config_data = list_to_binary(NewConf)
 	},
@@ -630,7 +631,7 @@ create_server(CAInfo,Name,Type,State,_Pid)->
 		cert = ServerCertPemData,
 		decrypt = ServerKeyDecPemData,
 		csr = ServerCertCsrPemData,
-		cacert = CAInfo#ca_info.cert_data
+		cacert = CAInfo#ca_info.cert
 	},
 
 	_ = add_record(NewServerInfo),
@@ -708,7 +709,7 @@ create_client(CAInfo,Attributes,State)->
 		key = ClientKeyPemData,
 		cert = ClientCertPemData,
 		decrypt = ClientKeyDecData,
-		cacert = CAInfo#ca_info.cert_data,
+		cacert = CAInfo#ca_info.cert,
 		csr = ClientCertCsrData
 	},
 

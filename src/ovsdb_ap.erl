@@ -12,6 +12,8 @@
 -behaviour(gen_server).
 
 -include("../include/common.hrl").
+-include("../include/ovsdb_definitions.hrl").
+
 
 -define(SERVER, ?MODULE).
 
@@ -63,16 +65,7 @@
 }).
 
 
--record (stats_entry, {
-	stamp :: integer(),		% erlang system time
-	interval :: integer(),  % evaluation period in ms
-	rx_bytes :: integer(),  % received bytes
-	tx_bytes :: integer(),  % transmitted bytes
-	rx_bps :: float(),		% received bytes per sec.
-	tx_bps :: float(),		% transmitted bytes per sec.
-	dropped :: integer(),	% number of dropped connections
-	latency :: integer()	% network latency from HB in ms		
-}).
+
 
 
 
@@ -387,7 +380,7 @@ code_change (_,OldState,_) ->
 prepare_state (CAName, ID, Options) ->
 	Store = ets:new(ovsdb_ap,[bag,private,{keypos, 1}]),
 	Stats = ets:new(ovsdb_ap_stats,[ordered_set,private,{keypos, 2}]),
-	{'ok', Tref} = timer:apply_interval(proplists:get_value(report_int,Options,15000),
+	{'ok', Tref} = timer:apply_interval(proplists:get_value(report_int,Options,?AP_REPORT_INTERVAL),
 										gen_server,cast,[self(),send_report]),
 	update_statistics({report_mark,{},<<>>},Stats),
 	ets:insert(Stats,#stats_vars{}),
@@ -528,7 +521,7 @@ ctrl_disconnect (#ap_state{comm=none}=State) ->
 ctrl_disconnect (#ap_state{comm=Comm}=State) ->
 	ovsdb_ap_comm:end_comm(Comm),
 	post_event(tip_connect,{<<"down">>},<<"TIP contoller connection relinquished">>),
-	State#ap_state{comm=none}.
+	stop_mqtt(State#ap_state{comm=none}).
 
 
 
@@ -543,30 +536,32 @@ ctlr_start_comm (#ap_state{comm=Comm}=State) ->
 
 
 
-%--------configure_mqtt/2----------------send configuration to MQTT client to establish a connection
+%%==============================================================================
+%% managing mqtt
 
 -spec configure_mqtt (Config :: #{binary():=binary()}, #ap_state{}) -> NewState :: #ap_state{}.
-
 configure_mqtt (Cfg,#ap_state{ca_name=CAName, id=ID, mqtt=idle}=State) ->
 	?L_I(?DBGSTR("AP->MQTT set configuration to: ~w",[Cfg])),
 	post_event(mqtt,{<<"set_config">>},<<"start an MQTT client">>),
 	_ = mqtt_client_manager:start_client(CAName,ID,Cfg),
 	State#ap_state{mqtt=running};
-
 configure_mqtt (_,State) ->
 	?L_E(?DBGSTR("MQTT client already running!")),
 	State.
+
+-spec stop_mqtt (State::#ap_state{}) -> NewState::#ap_state{}.
+stop_mqtt(#ap_state{mqtt=idle}=State) ->
+	State;
+stop_mqtt(#ap_state{ca_name=CAName, id=ID}=State) ->
+	_ = mqtt_client_manager:stop_client(CAName,ID),
+	State#ap_state{mqtt=idle}.
 	
-
-
-
 
 
 %%==============================================================================
 %% managing statistics of access point
 
 -spec update_statistics (Event :: tuple(), Stats :: ets:tid()) -> true.
-
 update_statistics ({Event,Args,Comment},Stats) ->
 	ETag = {erlang:system_time(),erlang:unique_integer([monotonic])},
 	ets:insert(Stats,#ap_events{
@@ -585,65 +580,56 @@ update_statistics ({Event,Args,Comment},Stats) ->
 %--------report_statistics/1-------------generate an AP specific statistics report and send it to the handler
 
 -spec report_statistics (State :: #ap_state{}) -> NewState :: #ap_state{}.
-
 report_statistics (#ap_state{status=ready}=State) ->
 	State;
-
-report_statistics (#ap_state{stats_ets=Stats}=State) ->
-	%D = ets:match(Stats,'$1'),
-	%io:format("all DATA: ~n~p~n",[D]),
-	Ri = report_interval(Stats),
-	RX = received_bytes(Stats),
-	TX = sent_bytes(Stats),
-	Drop = comm_dropped(Stats),
-	%Res = comm_restart(Stats),
-	io:format("RX: ~.3fbytes/sec | TX: ~.3fbytes/sec~n | dropped: ~B, restart_delay: ~n",[RX/Ri*1000,TX/Ri*1000,Drop]),
-	ets:delete_all_objects(Stats),
-	update_statistics({report_mark,{},<<>>},Stats),
+report_statistics (#ap_state{stats_ets=S,id=ID}=State) ->
+	% D = ets:match(Stats,'$1'),
+	% io:format("all DATA: ~n~p~n",[D]),
+	Ri = report_interval(S),
+	RX = received_bytes(S),
+	TX = sent_bytes(S),
+	Stats = #ap_statistics{
+			stamp = erlang:system_time(),
+			interval = Ri,
+			rx_bytes = RX,
+			rx_bps = RX / Ri,
+			tx_bytes = TX,
+			tx_bps = TX / Ri,
+			dropped = comm_dropped(S),
+			restarts  = comm_restart(S),
+			latency = 0
+		},
+	ets:delete_all_objects(S),
+	ovsdb_client_handler:push_ap_stats(Stats,ID),
+	update_statistics({report_mark,{},<<>>},S),
 	State.
 
 
 
 -spec report_interval(S :: ets:tid()) -> IntervalInMs :: integer().
-
 report_interval (S) ->
 	case ets:match(S,{ap_events,{'$1','_'},report_mark,'_','_'}) of
 		[[R]] ->
 			erlang:convert_time_unit(erlang:system_time()-R, native, millisecond);
 		_ -> 
-			1000
+			?AP_REPORT_INTERVAL
 	end.
-
-
 
 -spec received_bytes (S :: ets:tid()) -> Bytes :: integer().
-
 received_bytes (S) ->
-	case ets:match(S,{ap_events,'_',comm_event,{<<"RX">>,'$1'},'_'}) of
-		[] -> 0;
-		R ->
-			lists:foldl(fun(X,A) -> X+A end,0,[V||[V]<-R])
-	end.
-
-
-
+	lists:foldl(fun(X,A) -> X+A end,0,[V||[V]<-ets:match(S,{ap_events,'_',comm_event,{<<"RX">>,'$1'},'_'})]).
+	
 -spec sent_bytes (S :: ets:tid()) -> Bytes :: integer().
-
 sent_bytes (S) ->
-	case ets:match(S,{ap_events,'_',comm_event,{<<"TX">>,'$1'},'_'}) of
-		[] -> 0;
-		R ->
-			lists:foldl(fun(X,A) -> X+A end,0,[V||[V]<-R])
-	end.
-
-
-
+	lists:foldl(fun(X,A) -> X+A end,0,[V||[V]<-ets:match(S,{ap_events,'_',comm_event,{<<"TX">>,'$1'},'_'})]).
+	
 -spec comm_dropped (S :: ets:tid()) -> ErrorCount :: integer().
-
 comm_dropped (S) ->
-	case ets:match(S,{ap_events,'_',comm_error,{<<"socket_closed">>,'$1'},'_'}) of
-		[] -> 0;
-		R ->
-			lists:foldl(fun(X,A) -> X+A end,0,[V||[V]<-R])
-	end.
+	length(ets:match_object(S,{ap_events,'_',comm_error,{<<"socket_closed">>},'_'})).
+	
+-spec comm_restart(S::ets:tid()) -> RestartCount::integer().
+comm_restart(S) ->
+	length(ets:match_object(S,{ap_events,'_',tip_connect,{<<"start_comm">>},'_'})). 
 
+
+		

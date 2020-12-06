@@ -53,7 +53,7 @@
 	id = <<>> :: binary(),              %% hardware ID
 	key = {none,<<>>} :: {atom(), binary()},
 	cert = <<>> :: binary(),
-	decrypt = <<>> :: binary(),
+	decrypt = {none,<<>>} :: {atom(), binary()},
 	csr = <<>> :: binary(),
 	cacert = <<>> :: binary(),
 	attributes = #{} :: attribute_list()
@@ -72,7 +72,7 @@
 	addresses = [] :: [inet:ip_address()],
 	key = {none,<<>>} :: {atom(), binary()},
 	cert = <<>> :: binary(),
-	decrypt = <<>> :: binary(),
+	decrypt = {none,<<>>} :: {atom(), binary()},
 	csr = <<>> :: binary(),
 	cacert = <<>> :: binary(),
 	attributes = #{} :: attribute_list()

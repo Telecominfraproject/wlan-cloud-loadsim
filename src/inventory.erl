@@ -220,7 +220,7 @@ handle_call({make_ca,Ca,Password,Pid}, _From, State = #inventory_state{}) ->
 handle_call({import_ca,Ca,Attributes,Pid}, _From, State = #inventory_state{}) ->
 	case ets:lookup(?CADB_TABLE,Ca) of
 		[]->
-			{ok,NewState}=import_ca(Ca,Attributes,State,Pid),
+			{ok,NewState}=import_a_ca(Ca,Attributes,State,Pid),
 			{reply, ok, NewState};
 		[_CAInfo]->
 			{reply,{error,ca_already_exists},State}
@@ -497,8 +497,8 @@ create_ca(CaName,Password,State,_Pid)->
 
 	{ ok, State#inventory_state{ status = created } }.
 
--spec import_ca(CAName::binary(),Attributes::attribute_list(),State::#inventory_state{},Pid::pid()) -> {ok,NewState::#inventory_state{}}.
-import_ca(CaName,Attributes,State,_Pid)->
+-spec import_a_ca(CAName::binary(),Attributes::attribute_list(),State::#inventory_state{},Pid::pid()) -> {ok,NewState::#inventory_state{}}.
+import_a_ca(CaName,Attributes,State,_Pid)->
 	%% Make all the directories
 	#{ password := OPassword , keyfilename := OKeyFileNAme , certfilename := OCertFileName } = Attributes,
 	CaDir = filename:join([State#inventory_state.cert_db_dir,binary_to_list(CaName)]),
@@ -517,8 +517,10 @@ import_ca(CaName,Attributes,State,_Pid)->
 	CaKeyCertFileName = filename:join([CaDir,binary_to_list(CaName) ++ "_cert.pem"]),
 	CaConfigFileName = filename:join([CaDir,binary_to_list(CaName)++".cnf"]),
 
-	_ = file:copy( OKeyFileNAme , CaKeyFileName ),
-	_ = file:copy( OCertFileName, CaKeyCertFileName ),
+	_R1 = file:copy( OKeyFileNAme , CaKeyFileName ),
+	_R2 = file:copy( OCertFileName, CaKeyCertFileName ),
+
+	%% io:format("R1=~p R2=~p O=~p N=~p~n",[R1,R2,OKeyFileNAme,CaKeyFileName]),
 
 	_ = file:change_mode(CaKeyFileName,8#0400),
 	_ = file:change_mode(CaKeyCertFileName,8#0400),
@@ -530,7 +532,6 @@ import_ca(CaName,Attributes,State,_Pid)->
 	ok = utils:make_dir(filename:join([CaDir,"newcerts"])),
 	ok = utils:make_dir(filename:join([CaDir,"crl"])),
 	ok = utils:make_dir(filename:join([CaDir,"private"])),
-
 
 	{ok,CertData}=utils:pem_to_cert(CaKeyCertFileName),
 	{ok,KeyData}=utils:pem_to_key(CaKeyFileName),

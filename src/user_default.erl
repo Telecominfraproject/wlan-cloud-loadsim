@@ -143,21 +143,23 @@ create_ca(CAName) when is_list(CAName)->
 create_ca(CAName,Password) when is_list(CAName),is_list(Password)->
 	inventory:make_ca(CAName,Password).
 
--spec import_ca(CAName::string(),Attributes::attribute_list())->ok | generic_error().
-import_ca(CAName,Attributes) when is_list(CAName), is_map(Attributes) ->
-	try
-		#{ keyfilename := _CaKeyFileName ,
-		   certfilename := _CaKeyCertFileName ,
-		   password := _Password } = Attributes,
-		inventory:import_ca(CAName,Attributes)
-	catch
-		_:_ ->
-			{ error, missing_attribute }
-	end.
-
 -spec import_ca(CAName::string(),Password::string(),KeyFileName::string(),CertFileName::string())->ok | generic_error().
 import_ca(CAName,Password,KeyFileName,CertFileNAme) when is_list(CAName), is_list(Password), is_list(KeyFileName), is_list(CertFileNAme) ->
-	inventory:import_ca(CAName,#{ password => Password, keyfilename => KeyFileName, certfilename => CertFileNAme}).
+	case utils:pem_key_is_encrypted(KeyFileName) of
+		true ->
+			io:format("Key is encrypted..trying to remove encryption...~n"),
+			TmpKeyFileName = "tmp-"++KeyFileName,
+			case utils:remove_pem_key_password(Password,KeyFileName,TmpKeyFileName) of
+				true ->
+					io:format("Key was decrypted and can be imported...~n"),
+					inventory:import_ca(CAName,#{ password => "", keyfilename => TmpKeyFileName, certfilename => CertFileNAme}),
+					file:delete(TmpKeyFileName);
+				false->
+					io:format("Key was not decrypted and will not be imported. Please supply the right password.~n")
+			end;
+		false ->
+			inventory:import_ca(CAName,#{ password => Password, keyfilename => KeyFileName, certfilename => CertFileNAme})
+	end.
 
 -spec remove_ca(CAName::string())->generic_result().
 remove_ca(CAName) when is_list(CAName) ->
@@ -313,6 +315,10 @@ get_server(ovsdb_server)->
 			auto
 	end.
 
+t1_key()->
+	import_ca("sim1","mypassword","tip2-cakey.pem","tip2-cacert.pem").
 
+t2_key()->
+	import_ca("sim1","","sim1_key.pem","sim1_cert.pem").
 
 

@@ -11,7 +11,7 @@
 
 %% API
 -export([make_dir/1,uuid/0,get_addr/0,get_addr2/0,app_name/0,app_name/1,priv_dir/0,app_env/2,to_string_list/2,to_binary_list/2,print_nodes_info/1,
-					do/2,pem_to_cert/1,pem_to_key/1,safe_binary/1,uuid_b/0]).
+					do/2,pem_to_cert/1,pem_to_key/1,safe_binary/1,uuid_b/0,pem_key_is_encrypted/1,remove_pem_key_password/3]).
 
 -spec make_dir( DirName::string() ) -> ok | { error, atom() }.
 make_dir(DirName)->
@@ -172,6 +172,29 @@ pem_to_key(FileName) when is_list(FileName)->
 	catch
 		_:_ ->
 			{error,error_no_pem_file}
+	end.
+
+pem_key_is_encrypted(FileName) when is_binary(FileName)->
+	pem_to_key(binary_to_list(FileName));
+pem_key_is_encrypted(FileName) when is_list(FileName)->
+	try
+		{ok,FileData}=file:read_file(FileName),
+		[{_,_,not_encrypted}]=public_key:pem_decode(FileData),
+			false
+	catch
+		_:_ ->
+			true
+	end.
+
+-spec remove_pem_key_password(Password::string(),InFileName::string(),OutFileName::string()) -> boolean().
+remove_pem_key_password(Password,InFileName,OutFilename)->
+	try
+		Cmd = io_lib:format("openssl rsa -passin pass:~s -in ~s -out ~s",[Password,InFileName,OutFilename]),
+		_Result = os:cmd(Cmd),
+		not pem_key_is_encrypted(OutFilename)
+	catch
+		_:_ ->
+			false
 	end.
 
 -spec safe_binary(binary()|string()|atom()|integer())->binary().

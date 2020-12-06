@@ -11,7 +11,7 @@
 
 %% API
 -export([make_dir/1,uuid/0,get_addr/0,get_addr2/0,app_name/0,app_name/1,priv_dir/0,app_env/2,to_string_list/2,to_binary_list/2,print_nodes_info/1,
-					do/2,pem_to_cert/1,pem_to_key/1,safe_binary/1]).
+					do/2,pem_to_cert/1,pem_to_key/1,safe_binary/1,uuid_b/0]).
 
 -spec make_dir( DirName::string() ) -> ok | { error, atom() }.
 make_dir(DirName)->
@@ -24,6 +24,10 @@ make_dir(DirName)->
 -spec uuid()->string().
 uuid()->
 	uuid:uuid_to_string(uuid:get_v4()).
+
+-spec uuid_b()->binary().
+uuid_b()->
+	list_to_binary(uuid:uuid_to_string(uuid:get_v4())).
 
 -spec get_addr() -> IpAddress::string().
 get_addr()->

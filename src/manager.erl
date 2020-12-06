@@ -14,7 +14,7 @@
 -include("../include/common.hrl").
 
 %% API
--export([start_link/0,creation_info/0,connect/0,disconnect/0,send_os_stats_report/1,connected_nodes/0]).
+-export([start_link/0,creation_info/0,connect/0,disconnect/0,connected_nodes/0]).
 -export([log_info/1,log_info/2,log_error/1,log_error/2]).
 
 %% gen_server callbacks
@@ -44,9 +44,6 @@ disconnect()->
 
 connected_nodes()->
 	gen_server:call({global,?SERVER},connected_nodes).
-
-send_os_stats_report(Report)->
-	gen_server:cast({global,?SERVER},{stats_report,node(),Report}).
 
 log_info(Message)->
 	gen_server:cast({global,?SERVER},{log_info,node(),Message}).
@@ -123,9 +120,6 @@ handle_call(_Request, _From, State = #manager_state{}) ->
 	{noreply, NewState :: #manager_state{}} |
 	{noreply, NewState :: #manager_state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), NewState :: #manager_state{}}).
-handle_cast({stats_report,NodeName,Report},State=#manager_state{})->
-	%% io:format("Received stats from ~p.~n",[NodeName]),
-	{noreply,State#manager_state{ stats = maps:put(NodeName,Report,State#manager_state.stats)}};
 handle_cast({log_info,NodeName,Message}, State = #manager_state{}) ->
 	_=lager:info("~p: "++Message,[NodeName]),
 	{noreply, State};
@@ -192,4 +186,5 @@ startdb()->
 create_tables()->
 	inventory:create_tables(),
 	simengine:create_tables(),
+	statistics:create_tables(),
 	ok.

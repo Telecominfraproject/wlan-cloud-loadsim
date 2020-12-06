@@ -12,14 +12,14 @@
 %% API
 -export([start/0,server/0,client/0]).
 
--define(S_CERT,"certs_db/sim1/servers/server-mqtt-1--cert.pem").
--define(S_KEY ,"certs_db/sim1/servers/server-mqtt-1--key.pem").
--define(S_DKEY,"certs_db/sim1/servers/server-mqtt-1--key_dec.pem").
+-define(S_CERT,"certs_db/sim1/servers/server-mqtt-1-cert.pem").
+-define(S_KEY ,"certs_db/sim1/servers/server-mqtt-1-key.pem").
+-define(S_DKEY,"certs_db/sim1/servers/server-mqtt-1-key_dec.pem").
 
--define(C_CERT,"certs_db/sim1/clients/client-sim1-1-00002D-cert.pem").
--define(C_KEY ,"certs_db/sim1/clients/client-sim1-1-00002D-key.pem").
--define(C_DKEY,"certs_db/sim1/clients/client-sim1-1-00002D-key_dec.pem").
--define(C_CA  ,"certs/test_certs/sim1_cert.pem").
+-define(C_CERT,"certs_db/sim1/clients/client-sim1-1-000010-cert.pem").
+-define(C_KEY ,"certs_db/sim1/clients/client-sim1-1-000010-key.pem").
+-define(C_DKEY,"certs_db/sim1/clients/client-sim1-1-000010-key_dec.pem").
+-define(C_CA  ,"certs_db/sim1/sim1_cert.pem").
 
 -define(PORT,11000).
 
@@ -87,11 +87,13 @@ client()->
 %%	{ok,Cacerts}=file:read_file(?C_CA),
 	{ok,Cert}=utils:pem_to_cert(?C_CERT),
 	{ok,Key}=utils:pem_to_key(?C_KEY),
+	{ok,Cacert}=utils:pem_to_cert(?C_CA),
 	{ok,SSL}=ssl:connect("renegademac.arilia.com",?PORT,
 	                     [
 		                     %% {log_level,debug},
 		                     {session_tickets,auto},
 		                     {versions, ['tlsv1.2','tlsv1.3']},
+		                     {cacerts,[Cacert]},
 		                     {cert,Cert},
 		                     {key,Key},
 		                     {active,false },

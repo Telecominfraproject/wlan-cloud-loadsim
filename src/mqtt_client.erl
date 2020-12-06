@@ -33,8 +33,12 @@
 start(CAName,Id,Configuration,ManagerPid)->
 	#{ <<"broker">> := Broker, <<"compress">> := Compress, <<"port">> := Port, <<"topics">> := Topics } = Configuration,
 	{ok,DeviceConfiguration} = inventory:get_client(CAName,Id),
-	_ = case ssl:connect(binary_to_list(Broker),list_to_integer(binary_to_list(Port)), [{session_tickets,auto},{versions, ['tlsv1.2','tlsv1.3']},{cert,DeviceConfiguration#client_info.cert},
-																																									{key,DeviceConfiguration#client_info.key},{active,false },binary]) of
+	_ = case ssl:connect(binary_to_list(Broker),list_to_integer(binary_to_list(Port)),
+	                     [{session_tickets,auto},{versions, ['tlsv1.2','tlsv1.3']},
+	                      {cert,DeviceConfiguration#client_info.cert},
+												{key,DeviceConfiguration#client_info.key},
+												{cacerts,[DeviceConfiguration#client_info.cacert]},
+												{active,false},binary]) of
 		{ok,SSLSocket} ->
 			%% io:format(">>>Connected~n"),
 			CS = #client_state{ id=Id, manager_pid = ManagerPid, topics = Topics, compress = Compress , configuration = Configuration, details = DeviceConfiguration },

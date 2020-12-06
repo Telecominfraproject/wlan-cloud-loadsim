@@ -360,7 +360,7 @@ apply_config (Cfg, #hdl_state{clients=Clients}=State) when is_map_key(file,Cfg) 
 apply_config (Cfg, #hdl_state{clients=Clients}=State) when is_map_key(internal,Cfg) ->
 	#{internal:=SimName, clients:=Num} = Cfg,
 	F = fun (X) -> #ap_client{
-						id=lists:flatten(io_lib:format("~s-1-~6.16.0B",[SimName,X])),
+						id=lists:flatten(io_lib:format("~s-1-~5.16.0B0",[SimName,X])),
 						ca_name=SimName,
 						status=available,
 						process=none,

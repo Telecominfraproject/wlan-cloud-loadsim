@@ -49,5 +49,8 @@
 -define(RL_E(X),_=manager:log_error(X)).
 -define(RL_EA(X,Y),_=manager:log_error(X,Y)).
 
+-type gen_configuration() :: #{ binary() => term()}.
+
+-export_type([gen_configuration/0]).
 
 -endif.

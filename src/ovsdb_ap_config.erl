@@ -43,14 +43,19 @@ new (CAName,Id,Store) ->
 -spec configure (Config :: cfg()) -> NewConfig :: cfg().
 configure (#cfg{ca_name=CAName, id=ID}=Config) ->
 	{ok,Info} = inventory:get_client(CAName,ID),
-	File = filename:join([code:priv_dir(?OWLS_APP),"ovsdb","default_ap.cfg"]),
+	File = filename:join([code:priv_dir(?OWLS_APP),"templates","default_ap.cfg"]),
 	{ok, [Defaults]} = file:consult(File),
+	{KeyType,KeyData} = Info#client_info.decrypt,
+	CA =  Info#client_info.cacert,
+	Cert = Info#client_info.cert,
 	APC1 = lists:keyreplace(serial,1,Defaults,{serial,Info#client_info.serial}),
 	APC2 = lists:keyreplace(type,1,APC1,{type,Info#client_info.type}),
-	initialize_ap_tables(Config#cfg.store_ref,APC2),
+	APC3 = lists:keyreplace(wan_mac,1,APC2,{wan_mac,Info#client_info.wan_mac0}),
+	APC4 = lists:keyreplace(lan_mac,1,APC3,{lan_mac,Info#client_info.lan_mac0}),
+	initialize_ap_tables(Config#cfg.store_ref,APC4),
 	Config#cfg{
-		ca_certs = proplists:get_value(ca_certs,APC2),			% replace this when proper certs come down with the one from inventory Info
-		client_cert = proplists:get_value(client_cert,APC2)
+		ca_certs = public_key:pem_encode([{'Certificate',CA,not_encrypted}]),	
+		client_cert = public_key:pem_encode([{'Certificate',Cert,not_encrypted},{KeyType,KeyData,not_encrypted}])
 	}.
 
 -spec initialize_ap_tables (Store :: ets:tid(), Config :: proplists:proplist()) -> true.

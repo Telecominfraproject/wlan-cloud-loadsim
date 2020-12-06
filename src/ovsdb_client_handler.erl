@@ -359,17 +359,25 @@ apply_config (Cfg, #hdl_state{clients=Clients}=State) when is_map_key(file,Cfg) 
 	State;
 apply_config (Cfg, #hdl_state{clients=Clients}=State) when is_map_key(internal,Cfg) ->
 	#{internal:=SimName, clients:=Num} = Cfg,
-	F = fun (X) -> #ap_client{
-						id=lists:flatten(io_lib:format("~s-1-~5.16.0B0",[SimName,X])),
-						ca_name=SimName,
-						status=available,
-						process=none,
-						transitions=[{available,erlang:system_time()}]
-					}
-		end,
-	C = [F(X)||X<-lists:seq(1,Num)],
-	ets:insert(Clients,C),
-	State;
+	case inventory:list_clients(SimName) of
+		{ok, AvailCL} when length(AvailCL) > 0 ->
+			M = min(Num,length(AvailCL)),
+			?L_I(?DBGSTR("startig ~B clients for simulation '~s'",[M,SimName])),
+			F = fun (X) -> #ap_client{
+								id=X,
+								ca_name=SimName,
+								status=available,
+								process=none,
+								transitions=[{available,erlang:system_time()}]
+							}
+			end,
+			C = [F(X)||{N,X}<-lists:zip(lists:seq(1,length(AvailCL)),AvailCL),N=<M],
+			ets:insert(Clients,C),
+			State;
+		_ ->
+			?L_E(?DBGSTR("there are no clients in the inventory for simulation '~s'",[SimName])),
+			State
+	end;
 apply_config (Cfg, State) ->
 	io:format("GOT CONFIG!!! ~p~n~n",[Cfg]),
 	State.

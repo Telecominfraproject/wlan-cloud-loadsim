@@ -81,7 +81,7 @@ handle_call(_Request, _From, State = #statistics_state{}) ->
 	{noreply, NewState :: #statistics_state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), NewState :: #statistics_state{}}).
 handle_cast({stats_report,NodeName,Type,Report},State=#statistics_state{})->
-	io:format("Received ~p stats from ~p.~n",[Type,NodeName]),
+%%	io:format("Received ~p stats from ~p.~n",[Type,NodeName]),
 	_=add_new_report(NodeName,Type,Report),
 	{noreply,State#statistics_state{ last_reports = maps:put({NodeName,Type},Report,State#statistics_state.last_reports)}};
 handle_cast(_Request, State = #statistics_state{}) ->

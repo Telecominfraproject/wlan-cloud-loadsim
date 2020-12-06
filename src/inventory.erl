@@ -465,7 +465,7 @@ create_ca(CaName,Password,State,_Pid)->
 		                              [ CaConfigFileName,	CaKeyFileName, CaKeyCertFileName ])
 	       end,
 	_CommandResult1 = os:cmd(Cmd1),
-	_ = file:change_mode(CaKeyCertFileName,8#0444),
+	_ = file:change_mode(CaKeyCertFileName,8#0400),
 	%% io:format("> CMD1: ~s, RESULT: ~s~n~n",[Cmd1,CommandResult1]),
 
 	ok = file:write_file( filename:join([CaDir, "index.txt"]),<<>>),
@@ -521,7 +521,7 @@ import_ca(CaName,Attributes,State,_Pid)->
 	_ = file:copy( OCertFileName, CaKeyCertFileName ),
 
 	_ = file:change_mode(CaKeyFileName,8#0400),
-	_ = file:change_mode(CaKeyCertFileName,8#0444),
+	_ = file:change_mode(CaKeyCertFileName,8#0400),
 
 	ok = file:write_file( filename:join([CaDir, "index.txt"]),<<>>),
 	ok = file:write_file( filename:join([CaDir, "serial.txt"]),<<$0,$1>>),
@@ -619,8 +619,8 @@ create_server(CAInfo,Name,Type,State,_Pid)->
 
 	{ok,KeyPemData} = utils:pem_to_key(ServerKeyPem),
 	{ok,ServerCertPemData} = utils:pem_to_cert(ServerCertPem),
+	{ok,ServerKeyDecPemData} = utils:pem_to_key(ServerKeyDec),
 
-	{ok,ServerKeyDecPemData} = file:read_file(ServerKeyDec),
 	{ok,ServerCertCsrPemData} = file:read_file(ServerCertCsr),
 
 	NewServerInfo = #server_info{
@@ -693,17 +693,24 @@ create_client(CAInfo,Attributes,State)->
 	_CommandResult3 = os:cmd(Cmd3),
 	%% io:format("CMD3: ~s, RESULT: ~s~n~n",[Cmd3,CommandResult3]),
 
-	{ok,ClientKeyDecData} = file:read_file(ClientKeyDec),
 	{ok,ClientCertCsrData} = file:read_file(ClientCertCsr),
-
+	{ok,ClientKeyDecData} = utils:pem_to_key(ClientKeyDec),
 	{ok,ClientKeyPemData} = utils:pem_to_key(ClientKeyPem),
 	{ok,ClientCertPemData} = utils:pem_to_cert(ClientCertPem),
 
+	[X1a,X1b,$:,X2a,X2b,$:,X3a,X3b,$:,X4a,X4b,$:,X5a,X5b,$:,X6a,_X6b] = binary_to_list(Mac),
 	Client = #client_info{
 		name = Name,
 		ca = CAInfo#ca_info.name,
 		cap = [ mqtt_client , ovsdb_client ],
-		mac = Mac,
+		wan_mac0 = list_to_binary([X1a,X1b,$:,X2a,X2b,$:,X3a,X3b,$:,X4a,X4b,$:,X5a,X5b,$:,X6a,$0]),
+		wan_mac1 = list_to_binary([X1a,X1b,$:,X2a,X2b,$:,X3a,X3b,$:,X4a,X4b,$:,X5a,X5b,$:,X6a,$1]),
+		wan_mac2 = list_to_binary([X1a,X1b,$:,X2a,X2b,$:,X3a,X3b,$:,X4a,X4b,$:,X5a,X5b,$:,X6a,$2]),
+		wan_mac3 = list_to_binary([X1a,X1b,$:,X2a,X2b,$:,X3a,X3b,$:,X4a,X4b,$:,X5a,X5b,$:,X6a,$3]),
+		lan_mac0 = list_to_binary([X1a,X1b,$:,X2a,X2b,$:,X3a,X3b,$:,X4a,X4b,$:,X5a,X5b,$:,X6a,$4]),
+		lan_mac1 = list_to_binary([X1a,X1b,$:,X2a,X2b,$:,X3a,X3b,$:,X4a,X4b,$:,X5a,X5b,$:,X6a,$5]),
+		lan_mac2 = list_to_binary([X1a,X1b,$:,X2a,X2b,$:,X3a,X3b,$:,X4a,X4b,$:,X5a,X5b,$:,X6a,$6]),
+		lan_mac3 = list_to_binary([X1a,X1b,$:,X2a,X2b,$:,X3a,X3b,$:,X4a,X4b,$:,X5a,X5b,$:,X6a,$7]),
 		id = HardwareId,
 		serial = Serial,
 		key = ClientKeyPemData,
@@ -734,12 +741,12 @@ generate_client_batch(CAInfo,Start,HowMany,Attributes,Notification,State)->
 generate_client_batch(_CaInfo,_Prefix,_Current,_Start,0,_Attributes,{M,F,A}=_Notification,_State)->
 	apply(M,F,A);
 generate_client_batch(CaInfo,Prefix,Current,Start,Left,Attributes,Notification,State)->
-	[X1,X2,X3,X4,X5,X6] = lists:flatten(string:pad(integer_to_list(Current,16),6,leading,$0)),
+	[X1,X2,X3,X4,X5] = lists:flatten(string:pad(integer_to_list(Current,16),5,leading,$0)),
 	#{ serial := Serial, name := Name } = Attributes,
-	Mac = Prefix ++ [X1,X2,$:,X3,X4,$:,X5,X6],
-	RealSerial = binary_to_list(Serial) ++ "_" ++ [X1,X2,X3,X4,X5,X6],
-	RealName = binary_to_list(Name) ++ "-" ++ [X1,X2,X3,X4,X5,X6],
-	_ = create_client(CaInfo, Attributes#{ name => list_to_binary(RealName), mac => list_to_binary(Mac), serial => list_to_binary(RealSerial) },State),
+	Mac = Prefix ++ [X1,X2,$:,X3,X4,$:,X5,$0],
+	RealSerial = binary_to_list(Serial) ++ "_" ++ [X1,X2,X3,X4,X5,$0],
+	RealName = binary_to_list(Name) ++ "-" ++ [X1,X2,X3,X4,X5,$0],
+	_ = create_client(CaInfo, Attributes#{ name => list_to_binary(RealName), mac => list_to_binary(Mac) , serial => list_to_binary(RealSerial) },State),
 	generate_client_batch(CaInfo,Prefix,Current+1,Start,Left-1,Attributes,Notification,State).
 
 all_files_exist([])->
@@ -782,7 +789,7 @@ valid_password(_,_) ->
 
 create_tables()->
 	{atomic,ok} = mnesia:create_table(cas,    [{disc_copies,[node()]}, {record_name,ca_info},     {attributes,record_info(fields,ca_info)}]),
-	{atomic,ok} = mnesia:create_table(clients,[{disc_copies,[node()]}, {record_name,client_info}, {index,[mac,serial]},{attributes,record_info(fields,client_info)}]),
+	{atomic,ok} = mnesia:create_table(clients,[{disc_copies,[node()]}, {record_name,client_info}, {index,[wan_mac0,serial]},{attributes,record_info(fields,client_info)}]),
 	{atomic,ok} = mnesia:create_table(servers,[{disc_copies,[node()]}, {record_name,server_info}, {attributes,record_info(fields,server_info)}]),
 	ok.
 

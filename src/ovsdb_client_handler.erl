@@ -360,7 +360,7 @@ apply_config (Cfg, #hdl_state{clients=Clients}=State) when is_map_key(file,Cfg) 
 apply_config (Cfg, #hdl_state{clients=Clients}=State) when is_map_key(internal,Cfg) ->
 	#{internal:=SimName, clients:=Num} = Cfg,
 	F = fun (X) -> #ap_client{
-						id=lists:flatten(io_lib:format("~s-1-~6.16.0B",[SimName,X])),
+						id=lists:flatten(io_lib:format("~s-1-~5.16.0B0",[SimName,X])),
 						ca_name=SimName,
 						status=available,
 						process=none,
@@ -386,7 +386,8 @@ apply_config (Cfg, State) ->
 		NewHandlerSate :: #hdl_state{}.
 update_client_status (ClS, Id, #hdl_state{clients=Clients}=State) ->
 	{ok, C} = get_client_with_id(Clients,Id),
-	ets:insert(Clients,C#ap_client{status=ClS}),
+	T = C#ap_client.transitions,
+	ets:insert(Clients,C#ap_client{status=ClS,transitions=[{ClS,erlang:system_time()}|T]}),
 	State.
 	
 

@@ -20,7 +20,7 @@
 
 
 %% API
--export([start_link/0]).
+-export([start_link/0,creation_info/0]).
 -export([set_configuration/1, start/1, stop/1, pause/1, resume/1, cancel/1, report/0]).
 -export([ap_status/2,push_ap_stats/2,dump_clients/0,list_ids/0,all_ready/0]).
 
@@ -51,6 +51,15 @@
 	timer :: owls_timers:tms()
 }).
 
+
+
+creation_info() ->
+	[	#{	id => ?MODULE ,
+	       start => { ?MODULE , start_link, [] },
+	       restart => permanent,
+	       shutdown => 100,
+	       type => worker,
+	       modules => [?MODULE]} ].
 
 
 %%%============================================================================
@@ -171,7 +180,6 @@ push_ap_stats (Stats, Id) ->
 
 init (_) ->
 	process_flag(trap_exit, true),
-	simnode:register(ap_client, ?MODULE),
 	ovsdb_client_stats:prepare_statistics(),
 	{ok, _} = timer:apply_after(?MGR_REPORT_INTERVAL,gen_server,call,[self(),update_stats]),
 	Tid = ets:new(ovsdb_clients,[ordered_set,private,{keypos, 2}]),
@@ -272,7 +280,7 @@ handle_info({'EXIT',From,Reason}, #hdl_state{clients=CTid}=State) ->
 			end,
 			ets:insert(CTid,UpdC),
 			ets:match_delete(CTid,{ap_proc_map,From,'_'}),
-			{noreply, State};
+			{noreply, cmd_launch_clients([C#ap_client.id],State)};
 		_ ->
 			{noreply, State}
 	end;
@@ -447,7 +455,6 @@ get_client_ids_in_state (Tid, States, Refs) ->
 	MSpec = [{#ap_client{status=X,_='_'},[],['$_']}||X<-tuple_to_list(States)],
 	Clients = ets:select(Tid,MSpec),
 	Cids = [ID||#ap_client{id=ID}<-Clients],
-	%io:format("MSPEC: ~p~nCLIENTS: ~p~nREFS: ~p~n, CIDS: ~p~n",[MSpec,Clients,Refs,Cids]),
 	case Refs of
 		all ->
 			Cids;

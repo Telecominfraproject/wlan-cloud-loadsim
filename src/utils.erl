@@ -10,8 +10,9 @@
 -author("stephb").
 
 %% API
--export([make_dir/1,uuid/0,get_addr/0,get_addr2/0,app_name/0,app_name/1,priv_dir/0,app_env/2,to_string_list/2,to_binary_list/2,print_nodes_info/1,
-					do/2,pem_to_cert/1,pem_to_key/1,safe_binary/1,uuid_b/0,pem_key_is_encrypted/1,remove_pem_key_password/3]).
+-export([ make_dir/1,uuid/0,get_addr/0,get_addr2/0,app_name/0,app_name/1,priv_dir/0,app_env/2,to_string_list/2,to_binary_list/2,print_nodes_info/1,
+					do/2,pem_to_cert/1,pem_to_key/1,safe_binary/1,uuid_b/0,pem_key_is_encrypted/1,remove_pem_key_password/3,
+					noop/0,noop_mfa/0]).
 
 -spec make_dir( DirName::string() ) -> ok | { error, atom() }.
 make_dir(DirName)->
@@ -196,6 +197,14 @@ remove_pem_key_password(Password,InFileName,OutFilename)->
 		_:_ ->
 			false
 	end.
+
+-spec noop_mfa()->{atom(),atom(),term()}.
+noop_mfa()->
+	{utils,noop,[]}.
+
+-spec noop()->ok.
+noop()->
+	ok.
 
 -spec safe_binary(binary()|string()|atom()|integer())->binary().
 safe_binary(X) when is_binary(X)->

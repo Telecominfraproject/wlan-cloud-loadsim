@@ -12,6 +12,7 @@
 -behaviour(gen_server).
 
 -include("../include/common.hrl").
+-include("../include/errors.hrl").
 -include("../include/simengine.hrl").
 -include("../include/inventory.hrl").
 
@@ -19,7 +20,9 @@
 
 %% API
 -export([start_link/0,creation_info/0,create/1,create_tables/0,get/1,list/0,
-         prepare/2,prepare_assets/2,run_batch/4]).
+         prepare/2,prepare_assets/2,run_batch/4,start/2,stop/2,cancel/2,pause/2,restart/2,
+         push/2,sim_exists/1,
+         push_assets/2,stop_assets/2,cancel_assets/2,pause_assets/2,restarts_assets/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -31,7 +34,20 @@
 %% -define(SERVER, ?MODULE).
 %% -define(START_SERVER,{local,?MODULE}).
 
--record(simengine_state, { prepare_pid = none :: none | pid() }).
+-record(sim_state,{
+	created = false :: boolean(),
+	prepared = false :: boolean(),
+	current_op_pid = none :: none | pid(),
+	current_op = none :: none | preparing | pushing | starting | pausing | stopping | restarting | cancelling ,
+	state = created :: created | prepared | pushed | started | paused | stopped | restarted | cancelled ,
+	start = none :: none | erlang:timestamp(),
+	current_cb = none :: none | notification_cb(),
+	sim_info :: simulation()
+	}).
+
+-record(simengine_state, {
+	sim_states = #{} :: #{ SimName::binary() => #sim_state{} }
+}).
 
 %%%===================================================================
 %%% API
@@ -49,10 +65,32 @@ create(SimInfo) when is_record(SimInfo,simulation) ->
 	gen_server:call(?SERVER,{create_simulation,SimInfo}).
 
 -spec get(SimName::string()|binary()) -> {ok,simulation()} | generic_error().
-get(SimName) when is_list(SimName)->
-	gen_server:call(?SERVER,{get,list_to_binary(SimName)});
-get(SimName) when is_binary(SimName)->
-	gen_server:call(?SERVER,{get,SimName}).
+get(SimName)->
+	gen_server:call(?SERVER,{get,utils:safe_binary(SimName)}).
+
+-spec push(SimName::string()|binary(), Notification::notification_cb() )-> ok | generic_error().
+push(SimName,Notification)->
+	gen_server:call(?SERVER,{push,utils:safe_binary(SimName),Notification}).
+
+-spec start(SimName::string()|binary(), Notification::notification_cb() )-> ok | generic_error().
+start(SimName,{_M,_F,_A}=Notification)->
+	gen_server:call(?SERVER,{start,utils:safe_binary(SimName),Notification}).
+
+-spec stop(SimName::string()|binary(), Notification::notification_cb() )-> ok | generic_error().
+stop(SimName,{_M,_F,_A}=Notification)->
+	gen_server:call(?SERVER,{stop,utils:safe_binary(SimName),Notification}).
+
+-spec pause(SimName::string()|binary(), Notification::notification_cb() )-> ok | generic_error().
+pause(SimName,{_M,_F,_A}=Notification)->
+	gen_server:call(?SERVER,{pause,utils:safe_binary(SimName),Notification}).
+
+-spec cancel(SimName::string()|binary(), Notification::notification_cb() )-> ok | generic_error().
+cancel(SimName,{_M,_F,_A}=Notification)->
+	gen_server:call(?SERVER,{cancel,utils:safe_binary(SimName),Notification}).
+
+-spec restart(SimName::string()|binary(), Notification::notification_cb() )-> ok | generic_error().
+restart(SimName,{_M,_F,_A}=Notification)->
+	gen_server:call(?SERVER,{restart,utils:safe_binary(SimName),Notification}).
 
 -spec list() -> {ok,[string()]} | generic_error().
 list() ->
@@ -91,18 +129,128 @@ init([]) ->
 	                 {stop, Reason :: term(), Reply :: term(), NewState :: #simengine_state{}} |
 	                 {stop, Reason :: term(), NewState :: #simengine_state{}}).
 
-handle_call({prepare,SimName,Notification},_From,State = #simengine_state{}) ->
-	PreparePid=spawn_link(?MODULE,prepare_assets,[SimName,Notification]),
-	{reply,ok,State#simengine_state{ prepare_pid = PreparePid }};
 handle_call({create_simulation,SimInfo}, _From, State = #simengine_state{}) ->
-	case create_sim(SimInfo) of
-		ok -> {reply, ok, State};
-		Error -> { reply, {error,Error} , State}
+	case sim_exists(SimInfo#simulation.name) of
+		true ->
+			{reply,?ERROR_SIM_ALREADY_EXISTS};
+		false->
+			?L_IA("Creating simulation ~s.",[binary_to_list(SimInfo#simulation.name)]),
+			case create_sim(SimInfo) of
+				ok ->
+					SimState = #sim_state{ sim_info = SimInfo, created = true },
+					{reply, ok, State#simengine_state{ sim_states = maps:put(SimInfo#simulation.name,SimState,State#simengine_state.sim_states )}};
+				Error -> { reply, {error,Error} , State}
+			end
+	end;
+handle_call({prepare,SimName,Notification},_From,State = #simengine_state{}) ->
+	case get_sim(SimName) of
+		[]->
+			{reply,?ERROR_SIM_UNKNOWN,State};
+		[SimInfo] ->
+			case SimInfo#simulation.assets_created of
+				true ->
+					{ok,?ERROR_SIM_ASSETS_ALREADY_CREATED,State};
+				false->
+					S = maps:get(SimName,State#simengine_state.sim_states),
+					case is_pid(S#sim_state.current_op_pid) of
+						true->
+							{reply,?ERROR_SIM_OPERATION_IN_PROGRESS,State};
+						false->
+							OpPid=spawn_link(?MODULE,prepare_assets,[SimInfo,Notification]),
+							{reply,ok,State#simengine_state{ sim_states = maps:put(SimName,S#sim_state{current_op_pid = OpPid, current_op = preparing },State#simengine_state.sim_states) }}
+					end
+			end
+	end;
+handle_call({push,SimName,Callback}, _From, State = #simengine_state{}) ->
+	case get_sim(SimName) of
+		[] ->
+			{ reply, ?ERROR_SIM_UNKNOWN, State };
+		[SimInfo] ->
+			S = maps:get(SimName,State#simengine_state.sim_states),
+			case is_pid(S#sim_state.current_op_pid) of
+				true->
+					{reply,?ERROR_SIM_OPERATION_IN_PROGRESS,State};
+				false->
+					OpPid=spawn_link(?MODULE,push_assets,[SimInfo,Callback]),
+					{reply,ok,State#simengine_state{ sim_states = maps:put(SimName,S#sim_state{current_op_pid = OpPid, current_op = pushing },State#simengine_state.sim_states) }}
+			end
+	end;
+handle_call({start,SimName,Callback}, _From, State = #simengine_state{}) ->
+	case get_sim(SimName) of
+		[] ->
+			{ reply, ?ERROR_SIM_UNKNOWN, State };
+		[SimInfo] ->
+			S = maps:get(SimName,State#simengine_state.sim_states),
+			case is_pid(S#sim_state.current_op_pid) of
+				true->
+					{reply,?ERROR_SIM_OPERATION_IN_PROGRESS,State};
+				false->
+					OpPid=spawn_link(?MODULE,start_assets,[SimInfo,Callback]),
+					{reply,ok,State#simengine_state{ sim_states = maps:put(SimName,S#sim_state{current_op_pid = OpPid, current_op = starting },State#simengine_state.sim_states) }}
+			end
+	end;
+handle_call({stop,SimName,Callback}, _From, State = #simengine_state{}) ->
+	case get_sim(SimName) of
+		[] ->
+			{ reply, ?ERROR_SIM_UNKNOWN, State };
+		[SimInfo] ->
+			S = maps:get(SimName,State#simengine_state.sim_states),
+			case is_pid(S#sim_state.current_op_pid) of
+				true->
+					{reply,?ERROR_SIM_OPERATION_IN_PROGRESS,State};
+				false->
+					OpPid=spawn_link(?MODULE,stop_assets,[SimInfo,Callback]),
+					{reply,ok,State#simengine_state{ sim_states = maps:put(SimName,S#sim_state{current_op_pid = OpPid, current_op = stopping },State#simengine_state.sim_states) }}
+			end
+	end;
+handle_call({pause,SimName,Callback}, _From, State = #simengine_state{}) ->
+	case get_sim(SimName) of
+		[] ->
+			{ reply, ?ERROR_SIM_UNKNOWN, State };
+		[SimInfo] ->
+			S = maps:get(SimName,State#simengine_state.sim_states),
+			case is_pid(S#sim_state.current_op_pid) of
+				true->
+					{reply,?ERROR_SIM_OPERATION_IN_PROGRESS,State};
+				false->
+					OpPid=spawn_link(?MODULE,pause_assets,[SimInfo,Callback]),
+					{reply,ok,State#simengine_state{ sim_states = maps:put(SimName,S#sim_state{current_op_pid = OpPid, current_op = pausing },State#simengine_state.sim_states) }}
+			end
+	end;
+handle_call({cancel,SimName,Callback}, _From, State = #simengine_state{}) ->
+	case get_sim(SimName) of
+		[] ->
+			{ reply, ?ERROR_SIM_UNKNOWN, State };
+		[SimInfo] ->
+			S = maps:get(SimName,State#simengine_state.sim_states),
+			case is_pid(S#sim_state.current_op_pid) of
+				true->
+					{reply,?ERROR_SIM_OPERATION_IN_PROGRESS,State};
+				false->
+					OpPid=spawn_link(?MODULE,cancel_assets,[SimInfo,Callback]),
+					{reply,ok,State#simengine_state{ sim_states = maps:put(SimName,S#sim_state{current_op_pid = OpPid, current_op = cancelling },State#simengine_state.sim_states) }}
+			end
+	end;
+handle_call({restart,SimName,Callback}, _From, State = #simengine_state{}) ->
+	case get_sim(SimName) of
+		[] ->
+			{ reply, ?ERROR_SIM_UNKNOWN, State };
+		[SimInfo] ->
+			S = maps:get(SimName,State#simengine_state.sim_states),
+			case is_pid(S#sim_state.current_op_pid) of
+				true->
+					{reply,?ERROR_SIM_OPERATION_IN_PROGRESS,State};
+				false->
+					OpPid=spawn_link(?MODULE,restart_assets,[SimInfo,Callback]),
+					{reply,ok,State#simengine_state{ sim_states = maps:put(SimName,S#sim_state{current_op_pid = OpPid, current_op = restarting },State#simengine_state.sim_states) }}
+			end
 	end;
 handle_call({get,SimName}, _From, State = #simengine_state{}) ->
 	case get_sim(SimName) of
-		[Record] -> { reply, {ok, Record}, State };
-		Error-> { reply, {error, Error}, State }
+		[] ->
+			{ reply, ?ERROR_SIM_UNKNOWN, State };
+		[SimInfo] ->
+			{reply, {ok,SimInfo}, State}
 	end;
 handle_call(list_simulations, _From, State = #simengine_state{}) ->
 	{ reply, {ok, list_sims()}, State };
@@ -124,6 +272,24 @@ handle_cast(_Request, State = #simengine_state{}) ->
 	{noreply, NewState :: #simengine_state{}} |
 	{noreply, NewState :: #simengine_state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), NewState :: #simengine_state{}}).
+handle_info({'DOWN', _Ref, process, Pid, _Why}, State = #simengine_state{}) ->
+	N1 = maps:fold(fun(K,E,A)->
+		case E#sim_state.current_op_pid==Pid of
+			true ->
+				NewState = case E#sim_state.current_op of
+										 preparing -> prepared;
+					           pushing -> pushed;
+										 starting -> started;
+					           stopping -> stopped;
+										 pausing -> paused;
+										 cancelling -> cancelled
+				           end,
+				maps:put(K,E#sim_state{current_op_pid = none, current_op = none , state = NewState },A);
+			false->
+				maps:put(K,E,A)
+		end end,maps:new(),State#simengine_state.sim_states),
+	{noreply, State#simengine_state{ sim_states = N1 }};
+
 handle_info(_Info, State = #simengine_state{}) ->
 	{noreply, State}.
 
@@ -152,6 +318,12 @@ create_tables()->
 	{atomic,ok} = mnesia:create_table(simulations,[{disc_copies,[node()]}, {record_name,simulation}, {attributes,record_info(fields,simulation)}]),
 	ok.
 
+sim_exists(SimName)->
+	case get_sim(SimName) of
+		[] -> false;
+		_ -> true
+	end.
+
 create_sim(SimInfo) when is_record(SimInfo,simulation) ->
 	{atomic,Result}=mnesia:transaction(fun() ->
 			mnesia:dirty_write( simulations, SimInfo )
@@ -172,17 +344,51 @@ list_sims()->
 																				end),
 	Result.
 
--spec prepare_assets(SimName::binary(), Notification::notification_cb())->ok.
-prepare_assets(SimName,{M,F,A}=Notification)->
-	_ = case get_sim(SimName) of
-		[] ->
-			apply(M,F,A++[{error,unknown_simulation}]);
-		[SimInfo] ->
-			%% If we get here, the CA exists
-			%% Build the clients
-			split_build_clients(SimInfo,Notification),
-			split_build_servers(SimInfo,Notification)
-	end,
+-spec set_assets_created(SimInfo::simulation(), Value::boolean())->ok.
+set_assets_created(SimInfo,Value)->
+	_=mnesia:transaction( fun()->
+												[Sim]=mnesia:read(simulations,SimInfo#simulation.name),
+												_=mnesia:dirty_write(simulations,Sim#simulation{ assets_created = Value})
+											end),
+	ok.
+
+-spec prepare_assets(SimInfo::simulation(), Notification::notification_cb())->ok.
+prepare_assets(SimInfo,{M,F,A}=_Notification)->
+	?L_IA("~s: Preparing all assets.",[binary_to_list(SimInfo#simulation.name)]),
+	split_build_clients(SimInfo,utils:noop_mfa()),
+	split_build_servers(SimInfo,utils:noop_mfa()),
+	set_assets_created(SimInfo,true),
+	apply(M,F,A),
+	ok.
+
+-spec push_assets(SimName::binary(), Notification::notification_cb())->ok.
+push_assets(SimInfo,{M,F,A}=_Notification)->
+	?L_IA("~s: Preparing all assets.",[binary_to_list(SimInfo#simulation.name)]),
+	apply(M,F,A),
+	ok.
+
+-spec stop_assets(SimName::binary(), Notification::notification_cb())->ok.
+stop_assets(SimInfo,{M,F,A}=_Notification)->
+	?L_IA("~s: Stopping all assets.",[binary_to_list(SimInfo#simulation.name)]),
+	apply(M,F,A),
+	ok.
+
+-spec pause_assets(SimName::binary(), Notification::notification_cb())->ok.
+pause_assets(SimInfo,{M,F,A}=_Notification)->
+	?L_IA("~s: Pausing all assets.",[binary_to_list(SimInfo#simulation.name)]),
+	apply(M,F,A),
+	ok.
+
+-spec cancel_assets(SimName::binary(), Notification::notification_cb())->ok.
+cancel_assets(SimInfo,{M,F,A}=_Notification)->
+	?L_IA("~s: Cancelling all assets.",[binary_to_list(SimInfo#simulation.name)]),
+	apply(M,F,A),
+	ok.
+
+-spec restarts_assets(SimName::binary(), Notification::notification_cb())->ok.
+restarts_assets(SimInfo,{M,F,A}=_Notification)->
+	?L_IA("~s: Restarting all assets.",[binary_to_list(SimInfo#simulation.name)]),
+	apply(M,F,A),
 	ok.
 
 -spec split_build_clients( Sim::simulation(), NotificationCB::notification_cb())->ok.
@@ -197,10 +403,10 @@ run_batch(Ids,BatchSize,SimInfo)->
 	run_batch(Ids,BatchSize,SimInfo,1).
 
 run_batch([],_,SimInfo,_)->
-	io:format("~s: done creating ~p clients.~n",[binary_to_list(SimInfo#simulation.name),SimInfo#simulation.num_devices]),
+	io:format("~n~s: done creating ~p clients.~n",[binary_to_list(SimInfo#simulation.name),SimInfo#simulation.num_devices]),
 	ok;
 run_batch([H|T],BatchSize,SimInfo,BatchNumber)->
-	io:format("~s: creating ~p clients.~n",[binary_to_list(SimInfo#simulation.name),BatchSize]),
+	io:format("~n~s: creating ~p of ~p clients.~n",[binary_to_list(SimInfo#simulation.name),BatchSize,SimInfo#simulation.num_devices]),
 	BatchName = binary:list_to_bin([SimInfo#simulation.name,<<"-">>,integer_to_binary(BatchNumber)]),
 	Attributes = #{ id => H, name => BatchName, serial => H, mac => <<>> },
 	_ = inventory:make_clients(SimInfo#simulation.ca,

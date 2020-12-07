@@ -59,7 +59,7 @@ show_statistics(N) ->
 
 -spec prepare_statistics () -> ok | {error, Reason::term()}.
 prepare_statistics () ->
-	_ = ets:new(?MODULE,[ordered_set,private,{keypos, 2},named_table]),
+	_ = ets:new(?MODULE,[ordered_set,protected,{keypos, 2},named_table]),
 	ets:insert(?MODULE,{seq,seq,0}),
 	ok.
 

@@ -18,6 +18,7 @@
 
 -record (cfg, {
 	ca_name :: string() | binary(),
+	redirector :: binary(),
 	id :: string(),
 	store_ref :: ets:tid(),
 	ca_certs = <<"">> :: binary(),		% pem file (in memory) of the server certificate chain
@@ -28,7 +29,7 @@
 -export_type([cfg/0]).
 
 
--export([new/3,configure/1]).
+-export([new/4,configure/1]).
 -export ([id/1,ca_certs/1,client_cert/1,tip_redirector/2,tip_manager/2]).
 
 
@@ -36,27 +37,43 @@
 %% API
 
 
--spec new (CAName :: string() | binary(), Id :: string(), Store :: ets:tid()) -> Config :: cfg().
-new (CAName,Id,Store) ->
-	#cfg{ca_name=CAName, id=Id, store_ref = Store}.
+-spec new (CAName :: string() | binary(), Id :: string(), Store :: ets:tid(), Redirector :: binary()) -> Config :: cfg().
+new (CAName,Id,Store,Redirector) ->
+	#cfg{ca_name=CAName, id=Id, store_ref = Store, redirector=Redirector}.
 
 -spec configure (Config :: cfg()) -> NewConfig :: cfg().
-configure (#cfg{ca_name=CAName, id=ID}=Config) ->
+configure (#cfg{ca_name=CAName, id=ID, redirector=R}=Config) ->
 	{ok,Info} = inventory:get_client(CAName,ID),
-	File = filename:join([code:priv_dir(?OWLS_APP),"templates","default_ap.cfg"]),
-	{ok, [Defaults]} = file:consult(File),
 	{KeyType,KeyData} = Info#client_info.decrypt,
 	CA =  Info#client_info.cacert,
 	Cert = Info#client_info.cert,
-	APC1 = lists:keyreplace(serial,1,Defaults,{serial,Info#client_info.serial}),
-	APC2 = lists:keyreplace(type,1,APC1,{type,Info#client_info.type}),
-	APC3 = lists:keyreplace(wan_mac,1,APC2,{wan_mac,Info#client_info.wan_mac0}),
-	APC4 = lists:keyreplace(lan_mac,1,APC3,{lan_mac,Info#client_info.lan_mac0}),
-	initialize_ap_tables(Config#cfg.store_ref,APC4),
+	APC = [
+		{serial,Info#client_info.serial},
+		{type,Info#client_info.type},
+		{wan_mac,Info#client_info.wan_mac0},
+		{lan_mac,Info#client_info.lan_mac0},
+		{tip_redirector,R}
+	],
+	initialize_ap_tables(Config#cfg.store_ref,validate_config(APC)),
 	Config#cfg{
 		ca_certs = public_key:pem_encode([{'Certificate',CA,not_encrypted}]),	
 		client_cert = public_key:pem_encode([{'Certificate',Cert,not_encrypted},{KeyType,KeyData,not_encrypted}])
 	}.
+
+-spec validate_config(APC :: [{atom(),term()}]) -> CorrAPC :: [{atom(),term()}].
+validate_config (APC) ->
+	File = filename:join([code:priv_dir(?OWLS_APP),"templates","default_ap.cfg"]),
+	{ok, [Defaults]} = file:consult(File),
+	F = fun({K,V}) ->
+		case V of 
+			<<"">> ->
+				{K,proplists:get_value(K,Defaults)};
+			_ ->
+				{K,V}
+		end
+	end,
+	[F(X)||X<-APC].
+
 
 -spec initialize_ap_tables (Store :: ets:tid(), Config :: proplists:proplist()) -> true.
 initialize_ap_tables (Store, APC) ->

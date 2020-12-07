@@ -152,7 +152,7 @@ import_ca(CAName,Password,KeyFileName,CertFileNAme) when is_list(CAName), is_lis
 			case utils:remove_pem_key_password(Password,KeyFileName,TmpKeyFileName) of
 				true ->
 					io:format("Key was decrypted and can be imported...~n"),
-					inventory:import_ca(CAName,#{ password => "", keyfilename => TmpKeyFileName, certfilename => CertFileNAme}),
+					_ = inventory:import_ca(CAName,#{ password => "", keyfilename => TmpKeyFileName, certfilename => CertFileNAme}),
 					file:delete(TmpKeyFileName);
 				false->
 					io:format("Key was not decrypted and will not be imported. Please supply the right password.~n")

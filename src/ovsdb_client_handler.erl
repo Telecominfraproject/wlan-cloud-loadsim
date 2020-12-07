@@ -14,6 +14,7 @@
 
 -include("../include/common.hrl").
 -include("../include/ovsdb_definitions.hrl").
+-include("../include/inventory.hrl").
 
 -define(SERVER, ?MODULE).
 
@@ -164,14 +165,10 @@ push_ap_stats (Stats, Id) ->
 
 init (_) ->
 	process_flag(trap_exit, true),
-	case ovsdb_client_stats:prepare_statistics() of
-		{error, Reason} ->
-			{stop, Reason};
-		ok ->
-			{ok, _} = timer:apply_after(?MGR_REPORT_INTERVAL,gen_server,call,[self(),update_stats]),
-			Tid = ets:new(ovsdb_clients,[ordered_set,private,{keypos, 2}]),
-			{ok, #hdl_state{timer=owls_timers:new(millisecond), clients=Tid}}
-	end.
+	ovsdb_client_stats:prepare_statistics(),
+	{ok, _} = timer:apply_after(?MGR_REPORT_INTERVAL,gen_server,call,[self(),update_stats]),
+	Tid = ets:new(ovsdb_clients,[ordered_set,private,{keypos, 2}]),
+	{ok, #hdl_state{timer=owls_timers:new(millisecond), clients=Tid}}.
 
 
 
@@ -361,6 +358,7 @@ apply_config (Cfg, #hdl_state{clients=Clients}=State) when is_map_key(internal,C
 	#{internal:=SimName, clients:=Num} = Cfg,
 	case inventory:list_clients(SimName) of
 		{ok, AvailCL} when length(AvailCL) > 0 ->
+			io:format("LIST_CLIENTS:~n~p~n",[AvailCL]),
 			M = min(Num,length(AvailCL)),
 			?L_I(?DBGSTR("startig ~B clients for simulation '~s'",[M,SimName])),
 			F = fun (X) -> #ap_client{

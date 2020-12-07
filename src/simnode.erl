@@ -101,12 +101,6 @@ set_operation_state(Operation,NewState)->
 set_client(Client,Pid)->
 	gen_server:cast(?SERVER,{set_client_pid,Client,Pid}).
 
-%% @doc Spawns the server and registers the local name (unique)
--spec(start_link(Config::term()) ->
-	{ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
-start_link(Config) ->
-	gen_server:start_link({local, ?SERVER}, ?MODULE, [], [Config]).
-
 -spec update_stats( Client::any_role(), Role::any_role(), Stats::#{})-> ok.
 update_stats(Client,Role,Stats)->
 	gen_server:cast(?SERVER,{update_stats,Client,Role,Stats}).
@@ -117,6 +111,11 @@ send_os_stats()->
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
+%% @doc Spawns the server and registers the local name (unique)
+-spec(start_link(Config::term()) ->
+	{ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
+start_link(Config) ->
+	gen_server:start_link({local, ?SERVER}, ?MODULE, [Config], []).
 
 %% @private
 %% @doc Initializes the server
@@ -159,7 +158,7 @@ handle_call({connect,NodeName}, _From, State = #simnode_state{}) ->
 handle_call(connected, _From, State = #simnode_state{}) ->
 	{ reply, { ok, State#simnode_state.manager } , State };
 handle_call({set_configuration,Configuration}, _From, State = #simnode_state{}) ->
-	io:format("Received configuration: ~p~n",[Configuration]),
+	io:format(": ~p~n",[Configuration]),
 	safe_execute( State#simnode_state.ap_client_handler, set_configuration, [Configuration]),
 	safe_execute( State#simnode_state.mqtt_server_handler, set_configuration, [Configuration]),
 	safe_execute( State#simnode_state.ovsdb_server_handler, set_configuration, [Configuration]),

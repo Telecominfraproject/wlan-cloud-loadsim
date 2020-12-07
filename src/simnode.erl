@@ -19,9 +19,9 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0,creation_info/0,connect/1,disconnect/0,find_manager/2,connected/0,
+-export([start_link/1,creation_info/0,connect/1,disconnect/0,find_manager/2,connected/0,
 	set_configuration/1,reset_configuration/1,set_operation_state/2,execute/1,set_client/2,
-	get_configuration/0,set_configuration/2,get_configuration/1,register_handler/2,
+	get_configuration/0,set_configuration/2,get_configuration/1,
 	update_stats/3,send_os_stats/0]).
 
 %% gen_server callbacks
@@ -44,16 +44,20 @@
 	executing = #{} ::  #{ string() => sim_operation_state() },
 	client_pids = #{} :: #{ string() => pid() }}).
 
+%% ovsdb_server
 %%%===================================================================
 %%% API
 %%%===================================================================
 creation_info() ->
 	[	#{	id => ?MODULE ,
-		start => { ?MODULE , start_link, [] },
+		start => { ?MODULE , start_link, [{ap_client,ovsdb_client_handler},{mqtt_server,mqtt_server_handler}] },
 		restart => permanent,
 		shutdown => 100,
 		type => worker,
 		modules => [?MODULE]} ].
+
+%% ovsdb_server
+
 
 -spec connect(NodeName::atom())-> {ok, none | node()}.
 connect(NodeName) ->
@@ -90,10 +94,6 @@ execute(Command) when is_record(Command,sim_operation)->
 execute(Commands) when is_list(Commands)->
 	gen_server:call(?SERVER,{execute,Commands}).
 
--spec register_handler( ClientType::any_role() , Module::module() ) -> ok.
-register_handler( ClientType, Module )->
-	gen_server:call(?SERVER,{register_handle,ClientType,Module}).
-
 set_operation_state(Operation,NewState)->
 	gen_server:cast(?SERVER,{set_state,Operation,NewState}).
 
@@ -102,10 +102,10 @@ set_client(Client,Pid)->
 	gen_server:cast(?SERVER,{set_client_pid,Client,Pid}).
 
 %% @doc Spawns the server and registers the local name (unique)
--spec(start_link() ->
+-spec(start_link(Config::term()) ->
 	{ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
-start_link() ->
-	gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+start_link(Config) ->
+	gen_server:start_link({local, ?SERVER}, ?MODULE, [], Config).
 
 -spec update_stats( Client::any_role(), Role::any_role(), Stats::#{})-> ok.
 update_stats(Client,Role,Stats)->
@@ -123,11 +123,17 @@ send_os_stats()->
 -spec(init(Args :: term()) ->
 	{ok, State :: #simnode_state{}} | {ok, State :: #simnode_state{}, timeout() | hibernate} |
 	{stop, Reason :: term()} | ignore).
-init([]) ->
+init(Config) ->
 	NodeId = utils:app_env(node_id,1),
 	{ok,NodeFinder} = timer:apply_interval(7500,?MODULE,find_manager,[self(),NodeId]),
 	{ok,StatsUpdater} = timer:apply_interval(5000,?MODULE,send_os_stats,[]),
-	{ok,#simnode_state{ node_finder = NodeFinder, os_stats_updater = StatsUpdater , node_id = NodeId, manager = none }}.
+	{ok,#simnode_state{ node_finder = NodeFinder,
+	                    os_stats_updater = StatsUpdater ,
+	                    node_id = NodeId,
+	                    ap_client_handler = proplists:get_value(ap_client,Config,undefined),
+	                    mqtt_server_handler = proplists:get_value(mqtt_server,Config,undefined),
+	                    ovsdb_server_handler = proplists:get_value(ovsdb_server,Config,undefined),
+	                    manager = none }}.
 
 %% @private
 %% @doc Handling call messages
@@ -161,13 +167,6 @@ handle_call({set_configuration,Configuration}, _From, State = #simnode_state{}) 
 	{ reply, ok , State#simnode_state{ sim_configuration = Configuration } };
 handle_call(get_configuration, _From, State = #simnode_state{}) ->
 	{ reply, {ok , State#simnode_state.sim_configuration} ,State };
-handle_call({register_handle,ClientType,Module}, _From, State = #simnode_state{}) ->
-	NewState = case ClientType of
-		           ap_client -> State#simnode_state{ ap_client_handler = Module };
-							 mqtt_server -> State#simnode_state{ mqtt_server_handler = Module };
-							 ovsdb_server -> State#simnode_state{ ovsdb_server_handler = Module }
-	end,
-	{ reply, ok , NewState };
 handle_call({reset_configuration,_NewAttributes}, _From, State = #simnode_state{}) ->
 	{ reply, ok , State };
 handle_call({execute,Commands}, _From, State = #simnode_state{}) ->

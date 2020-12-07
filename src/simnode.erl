@@ -33,8 +33,7 @@
 -record(simnode_state, {
 	node_finder = none :: timer:tref(),
 	os_stats_updater = none :: timer:tref(),
-	mqtt_client_handler,
-	ovsdb_client_handler,
+	ap_client_handler,
 	mqtt_server_handler,
 	ovsdb_server_handler,
 	node_id = 0 :: integer(),
@@ -159,8 +158,7 @@ handle_call(get_configuration, _From, State = #simnode_state{}) ->
 	{ reply, {ok , State#simnode_state.sim_configuration} ,State };
 handle_call({register_handle,ClientType,Module}, _From, State = #simnode_state{}) ->
 	NewState = case ClientType of
-		           mqtt_client -> State#simnode_state{ mqtt_client_handler = Module };
-							 ovsdb_client -> State#simnode_state{ ovsdb_client_handler = Module };
+		           ap_client -> State#simnode_state{ ap_client_handler = Module };
 							 mqtt_server -> State#simnode_state{ mqtt_server_handler = Module };
 							 ovsdb_server -> State#simnode_state{ ovsdb_server_handler = Module }
 	end,

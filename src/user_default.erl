@@ -118,6 +118,29 @@ prepare_simulation(SimName)->
 preparation_completion(SimName,CompletionStatus)->
 	io:format("Prepararion completion status for simulation ~s. Completion status: ~p~n",[SimName,CompletionStatus]).
 
+-spec push_simulation(SimName::string())-> ok | generic_error().
+push_simulation(_SimName)->
+	ok.
+
+-spec start_simulation(SimName::string())-> ok | generic_error().
+start_simulation(_SimName)->
+	ok.
+
+-spec stop_simulation(SimName::string())-> ok | generic_error().
+stop_simulation(_SimName)->
+	ok.
+
+-spec pause_simulation(SimName::string())-> ok | generic_error().
+pause_simulation(_SimName)->
+	ok.
+
+-spec cancel_simulation(SimName::string())-> ok | generic_error().
+cancel_simulation(_SimName)->
+	ok.
+
+
+
+
 -spec list_simulations() -> {ok,SimulationList::[string()]} | generic_error().
 list_simulations() ->
 	simengine:list().
@@ -152,7 +175,7 @@ import_ca(CAName,Password,KeyFileName,CertFileNAme) when is_list(CAName), is_lis
 			case utils:remove_pem_key_password(Password,KeyFileName,TmpKeyFileName) of
 				true ->
 					io:format("Key was decrypted and can be imported...~n"),
-					inventory:import_ca(CAName,#{ password => "", keyfilename => TmpKeyFileName, certfilename => CertFileNAme}),
+					_=inventory:import_ca(CAName,#{ password => "", keyfilename => TmpKeyFileName, certfilename => CertFileNAme}),
 					file:delete(TmpKeyFileName);
 				false->
 					io:format("Key was not decrypted and will not be imported. Please supply the right password.~n")

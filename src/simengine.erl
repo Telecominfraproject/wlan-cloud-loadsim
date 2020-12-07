@@ -387,7 +387,9 @@ push_assets(SimInfo,{M,F,A}=_Notification)->
 	Results = lists:reverse(lists:foldl(fun({N,C},Acc) ->
 													Config = #{ sim_name => SimInfo#simulation.name,
 													            sim_ca => SimInfo#simulation.ca,
-													            clients => C},
+													            clients => C,
+																			ovsdb_server_name => SimInfo#simulation.servers#sim_entry.opensync_server_name,
+																			ovsdb_server_port => SimInfo#simulation.servers#sim_entry.opensync_server_port},
 													io:format("Pushing to ~p...~n",[N]),
 													R = rpc:call(N,simnode,set_configuration,[Config]),
 													[R|Acc]

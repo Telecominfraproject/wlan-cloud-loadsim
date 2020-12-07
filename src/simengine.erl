@@ -358,40 +358,51 @@ prepare_assets(SimInfo,{M,F,A}=_Notification)->
 	split_build_clients(SimInfo,utils:noop_mfa()),
 	split_build_servers(SimInfo,utils:noop_mfa()),
 	set_assets_created(SimInfo,true),
-	apply(M,F,A),
+	erlang:apply(M,F,A),
 	ok.
 
--spec push_assets(SimName::binary(), Notification::notification_cb())->ok.
+-spec push_assets(SimInfo::simulation(), Notification::notification_cb())->ok.
 push_assets(SimInfo,{M,F,A}=_Notification)->
 	?L_IA("~s: Preparing all assets.",[binary_to_list(SimInfo#simulation.name)]),
-	apply(M,F,A),
+	%% devise how many batches
+	Clients = inventory:list_clients(SimInfo#simulation.ca),
+	Splits = utils:split_into( SimInfo#simulation.nodes, Clients),
+	Results = lists:reverse(lists:foldl(fun({N,C},Acc) ->
+													Config = #{ sim_name => SimInfo#simulation.name,
+													            sim_ca => SimInfo#simulation.ca,
+													            clients => C},
+													R = rpc:call(N,simnode,set_configuration,[Config]),
+													[R|Acc]
+												end,[],Splits)),
+	io:format("Results of push: ~p.~n",[Results]),
+	erlang:apply(M,F,A),
 	ok.
 
--spec stop_assets(SimName::binary(), Notification::notification_cb())->ok.
+-spec stop_assets(SimInfo::simulation(), Notification::notification_cb())->ok.
 stop_assets(SimInfo,{M,F,A}=_Notification)->
 	?L_IA("~s: Stopping all assets.",[binary_to_list(SimInfo#simulation.name)]),
-	apply(M,F,A),
+	erlang:apply(M,F,A),
 	ok.
 
--spec pause_assets(SimName::binary(), Notification::notification_cb())->ok.
+-spec pause_assets(SimInfo::simulation(), Notification::notification_cb())->ok.
 pause_assets(SimInfo,{M,F,A}=_Notification)->
 	?L_IA("~s: Pausing all assets.",[binary_to_list(SimInfo#simulation.name)]),
-	apply(M,F,A),
+	erlang:apply(M,F,A),
 	ok.
 
--spec cancel_assets(SimName::binary(), Notification::notification_cb())->ok.
+-spec cancel_assets(SimInfo::simulation(), Notification::notification_cb())->ok.
 cancel_assets(SimInfo,{M,F,A}=_Notification)->
 	?L_IA("~s: Cancelling all assets.",[binary_to_list(SimInfo#simulation.name)]),
-	apply(M,F,A),
+	erlang:apply(M,F,A),
 	ok.
 
--spec restarts_assets(SimName::binary(), Notification::notification_cb())->ok.
+-spec restarts_assets(SimInfo::simulation(), Notification::notification_cb())->ok.
 restarts_assets(SimInfo,{M,F,A}=_Notification)->
 	?L_IA("~s: Restarting all assets.",[binary_to_list(SimInfo#simulation.name)]),
-	apply(M,F,A),
+	erlang:apply(M,F,A),
 	ok.
 
--spec split_build_clients( Sim::simulation(), NotificationCB::notification_cb())->ok.
+-spec split_build_clients( SimInfo::simulation(), NotificationCB::notification_cb())->ok.
 split_build_clients(SimInfo,_Notification)->
 	{ok,HardwareDefinitions} = hardware:get_definitions(),
 	Ids = [ X#hardware_info.id || X <- HardwareDefinitions ],
@@ -417,8 +428,8 @@ run_batch([H|T],BatchSize,SimInfo,BatchNumber)->
 
 %% Create the servers - only if they are pon automatic mode
 split_build_servers(SimInfo,_Notification)->
-	_ = generate_server(SimInfo,mqtt_server,SimInfo#simulation.mqtt_servers),
-	_ = generate_server(SimInfo,ovsdb_server,SimInfo#simulation.ovsdb_servers),
+	_ = generate_server(SimInfo,mqtt_server,SimInfo#simulation.servers#sim_entry.opensync_server_name),
+	_ = generate_server(SimInfo,ovsdb_server,SimInfo#simulation.servers#sim_entry.mqtt_server_name),
 	ok.
 
 generate_server(SimInfo,mqtt_server,auto)->

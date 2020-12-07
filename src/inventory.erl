@@ -143,7 +143,7 @@ validate_attributes(Attrs) when is_map(Attrs)->
 get_client(CAName,Id)->
 	gen_server:call(?SERVER,{get_client,safe_binary(CAName),safe_binary(Id)}).
 
--spec list_clients(CAName::string()|binary())-> { ok , [Client::client_info()] } | generic_error().
+-spec list_clients(CAName::string()|binary())-> { ok , [Client::string()] } | generic_error().
 list_clients(CAName)->
 	gen_server:call(?SERVER,{list_clients,safe_binary(CAName)}).
 

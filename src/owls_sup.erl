@@ -32,6 +32,7 @@ init([]) ->
       simengine:creation_info();
 		node ->
 			?L_I("Simulation Node starting."),
+			simnode:creation_info() ++
 			mqtt_client_manager:creation_info() ++
 			mqtt_server_manager:creation_info() ++
 			mqtt_server_handler:creation_info() ++

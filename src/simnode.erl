@@ -157,6 +157,7 @@ handle_call({set_configuration,Configuration}, _From, State = #simnode_state{}) 
 	safe_execute( State#simnode_state.ap_client_handler, set_configuration, [Configuration]),
 	safe_execute( State#simnode_state.mqtt_server_handler, set_configuration, [Configuration]),
 	safe_execute( State#simnode_state.ovsdb_server_handler, set_configuration, [Configuration]),
+	io:format("All handlers updated~n"),
 	{ reply, ok , State#simnode_state{ sim_configuration = Configuration } };
 handle_call(get_configuration, _From, State = #simnode_state{}) ->
 	{ reply, {ok , State#simnode_state.sim_configuration} ,State };

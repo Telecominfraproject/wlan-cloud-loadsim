@@ -50,7 +50,7 @@
 %%%===================================================================
 creation_info() ->
 	[	#{	id => ?MODULE ,
-		start => { ?MODULE , start_link, [{ap_client,ovsdb_client_handler},{mqtt_server,mqtt_server_handler}] },
+		start => { ?MODULE , start_link, [[{ap_client,ovsdb_client_handler},{mqtt_server,mqtt_server_handler}]] },
 		restart => permanent,
 		shutdown => 100,
 		type => worker,
@@ -104,8 +104,8 @@ set_client(Client,Pid)->
 %% @doc Spawns the server and registers the local name (unique)
 -spec(start_link(Config::term()) ->
 	{ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
-start_link(Config) ->
-	gen_server:start_link({local, ?SERVER}, ?MODULE, [], Config).
+start_link([Config]) ->
+	gen_server:start_link({local, ?SERVER}, ?MODULE, [], [Config]).
 
 -spec update_stats( Client::any_role(), Role::any_role(), Stats::#{})-> ok.
 update_stats(Client,Role,Stats)->
@@ -123,7 +123,7 @@ send_os_stats()->
 -spec(init(Args :: term()) ->
 	{ok, State :: #simnode_state{}} | {ok, State :: #simnode_state{}, timeout() | hibernate} |
 	{stop, Reason :: term()} | ignore).
-init(Config) ->
+init([Config]) ->
 	NodeId = utils:app_env(node_id,1),
 	{ok,NodeFinder} = timer:apply_interval(7500,?MODULE,find_manager,[self(),NodeId]),
 	{ok,StatsUpdater} = timer:apply_interval(5000,?MODULE,send_os_stats,[]),

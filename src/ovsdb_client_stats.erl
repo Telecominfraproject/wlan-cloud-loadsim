@@ -44,12 +44,12 @@
 
 -spec show_statistics(NumberOfRecords :: non_neg_integer()) -> ok | {error, not_available}.
 show_statistics(N) ->
-	case lists:member(?MODULE,dets:all()) of
-		true ->
-			[{seq,seq,Seq}] = dets:match_object(?MODULE,{seq,seq,'_'}),
-			print_statistics(max(0,Seq-N));
-		false ->
-			{error, not_available}
+	case ets:whereis(?MODULE) of
+		undefined ->
+			{error, not_available};
+		_ ->
+			[{_,_,Seq}] = ets:lookup(?MODULE,seq),
+			print_statistics(max(0,Seq-N))
 	end.
 
 
@@ -59,29 +59,21 @@ show_statistics(N) ->
 
 -spec prepare_statistics () -> ok | {error, Reason::term()}.
 prepare_statistics () ->
-	File = filename:join([code:priv_dir(?OWLS_APP),"ovsdb","handler_stats.dets"]),
-	Exists = filelib:is_file(File),
-	case dets:open_file(?MODULE,[{file,File},{type,set},{keypos,2}]) of
-		{ok, ?MODULE} ->
-			case Exists of
-				true -> ok;
-				false -> ok = dets:insert(?MODULE,{seq,seq,0})
-			end;
-		{error, Reason} ->
-			?L_E(?DBGSTR("Can't open statistics table: '~p'",[File])),
-			{error, Reason}
-	end.
+	_ = ets:new(?MODULE,[ordered_set,protected,{keypos, 2},named_table]),
+	ets:insert(?MODULE,{seq,seq,0}),
+	ok.
 
 
 -spec update_statistics (Clients, Stats) -> ok  when
 		Clients :: ets:tid(),
 		Stats :: [#ap_statistics{}].
 update_statistics (CRef, Stats) ->
-	[{_,_,Seq}] = dets:lookup(?MODULE,seq),
+	[{_,_,Seq}] = ets:lookup(?MODULE,seq),
 	Clients = ets:match_object(CRef,#ap_client{_='_'}),
 	Entry = create_stats_entry (Seq+1,Clients,Stats),		
 	{ok,_} = timer:apply_after(?MGR_REPORT_INTERVAL,gen_server,call,[ovsdb_client_handler,update_stats]),
-	ok = dets:insert(?MODULE,[{seq,seq,Seq+1},Entry]).
+	ets:insert(?MODULE,[{seq,seq,Seq+1},Entry]),
+	ok.
 	
 
 
@@ -136,7 +128,8 @@ create_stats_entry (Seq,_,_) ->
 
 -spec close() -> ok.
 close () ->
-	dets:close(?MODULE).
+	ets:delete(?MODULE),
+	ok.
 
 
 %%------------------------------------------------------------------------------
@@ -145,19 +138,13 @@ close () ->
 
 -spec print_statistics (StartSequence :: non_neg_integer()) -> ok.
 print_statistics (Seq) ->
-	Rec = get_sorted_records(Seq),
+	Rec = ets:select(?MODULE,[{#statistics{seq='$1',_='_'},[{'<',Seq,'$1'}],['$_']}]),
 	io:format("~n~n"),
 	io:format("+======================================================================================================+~n"),
 	io:format("|  time stamp (UTC)   |  Conf. |   Run  | Paused |  Drop. |  Recon |  ~~TX   |  ~~RX   |  ^TX   |  ^RX   |~n"),
 	io:format("+------------------------------------------------------------------------------------------------------+~n"),
 	[format_row(X)||X<-Rec],
 	io:format("+======================================================================================================+~n").
-
-
--spec get_sorted_records (StartSequence :: non_neg_integer())  -> [#statistics{}].
-get_sorted_records(Seq)->
-	Rec = dets:select(?MODULE,[{#statistics{seq='$1',_='_'},[{'<',Seq,'$1'}],['$_']}]),
-	lists:sort(fun(#statistics{seq=A},#statistics{seq=B}) -> A>B end,Rec).
 
 -spec format_row (Entry :: #statistics{}) -> ok.
 format_row (Entry) ->

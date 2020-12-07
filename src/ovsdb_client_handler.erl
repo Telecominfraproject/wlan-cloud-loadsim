@@ -22,7 +22,7 @@
 %% API
 -export([start_link/0]).
 -export([set_configuration/1, start/1, stop/1, pause/1, resume/1, cancel/1, report/0]).
--export([ap_status/2,push_ap_stats/2,dump_clients/0]).
+-export([ap_status/2,push_ap_stats/2,dump_clients/0,list_ids/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_cast/2, handle_call/3, handle_info/2, terminate/2, code_change/3]).
@@ -46,7 +46,7 @@
 -record (hdl_state, {
 	clients = ets:tid(),
 	cmd_queue = [] :: [command()],
-	config = #{} :: #{},
+	config = #{} :: #{atom()=>term()},
 	ap_statistics = [] :: [#ap_statistics{}],
 	timer :: owls_timers:tms()
 }).
@@ -68,6 +68,9 @@ start_link () ->
 
 dump_clients () ->
 	gen_server:call(?SERVER,dump_clients).
+
+list_ids() ->
+	gen_server:call(?SERVER,list_ids).
 
 %%% gen_sim_clients behaviour
 
@@ -228,6 +231,11 @@ handle_call (dump_clients,_From, #hdl_state{clients=Clients}=State) ->
 	C = ets:match_object(Clients,'$1'),
 	{reply,C,State};
 
+handle_call (list_ids,_From, #hdl_state{clients=Clients}=State) ->
+	C = ets:match_object(Clients,'$1'),
+	[io:format("~s~n",[X])||#ap_client{id=X}<-C],
+	{reply,ok,State};
+
 handle_call (_, _, State) ->
 	{reply, invalid, State}.
 
@@ -357,8 +365,7 @@ apply_config (Cfg, #hdl_state{clients=Clients}=State) when is_map_key(file,Cfg) 
 apply_config (Cfg, #hdl_state{clients=Clients}=State) when is_map_key(internal,Cfg) ->
 	#{internal:=SimName, clients:=Num} = Cfg,
 	case inventory:list_clients(SimName) of
-		{ok, AvailCL} when length(AvailCL) > 0 ->
-			io:format("LIST_CLIENTS:~n~p~n",[AvailCL]),
+		{ok, AvailCL} when length(AvailCL) > 0 ->			
 			M = min(Num,length(AvailCL)),
 			?L_I(?DBGSTR("startig ~B clients for simulation '~s'",[M,SimName])),
 			F = fun (X) -> #ap_client{
@@ -376,9 +383,19 @@ apply_config (Cfg, #hdl_state{clients=Clients}=State) when is_map_key(internal,C
 			?L_E(?DBGSTR("there are no clients in the inventory for simulation '~s'",[SimName])),
 			State
 	end;
-apply_config (Cfg, State) ->
-	io:format("GOT CONFIG!!! ~p~n~n",[Cfg]),
-	State.
+apply_config (#{sim_name:=SimName, client_ids:=IDs}=Cfg, 
+			  #hdl_state{clients=Clients}=State) ->
+	F = fun (X) -> #ap_client{
+						id=X,
+						ca_name=SimName,
+						status=available,
+						process=none,
+						transitions=[{available,erlang:system_time()}]
+					}
+	end,
+	C = [F(X)||X<-IDs],
+	ets:insert(Clients,C),
+	State#hdl_state{config=Cfg}.
 
 
 

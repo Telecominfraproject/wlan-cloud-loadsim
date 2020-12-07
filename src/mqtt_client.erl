@@ -89,7 +89,8 @@ manage_connection(Socket,CS) ->
 					manage_connection(Socket,NewState)
 			end;
 		{ssl_closed,Socket} ->
-			io:format("Closing socket.~n");
+			?L_I("MQTT socket closed by server");
+			%io:format("Closing socket.~n");
 		{ send_data,Data } ->
 			%% io:format("Received a message: ~p~n",[Message]),
 			_ = ssl:send(Socket,Data),

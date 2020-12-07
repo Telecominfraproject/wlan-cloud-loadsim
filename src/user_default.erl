@@ -94,13 +94,13 @@ create_simulation(SimName,CAName) when is_list(SimName),is_list(CAName) ->
 	io:format("  -nodes(~p): ~p~n",[length(Nodes),Nodes]),
 	MaxDevices = length(Nodes) * 10000,
 	NumberOfDevices = input("Number of devices (max:" ++ integer_to_list(MaxDevices) ++ ") ", integer_to_list(MaxDevices div 2)),
-	{ MQTTServers , OVSDBServers } = select_servers(),
+	RealNumberOfDevices = adjust(list_to_integer(NumberOfDevices),length(Nodes)),
+	OVSDBServers = select_servers(),
 	Simulation = #simulation{ name = list_to_binary(SimName),
 	                          ca = list_to_binary(CAName),
-	                          num_devices = list_to_integer(NumberOfDevices),
+	                          num_devices = RealNumberOfDevices,
 	                          creation_date = calendar:local_time(),
-	                          mqtt_servers = MQTTServers,
-	                          ovsdb_servers = OVSDBServers,
+	                          servers = OVSDBServers,
 	                          start_date = undefined,
 	                          end_date = undefined,
 	                          nodes = Nodes },
@@ -209,7 +209,8 @@ show_client(SimName,Client)->
 	inventory:get_client(SimName,Client).
 
 list_clients(CAName)->
-	inventory:list_clients(CAName).
+	{ok,Clients} = inventory:list_clients(CAName),
+	{ok,[binary_to_list(X) || X <- Clients] }.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%  Node Management functions
@@ -286,56 +287,26 @@ input(Prompt,Default)->
 		false -> InputData
 	end.
 
--spec select_servers() -> { MQTTServer:: auto | #sim_entry{} , OVSDBServer:: auto | #sim_entry{} }.
+-spec select_servers() -> Server:: auto | #sim_entry{}.
 select_servers() ->
-	case input("Do you want to automatically create servers? (yes/no)", "yes") of
+	case input("Do you want to the built-in servers? (yes/no)", "yes") of
 		"yes" ->
-			{ auto, auto } ;
+			auto ;
 		_ ->
-			MQTTServer = case input("Do you want to automatically create MQTT server? (yes/no)", "yes") of
-										 "yes" ->
-											 auto;
-										 _ ->
-											 get_server(mqtt_server)
-			             end,
-			OVSDBServer = case input("Do you want to automatically create OVSDB server? (yes/no)", "yes") of
-				              "yes" ->
-					              auto;
-				              _ ->
-					              get_server(ovsdb_server)
-			              end,
-			{ MQTTServer, OVSDBServer }
+			get_server(ovsdb_server)
 	end.
 
--spec get_server( mqtt_server | ovsdb_server )-> auto | #sim_entry{}.
-get_server(mqtt_server)->
-	try
-		io:format("Please enter the MQTT Server configuration:~n"),
-		Name =      input("  Name: ",""),
-		{ok,IPAddress} = inet:parse_address(input("  IP Address: ","")),
-		Port =      input("  TCP Port","1883"),
-		#sim_entry{ name = list_to_binary(Name),
-		            type = mqtt_server,
-								ip = IPAddress,
-								port = list_to_integer(Port),
-								port_reflector = 0 }
-	catch
-		_:_ ->
-			io:format("Invalid information entered. Please try again.~n"),
-			auto
-	end;
+-spec get_server( ovsdb_server )-> auto | #sim_entry{}.
 get_server(ovsdb_server)->
 	try
-		io:format("Please enter the OVSDB Server configuration:~n"),
-		Name =      input("  Name: ",""),
-		{ok,IPAddress} = inet:parse_address(input("  IP Address: ","")),
-		Port1 =      input("  TCP Port (reflector)","6643"),
-		Port2 =      input("  TCP Port (service)","6640"),
+		io:format("Please enter the OpenSync Server configuration:~n"),
+		Name =       input("  Name (for reference only): ",""),
+		ServerName = input("  IP Address or hostname: ",""),
+		Port  =      input("  Port:","6643"),
 		#sim_entry{ name = list_to_binary(Name),
-		            type = ovsdb_server,
-		            ip   = IPAddress,
-		            port_reflector = list_to_integer(Port1),
-		            port = list_to_integer(Port2) }
+		            opensync_server_name = ServerName,
+		            opensync_server_port = list_to_integer(Port)
+		}
 	catch
 		_:_ ->
 			io:format("Invalid information entered. Please try again.~n"),
@@ -348,4 +319,6 @@ t1_key()->
 t2_key()->
 	import_ca("sim1","","sim1_key.pem","sim1_cert.pem").
 
+adjust(Max,Divisor)->
+	min(Max, Max - ( Max rem Divisor)).
 

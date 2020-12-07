@@ -10,11 +10,13 @@
 
 -record( sim_entry, {
 	name = <<>> :: binary(),
-	type = none :: none | clients | mqtt_clients | ovsdb_clients | mqtt_server | ovsdb_server,
 	node :: node(),
-	ip :: inet:ip_address(),
-	port :: integer(),
-	port_reflector :: integer(),
+	reflector_server_name = auto :: auto | binary(),
+	reflector_server_port = 6643 :: integer(),
+	opensync_server_name = auto :: auto | binary(),
+	opensync_server_port = 6640 :: integer(),
+	mqtt_server_name = auto :: auto | binary(),
+	mqtt_server_port = 1883 :: integer(),
 	names = [] :: [binary()]
 }).
 
@@ -26,8 +28,7 @@
 	start_date = undefined :: undefined | calendar:datetime(),
 	end_date = undefined :: undefined | calendar:datetime(),
 	nodes = [] :: [ node() ],
-	mqtt_servers = auto :: auto | sim_entry(),
-  ovsdb_servers = auto :: auto | sim_entry()
+	servers = auto :: auto | sim_entry()
 }).
 
 -type simulation() :: #simulation{}.

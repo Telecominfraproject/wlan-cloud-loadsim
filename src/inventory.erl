@@ -143,7 +143,7 @@ validate_attributes(Attrs) when is_map(Attrs)->
 get_client(CAName,Id)->
 	gen_server:call(?SERVER,{get_client,safe_binary(CAName),safe_binary(Id)}).
 
--spec list_clients(CAName::string()|binary())-> { ok , [Client::string()] } | generic_error().
+-spec list_clients(CAName::string()|binary())-> { ok , [Client::binary()] } | generic_error().
 list_clients(CAName)->
 	gen_server:call(?SERVER,{list_clients,safe_binary(CAName)}).
 
@@ -837,7 +837,7 @@ list_ca_clients(CAName) ->
 	mnesia:transaction( fun() ->
 												mnesia:foldr( fun(R,A) ->
 																					case R#client_info.ca == CAName of
-																						true -> [binary_to_list(R#client_info.name)|A];
+																						true -> [(R#client_info.name)|A];
 																						false-> A
 																					end
 																			end,[],clients)

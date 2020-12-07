@@ -12,7 +12,7 @@
 %% API
 -export([ make_dir/1,uuid/0,get_addr/0,get_addr2/0,app_name/0,app_name/1,priv_dir/0,app_env/2,to_string_list/2,to_binary_list/2,print_nodes_info/1,
 					do/2,pem_to_cert/1,pem_to_key/1,safe_binary/1,uuid_b/0,pem_key_is_encrypted/1,remove_pem_key_password/3,
-					noop/0,noop_mfa/0]).
+					noop/0,noop_mfa/0,split_into/2]).
 
 -spec make_dir( DirName::string() ) -> ok | { error, atom() }.
 make_dir(DirName)->
@@ -216,5 +216,15 @@ safe_binary(X) when is_atom(X)->
 safe_binary(X) when is_integer(X)->
 	integer_to_binary(X).
 
+-spec split_into([term()],[term()])->[{term(),[term()]}].
+split_into( A, B )->
+	LA = length(A),
+	LB = length(B),
+	Batch = LB div LA,
+	split_it(A,B,1,Batch,LB,[]).
 
-
+split_it([H|T],B,Pos,Size,LB,Acc) when (Pos < LB) ->
+	SubList = lists:sublist(B,Pos,Size),
+	split_it(T,B,Pos+Size,Size,LB,[{H,SubList}|Acc]);
+split_it(_,_,_,_,_,Acc)->
+	lists:reverse(Acc).

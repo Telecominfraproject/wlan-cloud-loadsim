@@ -112,14 +112,12 @@ show_simulation(SimName) when is_list(SimName) ->
 
 -spec prepare_simulation( SimName::string() )->ok.
 prepare_simulation(SimName)->
-	simengine:prepare(SimName,{?MODULE,preparation_completion,[SimName]}),
+	simengine:prepare(SimName,utils:noop_mfa()),
 	ok.
 
-preparation_completion(SimName,CompletionStatus)->
-	io:format("Prepararion completion status for simulation ~s. Completion status: ~p~n",[SimName,CompletionStatus]).
-
 -spec push_simulation(SimName::string())-> ok | generic_error().
-push_simulation(_SimName)->
+push_simulation(SimName)->
+	simengine:push(SimName,utils:noop_mfa()),
 	ok.
 
 -spec start_simulation(SimName::string())-> ok | generic_error().

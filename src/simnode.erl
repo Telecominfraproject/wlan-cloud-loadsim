@@ -153,6 +153,7 @@ handle_call({connect,NodeName}, _From, State = #simnode_state{}) ->
 handle_call(connected, _From, State = #simnode_state{}) ->
 	{ reply, { ok, State#simnode_state.manager } , State };
 handle_call({set_configuration,Configuration}, _From, State = #simnode_state{}) ->
+	io:format("Received configuration: ~p~n",[Configuration]),
 	{ reply, ok , State#simnode_state{ sim_configuration = Configuration } };
 handle_call(get_configuration, _From, State = #simnode_state{}) ->
 	{ reply, {ok , State#simnode_state.sim_configuration} ,State };

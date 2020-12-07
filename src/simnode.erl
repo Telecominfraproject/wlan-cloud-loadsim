@@ -33,9 +33,9 @@
 -record(simnode_state, {
 	node_finder = none :: timer:tref(),
 	os_stats_updater = none :: timer:tref(),
-	ap_client_handler,
-	mqtt_server_handler,
-	ovsdb_server_handler,
+	ap_client_handler = undefined :: atom(),
+	mqtt_server_handler = undefined :: atom(),
+	ovsdb_server_handler = undefined :: atom(),
 	node_id = 0 :: integer(),
 	manager = undefined :: atom(),
 	sim_configuration = #{} :: #{ atom() => string()},
@@ -68,7 +68,6 @@ connected()->
 	gen_server:call(?SERVER,connected).
 
 set_configuration(Configuration)->
-	io:format("Received new configuration: ~p~n",[Configuration]),
 	gen_server:call(?SERVER,{set_configuration,Configuration}).
 
 get_configuration()->
@@ -154,6 +153,11 @@ handle_call({connect,NodeName}, _From, State = #simnode_state{}) ->
 handle_call(connected, _From, State = #simnode_state{}) ->
 	{ reply, { ok, State#simnode_state.manager } , State };
 handle_call({set_configuration,Configuration}, _From, State = #simnode_state{}) ->
+	io:format("Received configuration: ~p~n",[Configuration]),
+	safe_execute( State#simnode_state.ap_client_handler, set_configuration, [Configuration]),
+	safe_execute( State#simnode_state.mqtt_server_handler, set_configuration, [Configuration]),
+	safe_execute( State#simnode_state.ovsdb_server_handler, set_configuration, [Configuration]),
+	io:format("All handlers updated~n"),
 	{ reply, ok , State#simnode_state{ sim_configuration = Configuration } };
 handle_call(get_configuration, _From, State = #simnode_state{}) ->
 	{ reply, {ok , State#simnode_state.sim_configuration} ,State };
@@ -283,3 +287,9 @@ create_os_stats_report() ->
 	            sysmem_high_watermark => memsup:get_sysmem_high_watermark(), memory_data => memsup:get_memory_data(),
 	            helper_timeout => memsup:get_helper_timeout(), system_memory_data => memsup:get_system_memory_data()},
 	#{ cpu_sup => CpuSup,disk_sup => DiskSup, memsup => MemSup}.
+
+safe_execute(undefined,_F,_A)->
+	ok;
+safe_execute(M,F,A)->
+	io:format("Executing: ~p:~p(~p)",[M,F,A]),
+	apply(M,F,A).

@@ -34,6 +34,7 @@ init([]) ->
 			?L_I("Simulation Node starting."),
 			mqtt_client_manager:creation_info() ++
 			mqtt_server_manager:creation_info() ++
+			mqtt_server_handler:creation_info() ++
 			simnode:creation_info() ++
       node_rest_api:creation_info();
 		undefined ->

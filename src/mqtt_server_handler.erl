@@ -15,7 +15,7 @@
 -include("../include/common.hrl").
 
 %% API
--export([start_link/0]).
+-export([start_link/0,creation_info/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -29,6 +29,14 @@
 %%%===================================================================
 %%% API
 %%%===================================================================
+creation_info() ->
+	[	#{	id => ?MODULE ,
+	       start => { ?MODULE , start_link, [] },
+	       restart => permanent,
+	       shutdown => 100,
+	       type => worker,
+	       modules => [?MODULE]} ].
+
 -spec set_configuration( Configuration :: #{} ) -> ok | { error, Reason::term() }.
 set_configuration( _Configuration ) ->
 	ok.
@@ -73,6 +81,7 @@ start_link() ->
 	{ok, State :: #mqtt_server_handler_state{}} | {ok, State :: #mqtt_server_handler_state{}, timeout() | hibernate} |
 	{stop, Reason :: term()} | ignore).
 init([]) ->
+	simnode:register_handler(mqtt_server_handler,?MODULE),
 	{ok, #mqtt_server_handler_state{}}.
 
 %% @private

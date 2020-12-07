@@ -25,6 +25,7 @@ _checkouts/
 # erlang make
 owls.d
 .erlang.mk
+*.pem
 
 # generated code
 include/opensync_stats.hrl

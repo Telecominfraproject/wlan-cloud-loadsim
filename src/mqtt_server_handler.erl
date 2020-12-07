@@ -81,7 +81,6 @@ start_link() ->
 	{ok, State :: #mqtt_server_handler_state{}} | {ok, State :: #mqtt_server_handler_state{}, timeout() | hibernate} |
 	{stop, Reason :: term()} | ignore).
 init([]) ->
-	simnode:register_handler(mqtt_server_handler,?MODULE),
 	{ok, #mqtt_server_handler_state{}}.
 
 %% @private

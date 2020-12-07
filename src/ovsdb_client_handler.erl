@@ -53,14 +53,6 @@
 
 
 
-creation_info() ->
-	[	#{	id => ?MODULE ,
-	       start => { ?MODULE , start_link, [] },
-	       restart => permanent,
-	       shutdown => 100,
-	       type => worker,
-	       modules => [?MODULE]} ].
-
 
 %%%============================================================================
 %%% HANDLER - API
@@ -75,6 +67,17 @@ start_link () ->
 	gen_server:start_link({local, ?SERVER},?MODULE, [], []).
 
 
+creation_info() ->
+	[	#{	id => ?MODULE ,
+	       start => { ?MODULE , start_link, [] },
+	       restart => permanent,
+	       shutdown => 100,
+	       type => worker,
+	       modules => [?MODULE]} ].
+
+
+%% CLI debug functions, will be removed
+
 dump_clients () ->
 	gen_server:call(?SERVER,dump_clients).
 
@@ -83,6 +86,7 @@ list_ids() ->
 
 all_ready() ->
 	gen_server:call(?SERVER,all_ready).
+
 
 %%% gen_sim_clients behaviour
 

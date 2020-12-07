@@ -38,7 +38,7 @@ init([]) ->
 			mqtt_server_handler:creation_info() ++
 			ovsdb_client_handler:creation_info() ++
 			simnode:creation_info() ++
-      node_rest_api:creation_info();
+      		node_rest_api:creation_info();
 		undefined ->
 			lager:error("No role has been defined in configuration (must be manager or node)")
 	end,

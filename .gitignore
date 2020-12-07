@@ -33,3 +33,5 @@ config/simnode.*
 certs_db/*
 inventory/*
 sample_ids.cfg
+priv/mnesia/
+priv/data/

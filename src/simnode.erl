@@ -68,7 +68,6 @@ connected()->
 	gen_server:call(?SERVER,connected).
 
 set_configuration(Configuration)->
-	io:format("Received new configuration: ~p~n",[Configuration]),
 	gen_server:call(?SERVER,{set_configuration,Configuration}).
 
 get_configuration()->

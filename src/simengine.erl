@@ -116,7 +116,16 @@ prepare(SimName,{M,F,A}=Notification) when is_list(SimName), is_atom(M), is_atom
 	{ok, State :: #simengine_state{}} | {ok, State :: #simengine_state{}, timeout() | hibernate} |
 	{stop, Reason :: term()} | ignore).
 init([]) ->
-	{ok, #simengine_state{}}.
+	mnesia:wait_for_tables([simulations],5000),
+	Simulations = list_sims_full(),
+	NewStates = lists:foldl( fun(E,A)->
+			maps:put( E#simulation.name, #sim_state{
+				created = true,
+				state = utils:select(E#simulation.assets_created,prepared,created),
+				prepared = E#simulation.assets_created,
+				sim_info = E },A )
+		end,maps:new(),Simulations),
+	{ok, #simengine_state{sim_states = NewStates}}.
 
 %% @private
 %% @doc Handling call messages
@@ -344,6 +353,14 @@ list_sims()->
 																				end),
 	Result.
 
+list_sims_full()->
+	{atomic,Result} = mnesia:transaction( fun()->
+		mnesia:foldr( fun(E,A)->
+			[ E | A ]
+		              end, [], simulations)
+	                                      end),
+	Result.
+
 -spec set_assets_created(SimInfo::simulation(), Value::boolean())->ok.
 set_assets_created(SimInfo,Value)->
 	_=mnesia:transaction( fun()->
@@ -365,12 +382,13 @@ prepare_assets(SimInfo,{M,F,A}=_Notification)->
 push_assets(SimInfo,{M,F,A}=_Notification)->
 	?L_IA("~s: Preparing all assets.",[binary_to_list(SimInfo#simulation.name)]),
 	%% devise how many batches
-	Clients = inventory:list_clients(SimInfo#simulation.ca),
+	{ok,Clients} = inventory:list_clients(SimInfo#simulation.ca),
 	Splits = utils:split_into( SimInfo#simulation.nodes, Clients),
 	Results = lists:reverse(lists:foldl(fun({N,C},Acc) ->
 													Config = #{ sim_name => SimInfo#simulation.name,
 													            sim_ca => SimInfo#simulation.ca,
 													            clients => C},
+													io:format("Pushing to ~p...~n",[N]),
 													R = rpc:call(N,simnode,set_configuration,[Config]),
 													[R|Acc]
 												end,[],Splits)),

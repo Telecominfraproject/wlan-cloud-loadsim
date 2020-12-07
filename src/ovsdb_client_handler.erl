@@ -22,7 +22,7 @@
 %% API
 -export([start_link/0]).
 -export([set_configuration/1, start/1, stop/1, pause/1, resume/1, cancel/1, report/0]).
--export([ap_status/2,push_ap_stats/2,dump_clients/0,list_ids/0]).
+-export([ap_status/2,push_ap_stats/2,dump_clients/0,list_ids/0,all_ready/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_cast/2, handle_call/3, handle_info/2, terminate/2, code_change/3]).
@@ -71,6 +71,9 @@ dump_clients () ->
 
 list_ids() ->
 	gen_server:call(?SERVER,list_ids).
+
+all_ready() ->
+	gen_server:call(?SERVER,all_ready).
 
 %%% gen_sim_clients behaviour
 
@@ -228,13 +231,23 @@ handle_call (update_stats, _From, #hdl_state{clients=C, ap_statistics=S}=State) 
 	{reply, ok, State#hdl_state{ap_statistics=[]}};
 
 handle_call (dump_clients,_From, #hdl_state{clients=Clients}=State) ->
-	C = ets:match_object(Clients,'$1'),
+	C = ets:match_object(Clients,#ap_client{_='_'}),
 	{reply,C,State};
 
 handle_call (list_ids,_From, #hdl_state{clients=Clients}=State) ->
-	C = ets:match_object(Clients,'$1'),
+	C = ets:match_object(Clients,#ap_client{_='_'}),
 	[io:format("~s~n",[X])||#ap_client{id=X}<-C],
 	{reply,ok,State};
+
+handle_call (all_ready,_From, #hdl_state{clients=Clients}=State) ->
+	C = length(ets:match_object(Clients,#ap_client{_='_'})),
+	R = length(get_client_ids_in_state(Clients,{ready},all)),
+	if 
+		(C > 0) and (C == R) ->
+			{reply,true,State};
+		true ->
+			{reply,false,State}
+	end;
 
 handle_call (_, _, State) ->
 	{reply, invalid, State}.
@@ -383,11 +396,12 @@ apply_config (Cfg, #hdl_state{clients=Clients}=State) when is_map_key(internal,C
 			?L_E(?DBGSTR("there are no clients in the inventory for simulation '~s'",[SimName])),
 			State
 	end;
-apply_config (#{sim_name:=SimName, client_ids:=IDs}=Cfg, 
+apply_config (#{sim_name:=SimName, client_ids:=IDs, ovsdb_srv:=R}=Cfg, 
 			  #hdl_state{clients=Clients}=State) ->
 	F = fun (X) -> #ap_client{
 						id=X,
 						ca_name=SimName,
+						redirector=R,
 						status=available,
 						process=none,
 						transitions=[{available,erlang:system_time()}]
@@ -395,7 +409,7 @@ apply_config (#{sim_name:=SimName, client_ids:=IDs}=Cfg,
 	end,
 	C = [F(X)||X<-IDs],
 	ets:insert(Clients,C),
-	State#hdl_state{config=Cfg}.
+	cmd_launch_clients(IDs,State#hdl_state{config=Cfg}).
 
 
 
@@ -422,7 +436,7 @@ update_client_status (ClS, Id, #hdl_state{clients=Clients}=State) ->
 get_client_ids_in_state (Tid, State, Refs) when is_atom(State) ->
 	get_client_ids_in_state (Tid,{State},Refs);
 get_client_ids_in_state (Tid, States, Refs) ->
-	MSpec = [{{ap_client,'_','_',X,'_','_'},[],['$_']}||X<-tuple_to_list(States)],
+	MSpec = [{#ap_client{status=X,_='_'},[],['$_']}||X<-tuple_to_list(States)],
 	Clients = ets:select(Tid,MSpec),
 	Cids = [ID||#ap_client{id=ID}<-Clients],
 	%io:format("MSPEC: ~p~nCLIENTS: ~p~nREFS: ~p~n, CIDS: ~p~n",[MSpec,Clients,Refs,Cids]),
@@ -440,7 +454,7 @@ get_clients_with_ids (CTid, Ids) ->
 get_clients_with_ids (_,[],Acc) ->
 	Acc;
 get_clients_with_ids (CTid,[ID|Rest],Acc) ->
-	case ets:match_object(CTid,{ap_client,ID,'_','_','_','_'}) of
+	case ets:match_object(CTid,#ap_client{id=ID,_='_'}) of
 		[R] ->
 			get_clients_with_ids (CTid,Rest,[R|Acc]);
 		_ ->
@@ -461,7 +475,7 @@ get_client_with_pid (Tid, Pid) ->
 
 -spec get_client_with_id (Clients :: ets:tid(), Id :: string()) -> {ok, #ap_client{}} | {error, not_found}.
 get_client_with_id (Tid, Id) ->
-	case ets:match_object(Tid,{ap_client,Id,'_','_','_','_'}) of
+	case ets:match_object(Tid,#ap_client{id=Id,_='_'}) of
 		[] ->
 			{error, not_found};
 		[R|_] ->
@@ -502,8 +516,8 @@ cmd_startup_sim (#hdl_state{timer=T, clients=Clients}=State, Which) ->
 		NewState :: #hdl_state{}.
 cmd_launch_clients (ToLauch, #hdl_state{clients=Clients}=State) ->
 	Opt = [{report_int,?AP_REPORT_INTERVAL},{stats_int,?AP_STATS_INTERVAL}],
-	F = fun (#ap_client{id=ID,ca_name=CAName}=C) -> 
-			{ok, Pid} = ovsdb_ap:launch(CAName,ID,Opt), 
+	F = fun (#ap_client{id=ID,ca_name=CAName,redirector=R}=C) -> 
+			{ok, Pid} = ovsdb_ap:launch(CAName,ID,[{redirector,R}|Opt]), 
 			[#ap_proc_map{id=ID, process=Pid},C#ap_client{process=Pid}]
 		end,
 	L = [F(C) || C <- get_clients_with_ids(Clients,ToLauch)],

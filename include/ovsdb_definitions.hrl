@@ -52,6 +52,7 @@
 -record (ap_client, {						
 	id :: ets_dont_care() | binary() | string(),				% this is the index position and must be there
 	ca_name :: ets_dont_care() | string() | binary(),
+	redirector = <<"">> :: ets_dont_care() | binary(),
 	status :: ets_dont_care() | client_status(),
 	process :: ets_dont_care() | none | pid(),
 	transitions :: ets_dont_care() | [{client_status(), TimeStamp::integer()}]

@@ -171,6 +171,7 @@ push_ap_stats (Stats, Id) ->
 
 init (_) ->
 	process_flag(trap_exit, true),
+	simnode:register(ap_client, ?MODULE),
 	ovsdb_client_stats:prepare_statistics(),
 	{ok, _} = timer:apply_after(?MGR_REPORT_INTERVAL,gen_server,call,[self(),update_stats]),
 	Tid = ets:new(ovsdb_clients,[ordered_set,private,{keypos, 2}]),
@@ -396,6 +397,13 @@ apply_config (Cfg, #hdl_state{clients=Clients}=State) when is_map_key(internal,C
 			?L_E(?DBGSTR("there are no clients in the inventory for simulation '~s'",[SimName])),
 			State
 	end;
+apply_config (#{sim_name:=SimName, clients:=IDs, ovsdb_server_name:=Rsrv, ovsdb_server_port:=Rport},State) ->
+	Cfg = #{
+		sim_name => SimName,
+		client_ids => IDs,
+		ovsdb_srv => list_to_binary(lists:flatten(["ssl",":",Rsrv,":",integer_to_list(Rport)]))
+	},
+	apply_config (Cfg,State);
 apply_config (#{sim_name:=SimName, client_ids:=IDs, ovsdb_srv:=R}=Cfg, 
 			  #hdl_state{clients=Clients}=State) ->
 	F = fun (X) -> #ap_client{

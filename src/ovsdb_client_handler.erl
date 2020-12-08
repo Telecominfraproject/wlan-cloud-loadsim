@@ -469,7 +469,7 @@ maybe_notify_simnode (#hdl_state{clients=Clients, simnode_callback={SN,Msg}}=Sta
 		[] ->
 			io:format("NOTIFY APs READY~n"),
 			SN ! Msg,
-			State;
+			State#hdl_state{simnode_callback=none};
 		_ ->
 			State
 	end.
@@ -551,6 +551,7 @@ cmd_startup_sim (#hdl_state{timer=T, clients=Clients}=State, Which, #{stagger:={
 			{ToStart,_} = lists:split(Sp,Ready),
 			NewState = trigger_execute (0, queue_command(front,clients_start,ToStart,State#hdl_state{timer=T2})),
 			_=timer:apply_after(Per,gen_server,call,[self(),{api_cmd_start, Which, Options}]),
+			io:format("STARTED ~B CLIENTS, more to come in ~Bms",[N,Per]),
 			NewState
 	end;	
 cmd_startup_sim (#hdl_state{timer=T, clients=Clients}=State, Which, _) ->

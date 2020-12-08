@@ -15,13 +15,15 @@
 
 -include_lib("stdlib/include/ms_transform.hrl").
 
+-type gen_configuration() :: #{ binary() => term()}.
 -type attribute_list() :: #{ atom() => term() }.
 -type generic_error() :: { error, Reason::term() }.
 -type generic_result() :: ok | generic_error().
 -type notification_cb() ::  { Module::atom(), Function::atom(),Args::[term()]}.
 -type ets_dont_care() :: '_' | '$1' | '$2' | '$3' | '$4' | '$5' | '$6' | '$7' | '$8'.
 
--export_type([attribute_list/0,generic_error/0,generic_result/0,notification_cb/0]).
+-export_type([attribute_list/0,generic_error/0,generic_result/0,notification_cb/0,
+              gen_configuration/0,ets_dont_care/0]).
 
 -define(OWLS_APP,owls).
 
@@ -48,9 +50,5 @@
 -define(RL_IA(X,Y),_=manager:log_info(X,Y)).
 -define(RL_E(X),_=manager:log_error(X)).
 -define(RL_EA(X,Y),_=manager:log_error(X,Y)).
-
--type gen_configuration() :: #{ binary() => term()}.
-
--export_type([gen_configuration/0]).
 
 -endif.

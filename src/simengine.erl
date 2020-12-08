@@ -69,31 +69,31 @@ create(SimInfo) when is_record(SimInfo,simulation) ->
 get(SimName)->
 	gen_server:call(?SERVER,{get,utils:safe_binary(SimName)}).
 
--spec prepare(SimName::string()|binary(), Attributes::#{ atom() => term}, Notification::notification_cb() )-> ok | generic_error().
+-spec prepare(SimName::string()|binary(), Attributes::attribute_list(), Notification::notification_cb() )-> ok | generic_error().
 prepare(SimName,Attributes,{M,F,A}=Notification) when is_list(SimName), is_atom(M), is_atom(F), is_list(A) ->
 	gen_server:call(?SERVER,{prepare,list_to_binary(SimName),Attributes,Notification}).
 
--spec push(SimName::string()|binary(), Attributes::#{ atom() => term}, Notification::notification_cb() )-> ok | generic_error().
+-spec push(SimName::string()|binary(), Attributes::attribute_list(), Notification::notification_cb() )-> ok | generic_error().
 push(SimName,Attributes,Notification)->
 	gen_server:call(?SERVER,{push,utils:safe_binary(SimName),Attributes,Notification}).
 
--spec start(SimName::string()|binary(), Attributes::#{ atom() => term}, Notification::notification_cb() )-> ok | generic_error().
+-spec start(SimName::string()|binary(), Attributes::attribute_list(), Notification::notification_cb() )-> ok | generic_error().
 start(SimName,Attributes,{_M,_F,_A}=Notification)->
 	gen_server:call(?SERVER,{start,utils:safe_binary(SimName),Attributes,Notification}).
 
--spec stop(SimName::string()|binary(), Attributes::#{ atom() => term}, Notification::notification_cb() )-> ok | generic_error().
+-spec stop(SimName::string()|binary(), Attributes::attribute_list(), Notification::notification_cb() )-> ok | generic_error().
 stop(SimName,Attributes,{_M,_F,_A}=Notification)->
 	gen_server:call(?SERVER,{stop,utils:safe_binary(SimName),Attributes,Notification}).
 
--spec pause(SimName::string()|binary(), Attributes::#{ atom() => term}, Notification::notification_cb() )-> ok | generic_error().
+-spec pause(SimName::string()|binary(), Attributes::attribute_list(), Notification::notification_cb() )-> ok | generic_error().
 pause(SimName,Attributes,{_M,_F,_A}=Notification)->
 	gen_server:call(?SERVER,{pause,utils:safe_binary(SimName),Attributes,Notification}).
 
--spec cancel(SimName::string()|binary(), Attributes::#{ atom() => term}, Notification::notification_cb() )-> ok | generic_error().
+-spec cancel(SimName::string()|binary(), Attributes::attribute_list(), Notification::notification_cb() )-> ok | generic_error().
 cancel(SimName,Attributes,{_M,_F,_A}=Notification)->
 	gen_server:call(?SERVER,{cancel,utils:safe_binary(SimName),Attributes,Notification}).
 
--spec restart(SimName::string()|binary(), Attributes::#{ atom() => term}, Notification::notification_cb() )-> ok | generic_error().
+-spec restart(SimName::string()|binary(), Attributes::attribute_list(), Notification::notification_cb() )-> ok | generic_error().
 restart(SimName,Attributes,{_M,_F,_A}=Notification)->
 	gen_server:call(?SERVER,{restart,utils:safe_binary(SimName),Attributes,Notification}).
 
@@ -117,7 +117,7 @@ start_link() ->
 	{ok, State :: #simengine_state{}} | {ok, State :: #simengine_state{}, timeout() | hibernate} |
 	{stop, Reason :: term()} | ignore).
 init([]) ->
-	mnesia:wait_for_tables([simulations],5000),
+	_ = mnesia:wait_for_tables([simulations],20000),
 	Simulations = list_sims_full(),
 	NewStates = lists:foldl( fun(E,A)->
 			maps:put( E#simulation.name, #sim_state{
@@ -451,7 +451,7 @@ push_assets(SimInfo,_Attributes,SimEnginePid,{M,F,A}=_Notification)->
 start_assets(SimInfo,Attributes,SimEnginePid,{M,F,A}=_Notification)->
 	?L_IA("~s: Preparing all assets.",[binary_to_list(SimInfo#simulation.name)]),
 	_Results = lists:reverse(lists:foldl(fun(Node,Acc) ->
-		R = rpc:call(Node,simnode,start,[all,Attributes#{ callback => {SimEnginePid,{SimInfo#simulation.name, Node,start_done,erlang:timestmp()}} }]),
+		R = rpc:call(Node,simnode,start,[all,Attributes#{ callback => {SimEnginePid,{SimInfo#simulation.name, Node,start_done,erlang:timestamp()}} }]),
 		[R|Acc] end,[],SimInfo#simulation.nodes)),
 	apply(M,F,A),
 	ok.
@@ -460,7 +460,7 @@ start_assets(SimInfo,Attributes,SimEnginePid,{M,F,A}=_Notification)->
 stop_assets(SimInfo,Attributes,SimEnginePid,{M,F,A}=_Notification)->
 	?L_IA("~s: Stopping all assets.",[binary_to_list(SimInfo#simulation.name)]),
 	_Results = lists:reverse(lists:foldl(fun(Node,Acc) ->
-		R = rpc:call(Node,simnode,stop,[all,Attributes#{ callback => {SimEnginePid,{SimInfo#simulation.name, Node,start_done,erlang:timestmp()}} }]),
+		R = rpc:call(Node,simnode,stop,[all,Attributes#{ callback => {SimEnginePid,{SimInfo#simulation.name, Node,start_done,erlang:timestamp()}} }]),
 		[R|Acc] end,[],SimInfo#simulation.nodes)),
 	apply(M,F,A),
 	ok.
@@ -469,7 +469,7 @@ stop_assets(SimInfo,Attributes,SimEnginePid,{M,F,A}=_Notification)->
 pause_assets(SimInfo,Attributes,SimEnginePid,{M,F,A}=_Notification)->
 	?L_IA("~s: Pausing all assets.",[binary_to_list(SimInfo#simulation.name)]),
 	_Results = lists:reverse(lists:foldl(fun(Node,Acc) ->
-		R = rpc:call(Node,simnode,pause,[all,Attributes#{ callback => {SimEnginePid,{SimInfo#simulation.name, Node,pause_done,erlang:timestmp()}} }]),
+		R = rpc:call(Node,simnode,pause,[all,Attributes#{ callback => {SimEnginePid,{SimInfo#simulation.name, Node,pause_done,erlang:timestamp()}} }]),
 		[R|Acc] end,[],SimInfo#simulation.nodes)),
 	apply(M,F,A),
 	ok.
@@ -478,7 +478,7 @@ pause_assets(SimInfo,Attributes,SimEnginePid,{M,F,A}=_Notification)->
 cancel_assets(SimInfo,Attributes,SimEnginePid,{M,F,A}=_Notification)->
 	?L_IA("~s: Cancelling all assets.",[binary_to_list(SimInfo#simulation.name)]),
 	_Results = lists:reverse(lists:foldl(fun(Node,Acc) ->
-		R = rpc:call(Node,simnode,cancel,[all,Attributes#{ callback => {SimEnginePid,{SimInfo#simulation.name, Node,cancel_done,erlang:timestmp()}} }]),
+		R = rpc:call(Node,simnode,cancel,[all,Attributes#{ callback => {SimEnginePid,{SimInfo#simulation.name, Node,cancel_done,erlang:timestamp()}} }]),
 		[R|Acc] end,[],SimInfo#simulation.nodes)),
 	apply(M,F,A),
 	ok.
@@ -487,7 +487,7 @@ cancel_assets(SimInfo,Attributes,SimEnginePid,{M,F,A}=_Notification)->
 restarts_assets(SimInfo,Attributes,SimEnginePid,{M,F,A}=_Notification)->
 	?L_IA("~s: Restarting all assets.",[binary_to_list(SimInfo#simulation.name)]),
 	_Results = lists:reverse(lists:foldl(fun(Node,Acc) ->
-		R = rpc:call(Node,simnode,restart,[all,Attributes#{ callback => {SimEnginePid,{SimInfo#simulation.name, Node,restart_done,erlang:timestmp()}} }]),
+		R = rpc:call(Node,simnode,restart,[all,Attributes#{ callback => {SimEnginePid,{SimInfo#simulation.name, Node,restart_done,erlang:timestamp()}} }]),
 		[R|Acc] end,[],SimInfo#simulation.nodes)),
 	apply(M,F,A),
 	ok.

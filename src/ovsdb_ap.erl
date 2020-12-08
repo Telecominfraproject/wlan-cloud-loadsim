@@ -274,6 +274,9 @@ handle_call ({exec_rpc, RPC}, _From, State) when is_map(RPC) andalso
 			{reply,ok,State};
 
 		{ok, Result} when is_map(Result) andalso is_map_key(<<"result">>,Result) ->
+			R= io_lib:format("~p",[Result]),
+			Bytes = length(lists:flatten(R)),
+			?L_I(?DBGSTR("RPC RESULT (~s): ~Bbytes",[maps:get(<<"id">>,RPC),Bytes])),
 			ok = ovsdb_ap_comm:send_term(State#ap_state.comm,Result),
 			{reply,ok,State};
 

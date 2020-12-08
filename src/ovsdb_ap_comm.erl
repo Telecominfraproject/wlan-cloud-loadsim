@@ -104,13 +104,14 @@ comm_loop (#c_state{socket=S, rxb=Rx, ap=AP}=State) ->
 					comm_loop(State#c_state{status=error});
 				_ ->
 					ToSend = jiffy:encode(Data),
-					?L_I(?DBGSTR("Sending: ~B bytes of date",[size(ToSend)])),
+					%?L_I(?DBGSTR("Sending: ~B bytes of date",[size(ToSend)])),
 					case ssl:send(S,ToSend) of
 						ok ->
 							ovsdb_ap:post_event(AP,comm_event,{<<"TX">>,size(ToSend)},io_lib:format("sending ~Bbytes",[size(ToSend)])),
 							comm_loop(State#c_state{status=active});
 						{error, closed} ->
 							ovsdb_ap:post_event(AP,comm_error,{<<"send_error">>},<<"trying to send data with no socket">>),
+							?L_E(?DBGSTR("trying to send data with closed socket")),
 							comm_loop(try_reconnect(State))
 					end
 			end;

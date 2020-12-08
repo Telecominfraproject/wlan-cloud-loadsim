@@ -17,8 +17,9 @@
 -type options() :: [
 	{host, string()} | 		% tip controller host name
 	{port, integer()} | 	% port to connect
-	{ca, binary()}	|		% in memory PEM file of the server CA chain
-	{cert, binary()}		% 
+	{cacert, binary()}	|		% in memory PEM file of the server CA chain
+	{cert, binary()} |
+	{key, {atom(),binary() } }
 ].
 
 -export_type([options/0]).

@@ -21,7 +21,7 @@
 	redirector :: binary(),
 	id :: binary(),
 	store_ref :: ets:tid(),
-	cacerts   = <<>> :: binary(),		% pem file (in memory) of the server certificate chain
+	cacert    = <<>> :: binary(),		% pem file (in memory) of the server certificate chain
 	cert      = <<>> :: binary(),
 	key       = {none,<<>>} :: {atom(), binary()}% client certificate + private key in pem format
 }).
@@ -55,7 +55,7 @@ configure (#cfg{ca_name=CAName, id=ID, redirector=R}=Config) ->
 	],
 	initialize_ap_tables(Config#cfg.store_ref,validate_config(APC)),
 	Config#cfg{
-		cacerts    = Info#client_info.cacert,
+		cacert    = Info#client_info.cacert,
 		cert = Info#client_info.cert,
 		key  = Info#client_info.key
 	}.
@@ -98,7 +98,7 @@ id(Cfg) ->
 
 -spec ca_certs (Config :: cfg()) -> binary().
 ca_certs (Cfg) ->
-	Cfg#cfg.cacerts.
+	Cfg#cfg.cacert.
 
 -spec client_cert (Config :: cfg()) -> binary().
 client_cert (Cfg) ->

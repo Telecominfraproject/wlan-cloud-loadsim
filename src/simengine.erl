@@ -382,27 +382,28 @@ handle_info({ SimName,Node,MsgType,TimeStamp}=Msg, State = #simengine_state{}) -
 		NewNodes = lists:delete(Node,SimState#sim_state.outstanding_nodes),
 		Now = erlang:timestamp(),
 		Elapsed = timer:now_diff(Now,TimeStamp) / 1000,
-		NewSimState= case MsgType of
+		 io:format("NewNodes: ~p SimState: ~p Elapsed: ~p~n",[NewNodes,SimState,Elapsed]),
+		NewSimState = case MsgType of
 			prepare_done->
-				?L_IA("Node ~p prepared. Took ~p seconds.",[Node,Elapsed]),
+				io:format("Node ~p prepared. Took ~p seconds.",[Node,Elapsed]),
 				SimState#sim_state{ outstanding_nodes = NewNodes, state = prepared };
 			push_done ->
-				?L_IA("Node ~p push done. Took ~p seconds.",[Node,Elapsed]),
+				io:format("Node ~p push done. Took ~p seconds.",[Node,Elapsed]),
 				SimState#sim_state{ outstanding_nodes = NewNodes , pushed = true , state = pushed };
 			start_done ->
-				?L_IA("Node ~p start done. Took ~p seconds.",[Node,Elapsed]),
+				io:format("Node ~p start done. Took ~p seconds.",[Node,Elapsed]),
 				SimState#sim_state{ outstanding_nodes = NewNodes, state = started };
 			stop_done ->
-				?L_IA("Node ~p stop done. Took ~p seconds.",[Node,Elapsed]),
+				io:format("Node ~p stop done. Took ~p seconds.",[Node,Elapsed]),
 				SimState#sim_state{ outstanding_nodes = NewNodes , state = stopped };
 			pause_done ->
-				?L_IA("Node ~p pause done. Took ~p seconds.",[Node,Elapsed]),
+				io:format("Node ~p pause done. Took ~p seconds.",[Node,Elapsed]),
 				SimState#sim_state{ outstanding_nodes = NewNodes, state = paused };
 			cancel_done ->
-				?L_IA("Node ~p cancel done. Took ~p seconds.",[Node,Elapsed]),
+				io:formatA("Node ~p cancel done. Took ~p seconds.",[Node,Elapsed]),
 				SimState#sim_state{ outstanding_nodes = NewNodes, state = cancelled };
 			restart_done ->
-				?L_IA("Node ~p restart done. Took ~p seconds.",[Node,Elapsed]),
+				io:format("Node ~p restart done. Took ~p seconds.",[Node,Elapsed]),
 				SimState#sim_state{ outstanding_nodes = NewNodes, state = started }
 		end,
 		State#simengine_state{ sim_states = maps:put(SimName,NewSimState,State#simengine_state.sim_states)}

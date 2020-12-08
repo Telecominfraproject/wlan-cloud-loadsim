@@ -39,7 +39,7 @@ creation_info() ->
 
 -spec start_client(CAName::string()|binary(),Id::string()|binary(),Configuration::gen_configuration()) -> ok | generic_error().
 start_client(CAName,Id,Configuration)->
-	gen_server:call(?SERVER,{new_client,utils:safe_binary(CAName),utils:safe_binary(Id),Configuration}).
+	gen_server:call(?SERVER,{start_client,utils:safe_binary(CAName),utils:safe_binary(Id),Configuration}).
 
 -spec stop_client(CAName::string()|binary(),Id::string()|binary()) -> ok | generic_error().
 stop_client(CAName,Id)->
@@ -77,7 +77,7 @@ init([]) ->
 	                 {noreply, NewState :: #mqtt_client_manager_state{}, timeout() | hibernate} |
 	                 {stop, Reason :: term(), Reply :: term(), NewState :: #mqtt_client_manager_state{}} |
 	                 {stop, Reason :: term(), NewState :: #mqtt_client_manager_state{}}).
-handle_call({new_client,CAName,Id,Configuration}, _From, State = #mqtt_client_manager_state{}) ->
+handle_call({start_client,CAName,Id,Configuration}, _From, State = #mqtt_client_manager_state{}) ->
 	NewState = start_client_process(CAName,Id,Configuration,State),
 	{reply, ok, NewState};
 handle_call({stop_client,_CAName,Id}, _From, State = #mqtt_client_manager_state{}) ->
@@ -157,6 +157,7 @@ start_client_process(CAName,Id,Configuration,State)->
 		client_configurations = maps:put(Id,{ Pid,Configuration} ,State#mqtt_client_manager_state.client_configurations),
 		client_pids = maps:put(Pid,Id,State#mqtt_client_manager_state.client_pids )
 	},
+	io:format("MQTT-Client ~p starting. Already ~p running.~n",[Id,maps:size(NewState#mqtt_client_manager_state.client_pids)]),
 	NewState.
 
 

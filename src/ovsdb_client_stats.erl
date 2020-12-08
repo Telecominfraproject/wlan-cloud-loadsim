@@ -73,6 +73,7 @@ update_statistics (CRef, Stats) ->
 	Entry = create_stats_entry (Seq+1,Clients,Stats),		
 	{ok,_} = timer:apply_after(?MGR_REPORT_INTERVAL,gen_server,call,[ovsdb_client_handler,update_stats]),
 	ets:insert(?MODULE,[{seq,seq,Seq+1},Entry]),
+	post_statistics(Entry),
 	ok.
 	
 
@@ -151,3 +152,12 @@ format_row (Entry) ->
 	{{Y,M,D},{H,I,S}} = calendar:system_time_to_universal_time(Entry#statistics.stamp,native),
 	#statistics{configured=CF, running=RN, paused=PS, dropped=DR, recon=RC, avg_rx=ARX, peak_rx=PRX, avg_tx=ATX, peak_tx=PTX} = Entry,
 	io:format("| ~4B-~2..0B-~2..0B ~2..0B:~2..0B:~2..0B | ~6B | ~6B | ~6B | ~6B | ~6B | ~6B | ~6B | ~6B | ~6B |~n",[Y,M,D,H,I,S,CF,RN,PS,DR,RC,ATX,ARX,PTX,PRX]).
+
+
+
+-spec post_statistics(Entry::#statistics{}) -> ok.
+post_statistics(E) ->
+	Fields = record_info(fields,statistics),
+	[_|Values] = tuple_to_list(E),
+	Map = maps:from_list(lists:zip(Fields,Values)),
+	statistics:submit_report(ovsdb_clients,maps:remove(seq,Map)).

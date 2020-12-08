@@ -439,7 +439,10 @@ apply_config (#{sim_name:=SimName, client_ids:=IDs, ovsdb_srv:=R, callback:=SNCB
 	end,
 	C = [F(X)||X<-IDs],
 	ets:insert(Clients,C),
-	cmd_launch_clients(IDs,State#hdl_state{config=Cfg, simnode_callback=SNCB}).
+	cmd_launch_clients(IDs,State#hdl_state{config=Cfg, simnode_callback=SNCB});
+apply_config (_,State) ->
+	io:format("GOT CONFIG I DON'T UNDERSTAND~n"),
+	State.
 
 
 
@@ -548,7 +551,7 @@ cmd_startup_sim (#hdl_state{timer=T, clients=Clients}=State, Which, #{stagger:={
 			Sp = min(N,length(Ready)),
 			{ToStart,_} = lists:split(Sp,Ready),
 			NewState = trigger_execute (0, queue_command(front,clients_start,ToStart,State#hdl_state{timer=T2})),
-			_=timer:apply_after(Per,?MODULE,cmd_startup_sim,[NewState,Which,Options]),
+			_=timer:apply_after(Per,gen_server,call,[self(),{api_cmd_start, Which, Options}]),
 			NewState
 	end;	
 cmd_startup_sim (#hdl_state{timer=T, clients=Clients}=State, Which, _) ->
@@ -620,31 +623,10 @@ execute_cmd (#hdl_state{cmd_queue=Q}=State) ->
 		State :: #hdl_state{},
 		NewState :: #hdl_state{}.
 clients_start (Refs, #hdl_state{clients=Clients, timer=T}=State) ->	 
-	Elapsed = owls_timers:delta("launched",T),
-	if
-		Elapsed > ?MAX_STARTUP_TIME ->
-			?L_E(?DBGSTR("Getting ~B clients ready took too long (~s)",[length(Refs),owls_timers:fmt_duration(Elapsed,T)])),
-			?L_I(?DBGSTR("Cancelling simulation start request")),
-			trigger_execute (0, queue_command (front,clients_cancel,Refs,State));
-		true ->
-			Ready = get_client_ids_in_state (Clients,ready,Refs),
-			check_client_startup(Ready,Refs,State)
-	end.
+	Ready = get_client_ids_in_state (Clients,ready,Refs),
+	[ovsdb_ap:start_ap(P) || #ap_client{process=P} <- get_clients_with_ids(Clients,Ready)],
+	State#hdl_state{timer=owls_timers:mark("clients_started",T)}.
 
-	
--spec check_client_startup (Ready, ToStart, State) -> NewState when
-		Ready :: [UUID::binary()],
-		ToStart :: [UUID::binary()],
-		State :: #hdl_state{},
-		NewState :: #hdl_state{}.
-check_client_startup (Ready, ToStart, #hdl_state{clients=Clients,timer=T}=State) ->
-	if
-		length(Ready) == length(ToStart) ->			
-			[ovsdb_ap:start_ap(P) || #ap_client{process=P} <- get_clients_with_ids(Clients,Ready)],
-			State#hdl_state{timer=owls_timers:mark("sim_started",T)};
-		true ->
-			trigger_execute (500, queue_command (front,clients_start,ToStart,State))
-	end.
 
 
 

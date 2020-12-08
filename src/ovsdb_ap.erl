@@ -39,7 +39,7 @@
 -export_type([ap_status/0]).
 
 -record(ap_state, { 	
-	id :: UUID::string(),				% the ID of the access point we cary around
+	id :: UUID::binary(),				% the ID of the access point we cary around
 	ca_name :: string() | binary(),		% ???
 	status = init :: ap_status(),		% internal status
 	config :: ovsdb_ap_config:cfg(),	% simulated AP configuration (model, serial etc.)
@@ -78,7 +78,7 @@
 
 -spec launch (CAName, Id, Options) -> {ok, Pid} | {error, Reason} when
 		CAName :: string() | binary(),
-		Id :: UUID::string(),
+		Id :: UUID::binary(),
 		Options :: [{atom(),term()}],
 		Pid :: pid(),
 		Reason :: term().
@@ -156,7 +156,7 @@ post_event (Event, Args, Comment) ->
 
 -spec init ({CAName, Id, Options}) -> {ok, State}  when
 		CAName :: string() | binary(),
-		Id :: UUID::string(),
+		Id :: UUID::binary(),
 		Options :: [{atom(),term()}],
 		State :: #ap_state{}.
 
@@ -363,7 +363,7 @@ code_change (_,OldState,_) ->
 
 -spec prepare_state (CAName, ID, Options) -> State when
 		CAName :: string() | binary(),
-		ID :: UUID::string(),
+		ID :: UUID::binary(),
 		Options :: [{atom(),term()}],
 		State :: #ap_state{}.
 

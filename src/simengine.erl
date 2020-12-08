@@ -448,8 +448,8 @@ run_batch([H|T],BatchSize,SimInfo,BatchNumber)->
 
 %% Create the servers - only if they are pon automatic mode
 split_build_servers(SimInfo,_Notification)->
-	_ = generate_server(SimInfo,mqtt_server,SimInfo#simulation.servers#sim_entry.opensync_server_name),
-	_ = generate_server(SimInfo,ovsdb_server,SimInfo#simulation.servers#sim_entry.mqtt_server_name),
+	_ = generate_server(SimInfo,mqtt_server,SimInfo#simulation.servers),
+	_ = generate_server(SimInfo,ovsdb_server,SimInfo#simulation.servers),
 	ok.
 
 generate_server(SimInfo,mqtt_server,auto)->

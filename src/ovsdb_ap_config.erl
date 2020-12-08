@@ -19,7 +19,7 @@
 -record (cfg, {
 	ca_name :: string() | binary(),
 	redirector :: binary(),
-	id :: string(),
+	id :: binary(),
 	store_ref :: ets:tid(),
 	ca_certs = <<"">> :: binary(),		% pem file (in memory) of the server certificate chain
 	client_cert = <<"">> :: binary()	% client certificate + private key in pem format
@@ -37,7 +37,7 @@
 %% API
 
 
--spec new (CAName :: string() | binary(), Id :: string(), Store :: ets:tid(), Redirector :: binary()) -> Config :: cfg().
+-spec new (CAName :: string() | binary(), Id :: binary(), Store :: ets:tid(), Redirector :: binary()) -> Config :: cfg().
 new (CAName,Id,Store,Redirector) ->
 	#cfg{ca_name=CAName, id=Id, store_ref = Store, redirector=Redirector}.
 
@@ -84,9 +84,9 @@ initialize_ap_tables (Store, APC) ->
 %%------------------------------------------------------------------------------
 %% accessor API - direct config settings
 
--spec id (Config :: cfg()) -> Id :: string().
-id (Cfg) ->
-	Cfg#cfg.id.
+-spec id (Config :: cfg()) -> Id :: binary().
+id (#cfg{id=ID}) ->
+	ID.
 
 -spec ca_certs (Config :: cfg()) -> binary().
 ca_certs (Cfg) ->

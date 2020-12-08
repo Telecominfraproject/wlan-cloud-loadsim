@@ -25,7 +25,7 @@
 -export([start_ap/1,stop_ap/1,pause_ap/1,cancel_ap/1]).
 
 %% comm API
--export([rpc_cmd/2,reset_comm/1,mqtt_conf/2,sock_recon/2,post_event/4,post_event/3]).
+-export([rpc_cmd/2,reset_comm/1,mqtt_conf/2,post_event/4,post_event/3]).
 
 
 %% gen_server callbacks
@@ -134,10 +134,6 @@ reset_comm (Node) ->
 -spec mqtt_conf (Node :: pid(), Config :: map()) -> ok.
 mqtt_conf (Node, Conf) ->
 	gen_server:cast(Node, {mqtt_conf,Conf}).
-
--spec sock_recon (Node :: pid(), Delay :: integer()) -> ok.
-sock_recon (Node, Delay) ->
-	gen_server:cast(Node, {stats_update, {sock_recon, {Delay}, io_lib:format("socket abnormally closed -> reconnect attempt in ~.2fsec",[Delay/1000])}}).
 
 -spec post_event (Node :: pid(), Event :: atom(), Args :: tuple(), Comment :: binary() | string()) -> ok.
 post_event (Node, Event, Args, Comment) ->
@@ -469,12 +465,13 @@ cancel_simulation (State) ->
 
 -spec ctrl_connect (State :: #ap_state{}) -> NewState :: #ap_state{}.
 
-ctrl_connect (#ap_state{comm=none, status=ready, config=Cfg}=State) ->
+ctrl_connect (#ap_state{comm=none, status=ready, config=Cfg, id=ID}=State) ->
 	Opts = [
 		{host, ovsdb_ap_config:tip_redirector(host,Cfg)},
 		{port, ovsdb_ap_config:tip_redirector(port,Cfg)},
 		{ca, ovsdb_ap_config:ca_certs(Cfg)},
 		{cert, ovsdb_ap_config:client_cert(Cfg)},
+		{id, ID},
 		{key, ovsdb_ap_config:client_key(Cfg)}
 	],
 	{ok, Comm} = ovsdb_ap_comm:start_link(Opts),
@@ -482,7 +479,7 @@ ctrl_connect (#ap_state{comm=none, status=ready, config=Cfg}=State) ->
 	post_event(tip_connect,{<<"redirector">>},<<"connecting to the TIP controller (redirector)">>),
 	State#ap_state{comm=Comm};
 
-ctrl_connect (#ap_state{comm=none, status=running, config=Cfg}=State) ->
+ctrl_connect (#ap_state{comm=none, status=running, config=Cfg, id=ID}=State) ->
 	O = case ovsdb_ap_config:tip_manager(host,Cfg) of
 		[] ->
 			post_event(tip_connect,{<<"redirector">>},<<"connecting to the TIP controller (redirector)">>),
@@ -495,7 +492,8 @@ ctrl_connect (#ap_state{comm=none, status=running, config=Cfg}=State) ->
 	end,
 	Opts = [{cacert, ovsdb_ap_config:ca_certs(Cfg)},
 	        {cert, ovsdb_ap_config:client_cert(Cfg)},
-	        {key,ovsdb_ap_config:client_key(Cfg)}|O],
+	        {key,ovsdb_ap_config:client_key(Cfg)},
+			{id, ID} |O],
 	{ok, Comm} = ovsdb_ap_comm:start_link(Opts),
 	gen_server:cast(self(),ctlr_start_comm),
 	State#ap_state{comm=Comm};

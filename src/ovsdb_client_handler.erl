@@ -338,10 +338,6 @@ code_change (_,OldState,_) ->
 
 trigger_execute (0, State) ->
 	gen_server:cast(self(),execute),
-	State;
-
-trigger_execute (D, State) ->
-	{ok,_} = timer:apply_after(D,gen_server,cast,[self(),execute]),
 	State.
 
 

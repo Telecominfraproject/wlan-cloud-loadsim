@@ -287,8 +287,9 @@ handle_cast(_Request, State = #simengine_state{}) ->
 	{noreply, NewState :: #simengine_state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), NewState :: #simengine_state{}}).
 
-handle_info({ SimName,Node,MsgType,TimeStamp}, State = #simengine_state{}) ->
+handle_info({ SimName,Node,MsgType,TimeStamp}=Msg, State = #simengine_state{}) ->
 	NS = try
+				 io:format("INFO MESSAGE RECEIVED: ~p~n",[Msg]),
 		{ok,SimState} = maps:get(SimName,State#simengine_state.sim_states),
 		NewNodes = lists:delete(Node,SimState#sim_state.outstanding_nodes),
 		Now = erlang:timestamp(),
@@ -318,7 +319,8 @@ handle_info({ SimName,Node,MsgType,TimeStamp}, State = #simengine_state{}) ->
 		end,
 		SimState#sim_state{ outstanding_nodes = NewNodes }
 	catch
-		_:_ ->
+		_:_ = Error ->
+			io:format("Failed ~p processing INFO MESSAGE~n",[Error]),
 			State
 	end,
 	{noreply,NS};
@@ -341,7 +343,8 @@ handle_info({'DOWN', _Ref, process, Pid, _Why}, State = #simengine_state{}) ->
 		end end,maps:new(),State#simengine_state.sim_states),
 	{noreply, State#simengine_state{ sim_states = N1 }};
 
-handle_info(_Info, State = #simengine_state{}) ->
+handle_info(Info, State = #simengine_state{}) ->
+	io:format("SIMENGINE MESSAGE: ~p~n",[Info]),
 	{noreply, State}.
 
 %% @private

@@ -20,7 +20,7 @@
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
          code_change/3]).
--export([set_configuration/1,start/2,stop/2,cancel/2,pause/2,resume/2]).
+-export([set_configuration/1,start/2,stop/2,cancel/2,pause/2,restart/2]).
 
 -define(SERVER, ?MODULE).
 
@@ -45,8 +45,8 @@ set_configuration( _Configuration ) ->
 pause( _UIDS,_Attributes ) ->
 	ok.
 
--spec resume( all | [UUID::binary()], Attributes::#{ atom() => term() }) -> ok | { error, Reason::term() }.
-resume( _UIDS,_Attributes ) ->
+-spec restart( all | [UUID::binary()], Attributes::#{ atom() => term() }) -> ok | { error, Reason::term() }.
+restart( _UIDS,_Attributes ) ->
 	ok.
 
 -spec start( all | [UUID::binary()], Attributes::#{ atom() => term() }) -> ok | { error, Reason::term() }.

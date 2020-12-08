@@ -14,7 +14,7 @@
 
 -callback set_configuration( Configuration :: #{} ) -> ok | { error, Reason::term() }.
 -callback pause( all | [UUID::binary()], Attributes::#{ atom() => term() }) -> ok | { error, Reason::term() }.
--callback resume( all | [UUID::binary()], Attributes::#{ atom() => term() }) -> ok | { error, Reason::term() }.
+-callback restart( all | [UUID::binary()], Attributes::#{ atom() => term() }) -> ok | { error, Reason::term() }.
 -callback start( all | [UUID::binary()], Attributes::#{ atom() => term() }) -> ok | { error, Reason::term() }.
 -callback stop( all | [UUID::binary()], Attributes::#{ atom() => term() }) -> ok | { error, Reason::term() }.
 -callback cancel( all | [UUID::binary()], Attributes::#{ atom() => term() }) -> ok | { error, Reason::term() }.

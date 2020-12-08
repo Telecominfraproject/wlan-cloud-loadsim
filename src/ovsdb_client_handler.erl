@@ -21,7 +21,7 @@
 
 %% API
 -export([start_link/0,creation_info/0]).
--export([set_configuration/1, start/1, start/2, stop/1, stop/2, pause/1, pause/2, cancel/1, cancel/2, resume/1, report/0]).
+-export([set_configuration/1, start/1, start/2, restart/2, stop/1, stop/2, pause/1, pause/2, cancel/1, cancel/2, resume/1, report/0]).
 -export([ap_status/2,push_ap_stats/2,dump_clients/0,list_ids/0,all_ready/0]).
 
 %% gen_server callbacks
@@ -90,7 +90,9 @@ all_ready() ->
 
 
 %%% gen_sim_clients behaviour
-
+-spec restart( all | [UUID::binary()], Attributes::#{ atom() => term() }) -> ok | { error, Reason::term() }.
+restart( _UIDS,_Attributes ) ->
+	ok.
 
 -spec set_configuration (Cfg) -> ok | {error, Reason} when
 		Cfg :: #{any() => any()},

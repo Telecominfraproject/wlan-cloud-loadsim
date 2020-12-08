@@ -467,11 +467,10 @@ maybe_notify_simnode (#hdl_state{clients=Clients, simnode_callback={SN,Msg}}=Sta
 	IDs = [X||#ap_client{id=X}<-ets:match_object(Clients,#ap_client{_='_'})],
 	case get_client_ids_in_state(Clients,{available,init,dead},IDs) of
 		[] ->
-			io:format ("ALL SUCKERS READY!!!~n"),
+			io:format("NOTIFY APs READY~n"),
 			SN ! Msg,
 			State;
 		_ ->
-			io:format ("WAITING FOR MORE SUCKERS~n"),
 			State
 	end.
 	

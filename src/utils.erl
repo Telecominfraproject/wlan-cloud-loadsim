@@ -12,7 +12,7 @@
 %% API
 -export([ make_dir/1,uuid/0,get_addr/0,get_addr2/0,app_name/0,app_name/1,priv_dir/0,app_env/2,to_string_list/2,to_binary_list/2,print_nodes_info/1,
 					do/2,pem_to_cert/1,pem_to_key/1,safe_binary/1,uuid_b/0,pem_key_is_encrypted/1,remove_pem_key_password/3,
-					noop/0,noop_mfa/0,split_into/2,select/3]).
+					noop/0,noop_mfa/0,split_into/2,select/3,adjust/2]).
 
 -spec make_dir( DirName::string() ) -> ok | { error, atom() }.
 make_dir(DirName)->
@@ -231,3 +231,9 @@ split_it(_,_,_,_,_,Acc)->
 
 select(true,A,_B) ->A;
 select(false,_A,B)->B.
+
+-spec adjust(Max::integer(),Divisor::integer())->integer().
+adjust(_Max,0)->
+	0;
+adjust(Max,Divisor)->
+	min(Max, Max - ( Max rem Divisor)).

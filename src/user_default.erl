@@ -94,7 +94,7 @@ create_simulation(SimName,CAName) when is_list(SimName),is_list(CAName) ->
 	io:format("  -nodes(~p): ~p~n",[length(Nodes),Nodes]),
 	MaxDevices = length(Nodes) * 10000,
 	NumberOfDevices = input("Number of devices (max:" ++ integer_to_list(MaxDevices) ++ ") ", integer_to_list(MaxDevices div 2)),
-	RealNumberOfDevices = adjust(list_to_integer(NumberOfDevices),length(Nodes)),
+	RealNumberOfDevices = utils:adjust(list_to_integer(NumberOfDevices),length(Nodes)),
 	OVSDBServers = select_servers(),
 	Simulation = #simulation{ name = list_to_binary(SimName),
 	                          ca = list_to_binary(CAName),
@@ -322,7 +322,3 @@ t1_key()->
 
 t2_key()->
 	import_ca("sim1","","sim1_key.pem","sim1_cert.pem").
-
-adjust(Max,Divisor)->
-	min(Max, Max - ( Max rem Divisor)).
-

@@ -18,17 +18,23 @@
 
 -behaviour(gen_server).
 
+%%-define(SERVER, {global,?MODULE}).
+%%-define(START_SERVER,{global,?MODULE}).
+
+-define(SERVER, ?MODULE).
+-define(START_SERVER,{local,?MODULE}).
+
+
 %% API
 -export([start_link/1,creation_info/0,connect/1,disconnect/0,find_manager/2,connected/0,
-	set_configuration/1,reset_configuration/1,set_operation_state/2,execute/1,set_client/2,
+	set_configuration/1,reset_configuration/1,
 	get_configuration/0,set_configuration/2,get_configuration/1,
-	update_stats/3,send_os_stats/0]).
+	update_stats/3,send_os_stats/0,
+	start/2,restart/2,pause/2,cancel/2,stop/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
 	code_change/3]).
-
--define(SERVER, ?MODULE).
 
 -record(simnode_state, {
 	node_finder = none :: timer:tref(),
@@ -39,9 +45,6 @@
 	node_id = 0 :: integer(),
 	manager = undefined :: atom(),
 	sim_configuration = #{} :: #{ atom() => string()},
-	seq_commands = [] :: list( sim_operation() ),
-	par_commands = #{} :: #{ string() => sim_operation() },
-	executing = #{} ::  #{ string() => sim_operation_state() },
 	client_pids = #{} :: #{ string() => pid() }}).
 
 %% ovsdb_server
@@ -58,6 +61,25 @@ creation_info() ->
 
 %% ovsdb_server
 
+-spec pause( all | [UUID::binary()], Attributes::attribute_list()) -> ok | generic_error().
+pause(UIDS,Attributes ) ->
+	gen_server:call(?SERVER,{pause,UIDS,Attributes}).
+
+-spec restart( all | [UUID::binary()], Attributes::attribute_list()) -> ok | generic_error().
+restart(UIDS,Attributes ) ->
+	gen_server:call(?SERVER,{restart,UIDS,Attributes}).
+
+-spec start( all | [UUID::binary()], Attributes::attribute_list()) -> ok | generic_error().
+start( UIDS,Attributes ) ->
+	gen_server:call(?SERVER,{start,UIDS,Attributes}).
+
+-spec stop( all | [UUID::binary()], Attributes::attribute_list()) -> ok | generic_error().
+stop( UIDS,Attributes ) ->
+	gen_server:call(?SERVER,{stop,UIDS,Attributes}).
+
+-spec cancel( all | [UUID::binary()], Attributes::attribute_list()) -> ok | generic_error().
+cancel( UIDS,Attributes ) ->
+	gen_server:call(?SERVER,{cancel,UIDS,Attributes}).
 
 -spec connect(NodeName::atom())-> {ok, none | node()}.
 connect(NodeName) ->
@@ -88,19 +110,6 @@ get_configuration(Node)->
 reset_configuration(State)->
 	gen_server:call(?SERVER,{reset_configuration,State}).
 
--spec execute( sim_operation() | [sim_operation()] ) -> ok | { error , Reason::term }.
-execute(Command) when is_record(Command,sim_operation)->
-	gen_server:call(?SERVER,{execute,[Command]});
-execute(Commands) when is_list(Commands)->
-	gen_server:call(?SERVER,{execute,Commands}).
-
-set_operation_state(Operation,NewState)->
-	gen_server:cast(?SERVER,{set_state,Operation,NewState}).
-
--spec set_client( Client::string(), ClientPid:: none |  pid())->ok.
-set_client(Client,Pid)->
-	gen_server:cast(?SERVER,{set_client_pid,Client,Pid}).
-
 -spec update_stats( Client::any_role(), Role::any_role(), Stats::#{})-> ok.
 update_stats(Client,Role,Stats)->
 	gen_server:cast(?SERVER,{update_stats,Client,Role,Stats}).
@@ -115,7 +124,7 @@ send_os_stats()->
 -spec(start_link(Config::term()) ->
 	{ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
 start_link(Config) ->
-	gen_server:start_link({local, ?SERVER}, ?MODULE, [Config], []).
+	gen_server:start_link(?START_SERVER, ?MODULE, [Config], []).
 
 %% @private
 %% @doc Initializes the server
@@ -163,22 +172,46 @@ handle_call({set_configuration,Configuration}, _From, State = #simnode_state{}) 
 	safe_execute( State#simnode_state.ovsdb_server_handler, set_configuration, [Configuration]),
 	?L_I("Configuration sent to all handlers."),
 	{ reply, ok , State#simnode_state{ sim_configuration = Configuration } };
+
+handle_call({start,UIDs,Attributes}, _From, State = #simnode_state{}) ->
+	safe_execute( State#simnode_state.ap_client_handler, start, [UIDs,Attributes]),
+	safe_execute( State#simnode_state.mqtt_server_handler, start, [UIDs,Attributes]),
+	safe_execute( State#simnode_state.ovsdb_server_handler, start, [UIDs,Attributes]),
+	?L_I("START sent to all handlers."),
+	{ reply, ok , State};
+
+handle_call({stop,UIDs,Attributes}, _From, State = #simnode_state{}) ->
+	safe_execute( State#simnode_state.ap_client_handler, stop, [UIDs,Attributes]),
+	safe_execute( State#simnode_state.mqtt_server_handler, stop, [UIDs,Attributes]),
+	safe_execute( State#simnode_state.ovsdb_server_handler, stop, [UIDs,Attributes]),
+	?L_I("STOP sent to all handlers."),
+	{ reply, ok , State};
+
+handle_call({pause,UIDs,Attributes}, _From, State = #simnode_state{}) ->
+	safe_execute( State#simnode_state.ap_client_handler, pause, [UIDs,Attributes]),
+	safe_execute( State#simnode_state.mqtt_server_handler, pause, [UIDs,Attributes]),
+	safe_execute( State#simnode_state.ovsdb_server_handler, pause, [UIDs,Attributes]),
+	?L_I("PAUSE sent to all handlers."),
+	{ reply, ok , State};
+
+handle_call({restart,UIDs,Attributes}, _From, State = #simnode_state{}) ->
+	safe_execute( State#simnode_state.ap_client_handler, restart, [UIDs,Attributes]),
+	safe_execute( State#simnode_state.mqtt_server_handler, restart, [UIDs,Attributes]),
+	safe_execute( State#simnode_state.ovsdb_server_handler, restart, [UIDs,Attributes]),
+	?L_I("RESTART sent to all handlers."),
+	{ reply, ok , State};
+
+handle_call({cancel,UIDs,Attributes}, _From, State = #simnode_state{}) ->
+	safe_execute( State#simnode_state.ap_client_handler, cancel, [UIDs,Attributes]),
+	safe_execute( State#simnode_state.mqtt_server_handler, cancel, [UIDs,Attributes]),
+	safe_execute( State#simnode_state.ovsdb_server_handler, cancel, [UIDs,Attributes]),
+	?L_I("CANCEL sent to all handlers."),
+	{ reply, ok , State};
+
 handle_call(get_configuration, _From, State = #simnode_state{}) ->
 	{ reply, {ok , State#simnode_state.sim_configuration} ,State };
 handle_call({reset_configuration,_NewAttributes}, _From, State = #simnode_state{}) ->
 	{ reply, ok , State };
-handle_call({execute,Commands}, _From, State = #simnode_state{}) ->
-	{NewSeq,NewPar,Rejected} = lists:foldl(fun(Element,{Seqs,Pars,Rejected}) ->
-													case Element#sim_operation.type of
-														parallel->
-															{ Seqs, maps:put(Element#sim_operation.uuid,Element,Pars),Rejected };
-														sequential ->
-															{ Seqs ++ [ Element ], Pars, Rejected};
-														_ ->
-															{ Seqs , Pars, Rejected ++ [Element]}
-													end
-												end,{State#simnode_state.seq_commands,State#simnode_state.par_commands,[]},Commands),
-	{ reply, { ok, Rejected } , State#simnode_state{ seq_commands = NewSeq, par_commands = NewPar } };
 handle_call(_Request, _From, State = #simnode_state{}) ->
 	{reply, ok, State}.
 
@@ -196,15 +229,6 @@ handle_cast( {manager_found,NodeName}, State = #simnode_state{}) ->
 			NewState=try_connecting(NodeName,State),
 			{noreply, NewState}
 	end;
-handle_cast({set_client_pid,Client,none}, State = #simnode_state{}) ->
-	NewPids = maps:remove(Client,State#simnode_state.client_pids),
-	{noreply, State#simnode_state{ client_pids = NewPids }};
-handle_cast({set_client_pid,Client,Pid}, State = #simnode_state{}) when is_pid(Pid)->
-	NewPids = maps:put(Client,Pid,State#simnode_state.client_pids),
-	{noreply, State#simnode_state{ client_pids = NewPids }};
-handle_cast({set_state,Operation,NewState}, State = #simnode_state{}) ->
-	NewOpStates = maps:put( Operation , NewState, State#simnode_state.executing ),
-	{noreply, State#simnode_state{ executing = NewOpStates}};
 handle_cast({update_stats,_Client,_Role,_Stats}, State = #simnode_state{}) ->
 	{noreply,State};
 handle_cast(_Request, State = #simnode_state{}) ->

@@ -138,11 +138,11 @@ comm_loop (#c_state{socket=S, rxb=Rx, ap=AP}=State) ->
 start_connection (#c_state{options=Opts}=State) ->
 	H = proplists:get_value(host,Opts),
 	P = proplists:get_value(port,Opts),
-	CAs = [X || {'Certificate',X,not_encrypted} <- public_key:pem_decode(proplists:get_value(ca,Opts))],
-	[{'Certificate',Cert,not_encrypted},
-	 {KeyType,Key,not_encrypted}] = public_key:pem_decode(proplists:get_value(cert,Opts)),
+	CAs = proplists:get_value(ca,Opts),
+	Cert = proplists:get_value(cert,Opts),
+	Key = proplists:get_value(key,Opts),
 	State#c_state{
-		socket = connect_to_server(H,P,CAs,Cert,{KeyType,Key}),
+		socket = connect_to_server(H,P,CAs,Cert,Key),
 		status = active
 	}.
 
@@ -164,17 +164,17 @@ try_reconnect (#c_state{restart=R, ap=AP}=State) ->
 %% Cert :: public_key:der_encoded(),	%% client certificate
 %% Key :: {atom(),public_key:der_encoded()},	%% private key for client cert
 %% Socket :: ssl:sslsocket().
--spec connect_to_server (Host :: string(), Port :: integer(), CAs:: [public_key:der_encoded()], Cert :: public_key:der_encoded(), Key :: {atom(),public_key:der_encoded()}) -> Socket :: ssl:sslsocket().
+-spec connect_to_server(Host::string(), Port::integer(), CAs::binary(), Cert::binary(), Key::{atom(),binary()}) -> Socket::ssl:sslsocket().
 connect_to_server (Host, Port, CAs, Cert, Key) ->
-	Opts = [{cacerts, CAs},
-			{cert,Cert},
-			{key,Key},
-			{versions, ['tlsv1.2','tlsv1.3']},
-			{session_tickets,auto},
-			{mode,binary},
-			{keepalive, true},
-			{packet,raw},
-			{active,once}],
+	Opts = [{cacerts, [CAs]},
+					{cert,Cert},
+					{key,Key},
+					{versions, ['tlsv1.2','tlsv1.3']},
+					{session_tickets,auto},
+					{mode,binary},
+					{keepalive, true},
+					{packet,raw},
+					{active,once}],
 	?L_I(?DBGSTR("AP connecting to ~s:~B",[Host,Port])),
 	case ssl:connect(Host, Port, Opts) of
 		{ok, Socket} -> Socket;

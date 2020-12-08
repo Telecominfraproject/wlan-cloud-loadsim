@@ -474,7 +474,8 @@ ctrl_connect (#ap_state{comm=none, status=ready, config=Cfg}=State) ->
 		{host, ovsdb_ap_config:tip_redirector(host,Cfg)},
 		{port, ovsdb_ap_config:tip_redirector(port,Cfg)},
 		{ca, ovsdb_ap_config:ca_certs(Cfg)},
-		{cert, ovsdb_ap_config:client_cert(Cfg)}
+		{cert, ovsdb_ap_config:client_cert(Cfg)},
+		{key, ovsdb_ap_config:client_key(Cfg)}
 	],
 	{ok, Comm} = ovsdb_ap_comm:start_link(Opts),
 	gen_server:cast(self(),ctlr_start_comm),
@@ -492,7 +493,9 @@ ctrl_connect (#ap_state{comm=none, status=running, config=Cfg}=State) ->
 			[{host, ovsdb_ap_config:tip_manager(host,Cfg)},
 			 {port, ovsdb_ap_config:tip_manager(port,Cfg)}]
 	end,
-	Opts = [{ca, ovsdb_ap_config:ca_certs(Cfg)},{cert, ovsdb_ap_config:client_cert(Cfg)}|O],
+	Opts = [{ca, ovsdb_ap_config:ca_certs(Cfg)},
+	        {cert, ovsdb_ap_config:client_cert(Cfg)},
+	        {key,ovsdb_ap_config:client_key(Cfg)}|O],
 	{ok, Comm} = ovsdb_ap_comm:start_link(Opts),
 	gen_server:cast(self(),ctlr_start_comm),
 	State#ap_state{comm=Comm};

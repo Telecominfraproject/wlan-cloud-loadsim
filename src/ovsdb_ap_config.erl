@@ -21,8 +21,9 @@
 	redirector :: binary(),
 	id :: binary(),
 	store_ref :: ets:tid(),
-	ca_certs = <<"">> :: binary(),		% pem file (in memory) of the server certificate chain
-	client_cert = <<"">> :: binary()	% client certificate + private key in pem format
+	cacerts   = <<>> :: binary(),		% pem file (in memory) of the server certificate chain
+	cert      = <<>> :: binary(),
+	key       = {none,<<>>} :: {atom(), binary()}% client certificate + private key in pem format
 }).
 
 -opaque cfg() :: #cfg{}.
@@ -30,7 +31,7 @@
 
 
 -export([new/4,configure/1]).
--export ([id/1,ca_certs/1,client_cert/1,tip_redirector/2,tip_manager/2]).
+-export ([id/1,ca_certs/1,client_cert/1,client_key/1,tip_redirector/2,tip_manager/2]).
 
 
 %%------------------------------------------------------------------------------
@@ -44,9 +45,6 @@ new (CAName,Id,Store,Redirector) ->
 -spec configure (Config :: cfg()) -> NewConfig :: cfg().
 configure (#cfg{ca_name=CAName, id=ID, redirector=R}=Config) ->
 	{ok,Info} = inventory:get_client(CAName,ID),
-	{KeyType,KeyData} = Info#client_info.decrypt,
-	CA =  Info#client_info.cacert,
-	Cert = Info#client_info.cert,
 	APC = [
 		{serial,Info#client_info.serial},
 		{type,Info#client_info.type},
@@ -57,8 +55,9 @@ configure (#cfg{ca_name=CAName, id=ID, redirector=R}=Config) ->
 	],
 	initialize_ap_tables(Config#cfg.store_ref,validate_config(APC)),
 	Config#cfg{
-		ca_certs = public_key:pem_encode([{'Certificate',CA,not_encrypted}]),	
-		client_cert = public_key:pem_encode([{'Certificate',Cert,not_encrypted},{KeyType,KeyData,not_encrypted}])
+		cacerts    = Info#client_info.cacert,
+		cert = Info#client_info.cert,
+		key  = Info#client_info.key
 	}.
 
 -spec validate_config(APC :: [{atom(),term()}]) -> CorrAPC :: [{atom(),term()}].
@@ -94,16 +93,21 @@ initialize_ap_tables (Store, APC) ->
 %% accessor API - direct config settings
 
 -spec id (Config :: cfg()) -> Id :: binary().
-id (#cfg{id=ID}) ->
-	ID.
+id(Cfg) ->
+	Cfg#cfg.id.
 
 -spec ca_certs (Config :: cfg()) -> binary().
 ca_certs (Cfg) ->
-	Cfg#cfg.ca_certs.
+	Cfg#cfg.cacerts.
 
 -spec client_cert (Config :: cfg()) -> binary().
 client_cert (Cfg) ->
-	Cfg#cfg.client_cert.
+	Cfg#cfg.cert.
+
+-spec client_key (Config :: cfg()) -> {atom(),binary()}.
+client_key (Cfg) ->
+	Cfg#cfg.key.
+
 
 %%------------------------------------------------------------------------------
 %% accessor API from Store tables

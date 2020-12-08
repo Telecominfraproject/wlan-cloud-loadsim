@@ -400,7 +400,7 @@ handle_info({ SimName,Node,MsgType,TimeStamp}=Msg, State = #simengine_state{}) -
 				io:format("Node ~p pause done. Took ~p seconds.",[Node,Elapsed]),
 				SimState#sim_state{ outstanding_nodes = NewNodes, state = paused };
 			cancel_done ->
-				io:formatA("Node ~p cancel done. Took ~p seconds.",[Node,Elapsed]),
+				io:format("Node ~p cancel done. Took ~p seconds.",[Node,Elapsed]),
 				SimState#sim_state{ outstanding_nodes = NewNodes, state = cancelled };
 			restart_done ->
 				io:format("Node ~p restart done. Took ~p seconds.",[Node,Elapsed]),

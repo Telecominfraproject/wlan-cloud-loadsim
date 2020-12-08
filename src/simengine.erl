@@ -434,7 +434,7 @@ push_assets(SimInfo,_Attributes,SimEnginePid,{M,F,A}=_Notification)->
 													            clients => C,
 																			ovsdb_server_name => SimInfo#simulation.servers#sim_entry.opensync_server_name,
 																			ovsdb_server_port => SimInfo#simulation.servers#sim_entry.opensync_server_port,
-																			callback => { SimEnginePid, {SimInfo#simulation.name, N,push_done,erlang:timestmp()} }},
+																			callback => { SimEnginePid, {SimInfo#simulation.name, N,push_done,erlang:timestamp()} }},
 													io:format("Pushing to ~p...~n",[N]),
 													R = rpc:call(N,simnode,set_configuration,[Config]),
 													[R|Acc]

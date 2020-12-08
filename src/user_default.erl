@@ -112,7 +112,7 @@ show_simulation(SimName) when is_list(SimName) ->
 
 -spec prepare_simulation( SimName::string() )->ok.
 prepare_simulation(SimName)->
-	simengine:prepare(SimName,utils:noop_mfa()),
+	simengine:prepare(SimName,#{},utils:noop_mfa()),
 	ok.
 
 -spec push_simulation(SimName::string())-> ok | generic_error().

@@ -117,27 +117,33 @@ prepare_simulation(SimName)->
 
 -spec push_simulation(SimName::string())-> ok | generic_error().
 push_simulation(SimName)->
-	simengine:push(SimName,utils:noop_mfa()),
+	simengine:push(SimName,#{},utils:noop_mfa()),
 	ok.
 
 -spec start_simulation(SimName::string())-> ok | generic_error().
-start_simulation(_SimName)->
+start_simulation(SimName)->
+	simengine:start(SimName,#{stagger=>{5,2000}},utils:noop_mfa()),
+	ok.
+
+-spec restart_simulation(SimName::string())-> ok | generic_error().
+restart_simulation(SimName)->
+	simengine:restart(SimName,#{stagger=>{5,2000}},utils:noop_mfa()),
 	ok.
 
 -spec stop_simulation(SimName::string())-> ok | generic_error().
-stop_simulation(_SimName)->
+stop_simulation(SimName)->
+	simengine:stop(SimName,#{stagger=>{5,2000}},utils:noop_mfa()),
 	ok.
 
 -spec pause_simulation(SimName::string())-> ok | generic_error().
-pause_simulation(_SimName)->
+pause_simulation(SimName)->
+	simengine:pause(SimName,#{stagger=>{5,2000}},utils:noop_mfa()),
 	ok.
 
 -spec cancel_simulation(SimName::string())-> ok | generic_error().
-cancel_simulation(_SimName)->
+cancel_simulation(SimName)->
+	simengine:cancel(SimName,#{stagger=>{5,2000}},utils:noop_mfa()),
 	ok.
-
-
-
 
 -spec list_simulations() -> {ok,SimulationList::[string()]} | generic_error().
 list_simulations() ->

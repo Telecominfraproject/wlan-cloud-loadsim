@@ -20,7 +20,7 @@
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
          code_change/3]).
--export([set_configuration/1,start/1,stop/1,cancel/1,pause/1,resume/1]).
+-export([set_configuration/1,start/2,stop/2,cancel/2,pause/2,resume/2]).
 
 -define(SERVER, ?MODULE).
 
@@ -41,24 +41,24 @@ creation_info() ->
 set_configuration( _Configuration ) ->
 	ok.
 
--spec pause( all | [UUID::string()]) -> ok | { error, Reason::term() }.
-pause( _UIDS ) ->
+-spec pause( all | [UUID::binary()], Attributes::#{ atom() => term() }) -> ok | { error, Reason::term() }.
+pause( _UIDS,_Attributes ) ->
 	ok.
 
--spec resume( all | [UUID::string()]) -> ok | { error, Reason::term() }.
-resume( _UIDS ) ->
+-spec resume( all | [UUID::binary()], Attributes::#{ atom() => term() }) -> ok | { error, Reason::term() }.
+resume( _UIDS,_Attributes ) ->
 	ok.
 
--spec start( all | [UUID::string()]) -> ok | { error, Reason::term() }.
-start( _UIDS ) ->
+-spec start( all | [UUID::binary()], Attributes::#{ atom() => term() }) -> ok | { error, Reason::term() }.
+start( _UIDS,_Attributes ) ->
 	ok.
 
--spec stop( all | [UUID::string()]) -> ok | { error, Reason::term() }.
-stop( _UIDS ) ->
+-spec stop( all | [UUID::binary()], Attributes::#{ atom() => term() }) -> ok | { error, Reason::term() }.
+stop( _UIDS,_Attributes ) ->
 	ok.
 
--spec cancel( all | [UUID::string()]) -> ok | { error, Reason::term() }.
-cancel( _UIDS ) ->
+-spec cancel( all | [UUID::binary()], Attributes::#{ atom() => term() }) -> ok | { error, Reason::term() }.
+cancel( _UIDS,_Attributes ) ->
 	ok.
 
 %% @doc Spawns the server and registers the local name (unique)

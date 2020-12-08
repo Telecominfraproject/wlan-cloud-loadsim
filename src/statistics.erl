@@ -125,7 +125,7 @@ create_tables()->
 add_new_report(Node,Type,Report)->
 	_ = mnesia:transaction( fun() ->
 												mnesia:dirty_write(stats,#stat_report{ uuid = utils:uuid_b(),
-												                                       timestamp = os:timestamp(),
+												                                       timestamp = erlang:timestamp(),
 												                                       node = Node,
 												                                       type = Type,
 												                                       report = Report })

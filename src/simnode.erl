@@ -122,7 +122,7 @@ start_link(Config) ->
 -spec(init(Args :: term()) ->
 	{ok, State :: #simnode_state{}} | {ok, State :: #simnode_state{}, timeout() | hibernate} |
 	{stop, Reason :: term()} | ignore).
-init(Config) ->
+init([Config]) ->
 	NodeId = utils:app_env(node_id,1),
 	{ok,NodeFinder} = timer:apply_interval(7500,?MODULE,find_manager,[self(),NodeId]),
 	{ok,StatsUpdater} = timer:apply_interval(5000,?MODULE,send_os_stats,[]),
@@ -289,5 +289,5 @@ create_os_stats_report() ->
 safe_execute(undefined,_F,_A)->
 	ok;
 safe_execute(M,F,A)->
-	io:format("Executing: ~p:~p(~p)",[M,F,A]),
+	io:format("Executing: ~p:~p(Config)~n",[M,F]),
 	apply(M,F,A).

@@ -559,13 +559,13 @@ check_mqtt (Cfg,#ap_state{ca_name=CAName, id=ID}=State) ->
 			start_mqtt(Cfg,State)
 	end.
 
--spec mqtt_needs_restart (ActiveConfig :: #{binary():=binary()}, NewConfig :: #{binary():=binary()}) -> boolean().
-mqtt_needs_restart (#{<<"broker">>:=CurBroker, <<"port">>:=CurPort},#{<<"broker">>:=NewBroker, <<"port">>:=NewPort}) when CurBroker==NewBroker andalso CurPort==NewPort ->
+-spec mqtt_needs_restart (ActiveConfig :: gen_configuration(), NewConfig :: gen_configuration()) -> boolean().
+mqtt_needs_restart (#{broker:=CurBroker, port:=CurPort},#{broker:=NewBroker, port:=NewPort}) when CurBroker==NewBroker andalso CurPort==NewPort ->
 	false;
 mqtt_needs_restart (_,_) ->
 	true.
 
--spec start_mqtt(Config :: #{binary():=binary()}, #ap_state{}) -> NewState :: #ap_state{}.
+-spec start_mqtt(gen_configuration(), #ap_state{}) -> NewState :: #ap_state{}.
 start_mqtt (Cfg,#ap_state{ca_name=CAName, id=ID, mqtt=idle}=State) ->
 	post_event(mqtt,{<<"set_config">>},<<"start an MQTT client">>),
 	_ = mqtt_client_manager:start_client(CAName,ID,Cfg),

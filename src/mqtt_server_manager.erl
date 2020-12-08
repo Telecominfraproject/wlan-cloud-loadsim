@@ -43,7 +43,7 @@ creation_info() ->
 		type => worker,
 		modules => [?MODULE]} ].
 
--spec start_server(CAName::binary()|string(),Id::binary()|string(),Configuration::#{ binary() => term() }) -> ok | generic_error().
+-spec start_server(CAName::binary()|string(),Id::binary()|string(),Configuration::gen_configuration() ) -> ok | generic_error().
 start_server(CAName,Id,Configuration)->
 	gen_server:call(?SERVER,{start_server,utils:safe_binary(CAName),utils:safe_binary(Id),Configuration}).
 

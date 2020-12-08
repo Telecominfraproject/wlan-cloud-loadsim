@@ -16,9 +16,9 @@
 %% API
 -export([start/4,mqttserver_worker/2,mqttserver_worker_secure/2,mqttserver_processor_init/2,mqttserver_processor/2]).
 
--spec start(CAName::binary(),Id::binary(),Configuration::#{ binary() => term()}, ManagerPid::pid())->ok.
+-spec start(CAName::binary(),Id::binary(),Configuration::gen_configuration(), ManagerPid::pid())->ok.
 start(CAName,Id,Configuration,ManagerPid)->
-	#{ <<"num_listeners">> := NumListeners, <<"port">> := Port , <<"secure">> := Secure } = Configuration,
+	#{ num_listeners := NumListeners, port := Port , secure := Secure } = Configuration,
 	{ok,ServiceConfiguration} = inventory:get_server(CAName,Id),
 	{ ok , ListenSocket } = case Secure of
 		                        false ->

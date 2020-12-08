@@ -17,44 +17,67 @@
 -export([start/4,send_ping/1,c_cfg/0,s_cfg/0,t1/0,t2/0]).
 
 -record(client_state,{id = <<>> :: binary(),
+											caname :: binary(),
                       manager_pid :: pid(),
+											broker :: binary(),
+											port :: integer(),
                       topics = <<>> :: binary(),
                       compress = <<>> :: binary(),
-                      configuration = #{} :: #{ binary() => term() },
+                      configuration = #{} :: gen_configuration(),
                       details :: client_info(),
                       current_state = not_connected :: atom(),
                       keep_alive_ref = undefined :: undefined | timer:tref(),
                       errors=0::integer(),
                       internal_messages=0::integer(),
-											reconnects = 0 :: integer(),
+											disconnects = 0 :: integer(),
+											connects = 0 :: integer(),
+											t1 = 0 :: integer(),
+											connect_time = 0 :: integer(),
 											messages=0::integer()}).
 
--spec start(CAName::binary(),Id::binary(),Configuration::#{ binary() => term() }, ParentPid::pid()) -> ok.
+-spec start(CAName::binary(),Id::binary(),Configuration::gen_configuration(), ManagerPid::pid()) -> no_return().
 start(CAName,Id,Configuration,ManagerPid)->
-	#{ <<"broker">> := Broker, <<"compress">> := Compress, <<"port">> := Port, <<"topics">> := Topics } = Configuration,
+	#{ broker := Broker, compress := Compress, port := Port, topics := Topics } = Configuration,
 	{ok,DeviceConfiguration} = inventory:get_client(CAName,Id),
-	_ = case ssl:connect(binary_to_list(Broker),list_to_integer(binary_to_list(Port)),
-	                     [{session_tickets,auto},{versions, ['tlsv1.2','tlsv1.3']},
-	                      {cert,DeviceConfiguration#client_info.cert},
-												{key,DeviceConfiguration#client_info.key},
-												{cacerts,[DeviceConfiguration#client_info.cacert]},
-												{active,false},binary]) of
-		{ok,SSLSocket} ->
-			%% io:format(">>>Connected~n"),
-			CS = #client_state{ id=Id, manager_pid = ManagerPid, topics = Topics, compress = Compress , configuration = Configuration, details = DeviceConfiguration },
-			run_client(SSLSocket,CS),
-			utils:do(CS#client_state.keep_alive_ref =/= undefined,{timer,cancel,[CS#client_state.keep_alive_ref]}),
-			ssl:close(SSLSocket);
-		{error,_}=Error->
-			%% io:format(">>>Cannot connect: ~p~n",[Error]),
-			?L_IA("MQTT Client cannot connect: ~p.",[Error])
-	end,
-	timer:sleep(5000),
-	start(CAName,Id,Configuration,ManagerPid).
+	full_start(#client_state{
+		id = Id,
+		caname = CAName,
+		manager_pid = ManagerPid,
+		details = DeviceConfiguration,
+		configuration = Configuration,
+		broker = Broker,
+		port = list_to_integer(binary_to_list(Port)),
+		topics = Topics,
+		compress = Compress}),
+	ok.
 
--spec run_client(SSLSocket::ssl:sslsocket(),CS::#client_state{}) -> ok.
-run_client(SSLSocket,CS)->
-	_=ssl:setopts(SSLSocket,[{active,true}]),
+-spec full_start(State::#client_state{})->no_return().
+full_start(State)->
+	T1 = os:system_time(),
+	NewState = case ssl:connect(binary_to_list(State#client_state.broker),
+		                  State#client_state.port,
+	                     [{session_tickets,auto},{versions, ['tlsv1.2','tlsv1.3']},
+	                      {cert,State#client_state.details#client_info.cert},
+												{key,State#client_state.details#client_info.key},
+												{cacerts,[State#client_state.details#client_info.cacert]},
+												{active,false},binary]) of
+								{ok,SSLSocket} ->
+									%% io:format(">>>Connected~n"),
+									RS = run_client(SSLSocket,State#client_state{ connects = State#client_state.connects+1, t1 = T1 }),
+									utils:do(State#client_state.keep_alive_ref =/= undefined,{timer,cancel,[State#client_state.keep_alive_ref]}),
+									ssl:close(SSLSocket),
+									RS#client_state{ disconnects = State#client_state.disconnects +1 };
+								{error,_}=Error->
+									%% io:format(">>>Cannot connect: ~p~n",[Error]),
+									?L_IA("MQTT Client cannot connect: ~p.",[Error]),
+									State
+							end,
+	timer:sleep(5000),
+	full_start(NewState).
+
+-spec run_client(Socket::ssl:sslsocket(),CS::#client_state{}) -> no_return().
+run_client(Socket,CS)->
+	_=ssl:setopts(Socket,[{active,true}]),
 	C = #mqtt_connect_variable_header{
 		protocol_version = ?MQTT_PROTOCOL_VERSION_3_11,
 		username_flag = 0,
@@ -67,16 +90,16 @@ run_client(SSLSocket,CS)->
 		keep_alive = 60	},
 	M = #mqtt_msg{ variable_header = C},
 	ConnectMessage = mqtt_message:encode(M),
-	_=case ssl:send(SSLSocket,ConnectMessage) of
+	_=case ssl:send(Socket,ConnectMessage) of
 		ok ->
 			%% io:format("Sent connection message...~n"),
-			manage_connection(SSLSocket,CS#client_state{ current_state = waiting_for_hello });
+			manage_connection(Socket,CS#client_state{ current_state = waiting_for_hello });
 		Error ->
 			%% io:format("Failed connection message...~n"),
 			?L_IA("MQTT_CONNECTION for ID=~p failed (~p)",[CS#client_state.id,Error])
-	end,
-	ok.
+	end.
 
+-spec manage_connection(Socket::ssl:sslsocket(),CS::#client_state{}) -> no_return().
 manage_connection(Socket,CS) ->
 	receive
 		{ssl,Socket,Data} ->
@@ -125,7 +148,8 @@ process( M, CS ) when is_record(M,mqtt_connack_variable_header_v4) ->
 	case M#mqtt_connack_variable_header_v4.connect_reason_code of
 		0 ->
 			{ok,TRef} = timer:apply_interval(60*1000,?MODULE,send_ping,[self()]),
-			{none,CS#client_state{ messages = 1+CS#client_state.messages, current_state = connected , keep_alive_ref = TRef }};
+			ConnectTime = os:system_time() - CS#client_state.t1,
+			{none,CS#client_state{ messages = 1+CS#client_state.messages, current_state = connected , keep_alive_ref = TRef, connect_time = ConnectTime, t1 = 0 }};
 		Error ->
 			?L_IA("Device ~p gets error ~p when trying to connect.",[CS#client_state.id,Error]),
 			{none,CS#client_state{ messages = 1+CS#client_state.messages, errors = 1+CS#client_state.errors }}
@@ -135,15 +159,17 @@ process( M, CS ) when is_record(M,mqtt_pingreq_variable_header_v4) ->
 	{ Response, CS#client_state{ messages = 1+CS#client_state.messages }}.
 
 c_cfg()->
-	#{<<"broker">> => <<"renegademac.arilia.com">>,
-	  <<"compress">> => <<"zlib">>,<<"port">> => <<"1883">>,
-	  <<"qos">> => <<"0">>,<<"remote_log">> => <<"1">>,
-	  <<"topics">> => <<"/ap/Open_AP_21P10C69717951/opensync">>}.
+	#{broker => <<"renegademac.arilia.com">>,
+	  compress => <<"zlib">>,
+	  port => <<"1883">>,
+	  qos => <<"0">>,
+	  remote_log => <<"1">>,
+	  topics => <<"/ap/Open_AP_21P10C69717951/opensync">>}.
 
 s_cfg()->
-	#{<<"port">> => 1883,
-		<<"num_listeners">> => 10,
-		<<"secure">> => true }.
+	#{port => 1883,
+		num_listeners => 10,
+		secure => true }.
 
 t1()->
 	mqtt_server_manager:start_server(<<"sim1">>,<<"mqtt-1">>,s_cfg()).

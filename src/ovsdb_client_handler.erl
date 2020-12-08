@@ -543,6 +543,7 @@ get_client_with_id (Tid, Id) ->
 cmd_startup_sim (#hdl_state{timer=T, clients=Clients}=State, Which, #{stagger:={N,Per}}=Options) ->
 	case get_client_ids_in_state (Clients, ready, Which) of
 		[] ->
+			io:format("DONE STARTING CLIENTS~n"),
 			T2 = owls_timers:mark("startup sequence end",T),
 			State#hdl_state{timer=T2};
 		Ready ->

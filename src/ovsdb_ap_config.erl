@@ -50,6 +50,7 @@ configure (#cfg{ca_name=CAName, id=ID, redirector=R}=Config) ->
 	APC = [
 		{serial,Info#client_info.serial},
 		{type,Info#client_info.type},
+		{wan_addr,make_ip_addr(ID)},
 		{wan_mac,Info#client_info.wan_mac0},
 		{lan_mac,Info#client_info.lan_mac0},
 		{tip_redirector,R}
@@ -74,6 +75,14 @@ validate_config (APC) ->
 	end,
 	[F(X)||X<-APC].
 
+
+-spec make_ip_addr(ID::binary()) -> IPAddr :: binary().
+make_ip_addr(_ID) ->
+	A = rand:uniform(30) + 60,
+	B = rand:uniform(200) + 20,
+	C = rand:uniform(50) + 100,
+	D = rand:uniform(230) + 10,
+	list_to_binary(io_lib:format("~B.~B.~B.~B",[A,B,C,D])).
 
 -spec initialize_ap_tables (Store :: ets:tid(), Config :: proplists:proplist()) -> true.
 initialize_ap_tables (Store, APC) ->

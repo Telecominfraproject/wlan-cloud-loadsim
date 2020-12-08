@@ -540,7 +540,7 @@ get_client_with_id (Tid, Id) ->
 		Which :: all | [UUID::binary()],
 		Options :: #{atom() => term()},
 		NewState :: #hdl_state{}.
-cmd_startup_sim (#hdl_state{timer=T, clients=Clients}=State, Which, #{stagger:={N,Per}=Options}) ->
+cmd_startup_sim (#hdl_state{timer=T, clients=Clients}=State, Which, #{stagger:={N,Per}}=Options) ->
 	case get_client_ids_in_state (Clients, ready, Which) of
 		[] ->
 			T2 = owls_timers:mark("startup sequence end",T),
@@ -549,10 +549,9 @@ cmd_startup_sim (#hdl_state{timer=T, clients=Clients}=State, Which, #{stagger:={
 			T2 = owls_timers:mark("startup sequence ...",T),
 			Sp = min(N,length(Ready)),
 			{ToStart,_} = lists:split(Sp,Ready),
-			NewState = trigger_execute (0, queue_command(front,clients_start,ToStart,State#hdl_state{timer=T2})),
 			_=timer:apply_after(Per,gen_server,call,[self(),{api_cmd_start, Which, Options}]),
-			io:format("STARTED ~B CLIENTS, more to come in ~Bms",[N,Per]),
-			NewState
+			io:format("STARTED CLIENTS ~p, more to come in ~Bms~n",[ToStart,Per]),
+			trigger_execute (0, queue_command(front,clients_start,ToStart,State#hdl_state{timer=T2}))
 	end;	
 cmd_startup_sim (#hdl_state{timer=T, clients=Clients}=State, Which, _) ->
 	T2 = owls_timers:mark("startup",T),

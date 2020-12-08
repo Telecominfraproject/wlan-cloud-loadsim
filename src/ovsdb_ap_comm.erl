@@ -18,13 +18,15 @@
 	{host, string()} | 		% tip controller host name
 	{port, integer()} | 	% port to connect
 	{ca, binary()}	|		% in memory PEM file of the server CA chain
-	{cert, binary()}		% 
+	{cert, binary()} |		% 
+	{id, binary()}			% for tagging messages the ID of the AP node
 ].
 
 -export_type([options/0]).
 
 -record (c_state, {
 	options :: options(),
+	id :: binary(),
 	socket :: none | ssl:sslsocket(),
 	ap :: pid(),
 	status :: active | idle | error,
@@ -69,15 +71,17 @@ create_comm (Opts, AP) ->
 		options = Opts,
 		socket = none,
 		ap = AP,
+		id = proplists:get_value(id,Opts,<<"unknown AP">>),
 		status = idle
 	},
 	comm_loop(State).
 
 -spec comm_loop (State :: #c_state{}) -> ok.
-comm_loop (#c_state{socket=S, rxb=Rx, ap=AP}=State) ->
+comm_loop (#c_state{socket=S, rxb=Rx, ap=AP, id=ID, options=Opts}=State) ->
 	receive 
 		{ssl, S, Data} ->
-			Buffer = process_rx_data(<<Rx/binary,Data/binary>>,AP),
+			{Buffer, Pretty} = process_rx_data(<<Rx/binary,Data/binary>>,AP),
+			?L_I(?DBGSTR("GOT REQUEST: from ~s:~B to ~s~n~s",[proplists:get_value(host,Opts,"unknown"),proplists:get_value(port,Opts,0),ID,Pretty])),
 			ovsdb_ap:post_event(AP,comm_event,{<<"RX">>,size(Data)},io_lib:format("receive ~Bbytes",[size(Data)])),
 			case ssl:setopts(S,[{active,once}]) of
 				ok ->
@@ -88,6 +92,7 @@ comm_loop (#c_state{socket=S, rxb=Rx, ap=AP}=State) ->
 
 		{ssl_closed, S} ->
 			ovsdb_ap:post_event(AP,comm_error,{<<"socket_closed">>},<<>>),
+			?L_E(?DBGSTR("Socket closed by server")),
 			comm_loop(try_reconnect(State));
 
     	{ssl_error, S, Reason} ->
@@ -104,7 +109,9 @@ comm_loop (#c_state{socket=S, rxb=Rx, ap=AP}=State) ->
 					comm_loop(State#c_state{status=error});
 				_ ->
 					ToSend = jiffy:encode(Data),
+					ToSendP = jiffy:encode(Data,[pretty]),
 					%?L_I(?DBGSTR("Sending: ~B bytes of date",[size(ToSend)])),
+					?L_I(?DBGSTR("SENDING RESPONSE: from ~s to ~s:~B~n~s",[ID,proplists:get_value(host,Opts,"unknown"),proplists:get_value(port,Opts,0),ToSendP])),
 					case ssl:send(S,ToSend) of
 						ok ->
 							ovsdb_ap:post_event(AP,comm_event,{<<"TX">>,size(ToSend)},io_lib:format("sending ~Bbytes",[size(ToSend)])),
@@ -152,7 +159,7 @@ try_reconnect (#c_state{restart=R, ap=AP}=State) ->
 	Rj = R + rand:uniform(250) - 125,
 	?L_I(?DBGSTR("socket closed by server, trying to reconnect in ~.2fsec",[Rj/1000])),
 	_ = timer:send_after(Rj,{start, AP}),
-	ovsdb_ap:sock_recon(AP,Rj),
+	ovsdb_ap:post_event(AP,sock_recon,{Rj},io_lib:format("socket abnormally closed -> reconnect attempt in ~.2fsec",[Rj/1000])),
 	State#c_state{socket=none, status=error, restart=min(R*2,32000)}.
 
 
@@ -184,15 +191,15 @@ connect_to_server (Host, Port, CAs, Cert, Key) ->
 	end.
 
 %--------process_rx_data/2---------------process data in buffer and ensures only valid decoded JSON is sent to AP
--spec process_rx_data (Data :: binary(), AP :: pid()) -> Buffer :: binary().
+-spec process_rx_data (Data :: binary(), AP :: pid()) -> {Buffer :: binary(), PrettyJSON :: binary()}.
 process_rx_data (Data, AP) ->
 	try jiffy:decode(Data,[return_maps,copy_strings,return_trailer]) of
 		{has_trailer,Map,Tail} ->
 			ovsdb_ap:rpc_cmd(AP,Map),
-			iolist_to_binary(Tail);
+			{iolist_to_binary(Tail),jiffy:encode(Map,[pretty])};
 		Map ->
 			ovsdb_ap:rpc_cmd(AP,Map),
-			<<"">>
+			{<<"">>,jiffy:encode(Map,[pretty])}
 	catch
 		error:{_,truncated_json} ->
 			Data;

@@ -35,8 +35,7 @@
 %% -define(START_SERVER,{local,?MODULE}).
 
 -record(sim_state,{
-	created = false :: boolean(),
-	prepared = false :: boolean(),
+	pushed = false :: boolean(),
 	current_op_pid = none :: none | pid(),
 	current_op = none :: none | preparing | pushing | starting | pausing | stopping | restarting | cancelling ,
 	state = created :: created | prepared | pushed | started | paused | stopped | restarted | cancelled ,
@@ -121,9 +120,8 @@ init([]) ->
 	Simulations = list_sims_full(),
 	NewStates = lists:foldl( fun(E,A)->
 			maps:put( E#simulation.name, #sim_state{
-				created = true,
+				pushed = false,
 				state = utils:select(E#simulation.assets_created,prepared,created),
-				prepared = E#simulation.assets_created,
 				sim_info = E },A )
 		end,maps:new(),Simulations),
 	{ok, #simengine_state{sim_states = NewStates}}.
@@ -147,7 +145,7 @@ handle_call({create_simulation,SimInfo}, _From, State = #simengine_state{}) ->
 			?L_IA("Creating simulation ~s.",[binary_to_list(SimInfo#simulation.name)]),
 			case create_sim(SimInfo) of
 				ok ->
-					SimState = #sim_state{ sim_info = SimInfo, created = true },
+					SimState = #sim_state{ sim_info = SimInfo },
 					{reply, ok, State#simengine_state{ sim_states = maps:put(SimInfo#simulation.name,SimState,State#simengine_state.sim_states )}};
 				Error -> { reply, {error,Error} , State}
 			end
@@ -162,7 +160,7 @@ handle_call({prepare,SimName,Attributes,Notification},_From,State = #simengine_s
 					{ok,?ERROR_SIM_ASSETS_ALREADY_CREATED,State};
 				false->
 					S = maps:get(SimName,State#simengine_state.sim_states),
-					case is_pid(S#sim_state.current_op_pid) of
+					case length(S#sim_state.outstanding_nodes)>0 of
 						true->
 							{reply,?ERROR_SIM_OPERATION_IN_PROGRESS,State};
 						false->
@@ -180,12 +178,22 @@ handle_call({push,SimName,Attributes,Callback}, _From, State = #simengine_state{
 			{ reply, ?ERROR_SIM_UNKNOWN, State };
 		[SimInfo] ->
 			S = maps:get(SimName,State#simengine_state.sim_states),
-			case is_pid(S#sim_state.current_op_pid) of
-				true->
-					{reply,?ERROR_SIM_OPERATION_IN_PROGRESS,State};
+			case (SimInfo#simulation.assets_created) of
 				false->
-					OpPid=spawn_link(?MODULE,push_assets,[SimInfo,Attributes,self(),Callback]),
-					{reply,ok,State#simengine_state{ sim_states = maps:put(SimName,S#sim_state{current_op_pid = OpPid, current_op = pushing , outstanding_nodes = SimInfo#simulation.nodes },State#simengine_state.sim_states) }}
+					{reply,?ERROR_SIM_NO_ASSETS_EXIST,State};
+				true->
+					case S#sim_state.pushed of
+						true ->
+							{reply,?ERROR_SIM_ASSETS_ALREADY_PUSHED};
+						false->
+							case length(S#sim_state.outstanding_nodes)>0 of
+								true->
+									{reply,?ERROR_SIM_OPERATION_IN_PROGRESS,State};
+								false->
+									OpPid=spawn_link(?MODULE,push_assets,[SimInfo,Attributes,self(),Callback]),
+									{reply,ok,State#simengine_state{ sim_states = maps:put(SimName,S#sim_state{current_op_pid = OpPid, current_op = pushing , outstanding_nodes = SimInfo#simulation.nodes },State#simengine_state.sim_states) }}
+							end
+					end
 			end
 	end;
 
@@ -195,70 +203,150 @@ handle_call({start,SimName,Attributes,Callback}, _From, State = #simengine_state
 			{ reply, ?ERROR_SIM_UNKNOWN, State };
 		[SimInfo] ->
 			S = maps:get(SimName,State#simengine_state.sim_states),
-			case is_pid(S#sim_state.current_op_pid) of
-				true->
-					{reply,?ERROR_SIM_OPERATION_IN_PROGRESS,State};
+			case SimInfo#simulation.assets_created of
 				false->
-					OpPid=spawn_link(?MODULE,start_assets,[SimInfo,Attributes,self(),Callback]),
-					{reply,ok,State#simengine_state{ sim_states = maps:put(SimName,S#sim_state{current_op_pid = OpPid, current_op = starting , outstanding_nodes = SimInfo#simulation.nodes },State#simengine_state.sim_states) }}
+					{reply,?ERROR_SIM_NO_ASSETS_EXIST,State};
+				true->
+					case not S#sim_state.pushed of
+						true ->
+							{reply,?ERROR_SIM_ASSETS_NOT_PUSHED};
+						false->
+							case length(S#sim_state.outstanding_nodes)>0 of
+								true->
+									{reply,?ERROR_SIM_OPERATION_IN_PROGRESS,State};
+								false->
+									case S#sim_state.state of
+										started->
+											{ reply, ?ERROR_SIM_ALREADY_STARTED };
+										_ ->
+											OpPid=spawn_link(?MODULE,start_assets,[SimInfo,Attributes,self(),Callback]),
+											{reply,ok,State#simengine_state{ sim_states = maps:put(SimName,S#sim_state{current_op_pid = OpPid, current_op = starting , outstanding_nodes = SimInfo#simulation.nodes },State#simengine_state.sim_states) }}
+									end
+							end
+					end
 			end
 	end;
+
 handle_call({stop,SimName,Attributes,Callback}, _From, State = #simengine_state{}) ->
 	case get_sim(SimName) of
 		[] ->
 			{ reply, ?ERROR_SIM_UNKNOWN, State };
 		[SimInfo] ->
 			S = maps:get(SimName,State#simengine_state.sim_states),
-			case is_pid(S#sim_state.current_op_pid) of
-				true->
-					{reply,?ERROR_SIM_OPERATION_IN_PROGRESS,State};
+			case SimInfo#simulation.assets_created of
 				false->
-					OpPid=spawn_link(?MODULE,stop_assets,[SimInfo,Attributes,self(),Callback]),
-					{reply,ok,State#simengine_state{ sim_states = maps:put(SimName,S#sim_state{current_op_pid = OpPid, current_op = stopping , outstanding_nodes = SimInfo#simulation.nodes },State#simengine_state.sim_states) }}
+					{reply,?ERROR_SIM_NO_ASSETS_EXIST,State};
+				true->
+					case not S#sim_state.pushed of
+						true ->
+							{reply,?ERROR_SIM_ASSETS_NOT_PUSHED};
+						false->
+							case length(S#sim_state.outstanding_nodes)>0 of
+								true->
+									{reply,?ERROR_SIM_OPERATION_IN_PROGRESS,State};
+								false->
+									case ((S#sim_state.state==started) or (S#sim_state.state==paused))  of
+										true->
+											OpPid=spawn_link(?MODULE,stop_assets,[SimInfo,Attributes,self(),Callback]),
+											{reply,ok,State#simengine_state{ sim_states = maps:put(SimName,S#sim_state{current_op_pid = OpPid, current_op = stopping , outstanding_nodes = SimInfo#simulation.nodes },State#simengine_state.sim_states) }};
+										false->
+											{ reply, ?ERROR_SIM_MUST_BE_STARTED_OR_PAUSED }
+									end
+							end
+					end
 			end
 	end;
+
 handle_call({pause,SimName,Attributes,Callback}, _From, State = #simengine_state{}) ->
 	case get_sim(SimName) of
 		[] ->
 			{ reply, ?ERROR_SIM_UNKNOWN, State };
 		[SimInfo] ->
 			S = maps:get(SimName,State#simengine_state.sim_states),
-			case is_pid(S#sim_state.current_op_pid) of
-				true->
-					{reply,?ERROR_SIM_OPERATION_IN_PROGRESS,State};
+			case SimInfo#simulation.assets_created of
 				false->
-					OpPid=spawn_link(?MODULE,pause_assets,[SimInfo,Attributes,self(),Callback]),
-					{reply,ok,State#simengine_state{ sim_states = maps:put(SimName,S#sim_state{current_op_pid = OpPid, current_op = pausing, outstanding_nodes = SimInfo#simulation.nodes  },State#simengine_state.sim_states) }}
+					{reply,?ERROR_SIM_NO_ASSETS_EXIST,State};
+				true->
+					case not S#sim_state.pushed of
+						true ->
+							{reply,?ERROR_SIM_ASSETS_NOT_PUSHED};
+						false->
+							case length(S#sim_state.outstanding_nodes)>0 of
+								true->
+									{reply,?ERROR_SIM_OPERATION_IN_PROGRESS,State};
+								false->
+									case (S#sim_state.state==started) of
+										true->
+											OpPid=spawn_link(?MODULE,pause_assets,[SimInfo,Attributes,self(),Callback]),
+											{reply,ok,State#simengine_state{ sim_states = maps:put(SimName,S#sim_state{current_op_pid = OpPid, current_op = pausing , outstanding_nodes = SimInfo#simulation.nodes },State#simengine_state.sim_states) }};
+										false->
+											{ reply, ?ERROR_SIM_MUST_BE_STARTED }
+									end
+							end
+					end
 			end
 	end;
+
 handle_call({cancel,SimName,Attributes,Callback}, _From, State = #simengine_state{}) ->
 	case get_sim(SimName) of
 		[] ->
 			{ reply, ?ERROR_SIM_UNKNOWN, State };
 		[SimInfo] ->
 			S = maps:get(SimName,State#simengine_state.sim_states),
-			case is_pid(S#sim_state.current_op_pid) of
-				true->
-					{reply,?ERROR_SIM_OPERATION_IN_PROGRESS,State};
+			case SimInfo#simulation.assets_created of
 				false->
-					OpPid=spawn_link(?MODULE,cancel_assets,[SimInfo,Attributes,self(),Callback]),
-					{reply,ok,State#simengine_state{ sim_states = maps:put(SimName,S#sim_state{current_op_pid = OpPid, current_op = cancelling, outstanding_nodes = SimInfo#simulation.nodes  },State#simengine_state.sim_states) }}
+					{reply,?ERROR_SIM_NO_ASSETS_EXIST,State};
+				true->
+					case not S#sim_state.pushed of
+						true ->
+							{reply,?ERROR_SIM_ASSETS_NOT_PUSHED};
+						false->
+							case length(S#sim_state.outstanding_nodes)>0 of
+								true->
+									{reply,?ERROR_SIM_OPERATION_IN_PROGRESS,State};
+								false->
+									case ((S#sim_state.state==started) or (S#sim_state.state==paused) or (S#sim_state.state==stopped)) of
+										true->
+											OpPid=spawn_link(?MODULE,cancel_assets,[SimInfo,Attributes,self(),Callback]),
+											{reply,ok,State#simengine_state{ sim_states = maps:put(SimName,S#sim_state{current_op_pid = OpPid, current_op = cancelling , outstanding_nodes = SimInfo#simulation.nodes },State#simengine_state.sim_states) }};
+										false->
+											{ reply, ?ERROR_SIM_MUST_BE_STARTED_OR_PAUSED_OR_STOPPED }
+									end
+							end
+					end
 			end
 	end;
+
 handle_call({restart,SimName,Attributes,Callback}, _From, State = #simengine_state{}) ->
 	case get_sim(SimName) of
 		[] ->
 			{ reply, ?ERROR_SIM_UNKNOWN, State };
 		[SimInfo] ->
 			S = maps:get(SimName,State#simengine_state.sim_states),
-			case is_pid(S#sim_state.current_op_pid) of
-				true->
-					{reply,?ERROR_SIM_OPERATION_IN_PROGRESS,State};
+			case SimInfo#simulation.assets_created of
 				false->
-					OpPid=spawn_link(?MODULE,restart_assets,[SimInfo,Attributes,self(),Callback]),
-					{reply,ok,State#simengine_state{ sim_states = maps:put(SimName,S#sim_state{current_op_pid = OpPid, current_op = restarting, outstanding_nodes = SimInfo#simulation.nodes  },State#simengine_state.sim_states) }}
+					{reply,?ERROR_SIM_NO_ASSETS_EXIST,State};
+				true->
+					case not S#sim_state.pushed of
+						true ->
+							{reply,?ERROR_SIM_ASSETS_NOT_PUSHED};
+						false->
+							case length(S#sim_state.outstanding_nodes)>0 of
+								true->
+									{reply,?ERROR_SIM_OPERATION_IN_PROGRESS,State};
+								false->
+									case ((S#sim_state.state==paused) or (S#sim_state.state==stopped)) of
+										true->
+											OpPid=spawn_link(?MODULE,restart_assets,[SimInfo,Attributes,self(),Callback]),
+											{reply,ok,State#simengine_state{ sim_states = maps:put(SimName,S#sim_state{current_op_pid = OpPid, current_op = restarting , outstanding_nodes = SimInfo#simulation.nodes },State#simengine_state.sim_states) }};
+										false->
+											{ reply, ?ERROR_SIM_MUST_BE_PAUSED_OR_STOPPED }
+									end
+							end
+					end
 			end
 	end;
+
 handle_call({get,SimName}, _From, State = #simengine_state{}) ->
 	case get_sim(SimName) of
 		[] ->
@@ -294,30 +382,29 @@ handle_info({ SimName,Node,MsgType,TimeStamp}=Msg, State = #simengine_state{}) -
 		NewNodes = lists:delete(Node,SimState#sim_state.outstanding_nodes),
 		Now = erlang:timestamp(),
 		Elapsed = timer:now_diff(Now,TimeStamp) / 1000,
-		case MsgType of
+		NewSimState= case MsgType of
 			prepare_done->
 				?L_IA("Node ~p prepared. Took ~p seconds.",[Node,Elapsed]),
-				ok;
+				SimState#sim_state{ outstanding_nodes = NewNodes, state = prepared };
 			push_done ->
 				?L_IA("Node ~p push done. Took ~p seconds.",[Node,Elapsed]),
-				ok;
+				SimState#sim_state{ outstanding_nodes = NewNodes , pushed = true , state = pushed };
 			start_done ->
 				?L_IA("Node ~p start done. Took ~p seconds.",[Node,Elapsed]),
-				ok;
+				SimState#sim_state{ outstanding_nodes = NewNodes, state = started };
 			stop_done ->
 				?L_IA("Node ~p stop done. Took ~p seconds.",[Node,Elapsed]),
-				ok;
+				SimState#sim_state{ outstanding_nodes = NewNodes , state = stopped };
 			pause_done ->
 				?L_IA("Node ~p pause done. Took ~p seconds.",[Node,Elapsed]),
-				ok;
+				SimState#sim_state{ outstanding_nodes = NewNodes, state = paused };
 			cancel_done ->
 				?L_IA("Node ~p cancel done. Took ~p seconds.",[Node,Elapsed]),
-				ok;
+				SimState#sim_state{ outstanding_nodes = NewNodes, state = cancelled };
 			restart_done ->
 				?L_IA("Node ~p restart done. Took ~p seconds.",[Node,Elapsed]),
-				ok
+				SimState#sim_state{ outstanding_nodes = NewNodes, state = started }
 		end,
-		NewSimState = SimState#sim_state{ outstanding_nodes = NewNodes },
 		State#simengine_state{ sim_states = maps:put(SimName,NewSimState,State#simengine_state.sim_states)}
 	catch
 		_:_ = Error ->

@@ -35,16 +35,18 @@
 											connect_time = 0 :: integer(),
 											messages=0::integer()}).
 
--spec start(CAName::binary(),Id::binary(),Configuration::gen_configuration(), ManagerPid::pid()) -> no_return().
+-spec start(CAName::binary(),Id::binary(),Configuration::gen_configuration_b(), ManagerPid::pid()) -> no_return().
 start(CAName,Id,Configuration,ManagerPid)->
-	#{ broker := Broker, compress := Compress, port := Port, topics := Topics } = Configuration,
+	#{ <<"broker">> := Broker, <<"compress">> := Compress, <<"port">> := Port, <<"topics">> := Topics } = Configuration,
+	NewConfig = #{ broker => Broker, compress => Compress,
+	            port => list_to_integer(binary_to_list(Port)), topics => Topics },
 	{ok,DeviceConfiguration} = inventory:get_client(CAName,Id),
 	full_start(#client_state{
 		id = Id,
 		caname = CAName,
 		manager_pid = ManagerPid,
 		details = DeviceConfiguration,
-		configuration = Configuration,
+		configuration = NewConfig,
 		broker = Broker,
 		port = list_to_integer(binary_to_list(Port)),
 		topics = Topics,

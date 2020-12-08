@@ -15,7 +15,8 @@
 
 -include_lib("stdlib/include/ms_transform.hrl").
 
--type gen_configuration() :: #{ binary() => term()}.
+-type gen_configuration() :: #{ atom() => term()}.
+-type gen_configuration_b() :: #{ binary() => term()}.
 -type attribute_list() :: #{ atom() => term() }.
 -type generic_error() :: { error, Reason::term() }.
 -type generic_result() :: ok | generic_error().
@@ -23,7 +24,7 @@
 -type ets_dont_care() :: '_' | '$1' | '$2' | '$3' | '$4' | '$5' | '$6' | '$7' | '$8'.
 
 -export_type([attribute_list/0,generic_error/0,generic_result/0,notification_cb/0,
-              gen_configuration/0,ets_dont_care/0]).
+              gen_configuration/0,ets_dont_care/0,gen_configuration_b/0]).
 
 -define(OWLS_APP,owls).
 

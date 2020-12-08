@@ -151,6 +151,7 @@ code_change(_OldVsn, State = #mqtt_client_manager_state{}, _Extra) ->
 -spec start_client_process(CAName::binary(),Id::binary(),Configuration::map(),State::#mqtt_client_manager_state{}) -> NewState::#mqtt_client_manager_state{}.
 start_client_process(CAName,Id,Configuration,State)->
 	io:format("MQTT-Client ~p starting.~n",[Id]),
+	?L_IA("MQTT-Client ~p starting.",[Id]),
 	Pid = spawn_link(mqtt_client,start,[CAName,Id,Configuration,self()]),
 	NewState = State#mqtt_client_manager_state{
 		client_configurations = maps:put(Id,{ Pid,Configuration} ,State#mqtt_client_manager_state.client_configurations),

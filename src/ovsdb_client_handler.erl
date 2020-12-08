@@ -49,7 +49,9 @@
 	config = #{} :: #{atom()=>term()},
 	ap_statistics = [] :: [#ap_statistics{}],
 	timer :: owls_timers:tms(),
-	simnode_callback = none :: none | {pid(), term()}
+	simnode_callback = none :: none | {pid(), term()},
+	callback_state = none :: none | client_status(),
+	state_num = 0 :: non_neg_integer()
 }).
 
 
@@ -229,11 +231,23 @@ handle_cast (_,State) ->
 handle_call ({set_config, Cfg},_,State) ->
 	{reply, ok, apply_config(Cfg, State)};
 	
+handle_call ({api_cmd_start, Which, Options},_,#hdl_state{clients=Clients,simnode_callback=none}=State) ->
+	ToStart = get_client_ids_in_state (Clients, ready, Which),
+	NewState = State#hdl_state{simnode_callback=maps:get(callback,Options,none),
+							   callback_state = running,
+							   state_num = length(ToStart)},
+	{reply, ok, cmd_startup_sim(NewState,Which,Options)};
 handle_call ({api_cmd_start, Which, Options},_,State) ->
 	{reply, ok, cmd_startup_sim(State,Which,Options)};
 
+handle_call ({api_cmd_stop, Which, Options},_,#hdl_state{clients=Clients,simnode_callback=none}=State) ->
+	ToStart = get_client_ids_in_state (Clients, {running,paused}, Which),
+	NewState = State#hdl_state{simnode_callback=maps:get(callback,Options,none),
+							   callback_state = ready,
+							   state_num = length(ToStart)},
+	{reply, ok, trigger_execute (0, queue_command (clients_stop, Which, NewState))};
 handle_call ({api_cmd_stop, Which, _},_,State) ->
-	NewState = trigger_execute (0, queue_command (clients_stop, Which,State)),
+	NewState = trigger_execute (0, queue_command (clients_stop, Which, State)),
 	{reply, ok, NewState};
 
 handle_call ({api_cmd_pause, Which, _},_,State) ->
@@ -435,7 +449,7 @@ apply_config (#{sim_name:=SimName, client_ids:=IDs, ovsdb_srv:=R, callback:=SNCB
 	end,
 	C = [F(X)||X<-IDs],
 	ets:insert(Clients,C),
-	cmd_launch_clients(IDs,State#hdl_state{config=Cfg, simnode_callback=SNCB});
+	cmd_launch_clients(IDs,State#hdl_state{config=Cfg, simnode_callback=SNCB, callback_state=ready, state_num=length(IDs)});
 apply_config (_,State) ->
 	io:format("GOT CONFIG I DON'T UNDERSTAND~n"),
 	State.
@@ -459,14 +473,14 @@ update_client_status (ClS, Id, #hdl_state{clients=Clients}=State) ->
 -spec maybe_notify_simnode (State::#hdl_state{}) -> State::#hdl_state{}.
 maybe_notify_simnode (#hdl_state{simnode_callback=none}=State) ->
 	State;
-maybe_notify_simnode (#hdl_state{clients=Clients, simnode_callback={SN,Msg}}=State) ->
+maybe_notify_simnode (#hdl_state{clients=Clients, simnode_callback={SN,Msg}, callback_state=Status, state_num=Num}=State) ->
 	IDs = [X||#ap_client{id=X}<-ets:match_object(Clients,#ap_client{_='_'})],
-	case get_client_ids_in_state(Clients,{available,init,dead},IDs) of
-		[] ->
-			io:format("NOTIFY APs READY~n"),
+	case length(get_client_ids_in_state(Clients,{Status},IDs)) == Num of
+		true ->
+			io:format("NOTIFY SIMNODE of ~s~n",[Status]),
 			SN ! Msg,
-			State#hdl_state{simnode_callback=none};
-		_ ->
+			State#hdl_state{simnode_callback=none, callback_state=none, state_num=0};
+		false ->
 			State
 	end.
 	
@@ -536,13 +550,13 @@ get_client_with_id (Tid, Id) ->
 		Which :: all | [UUID::binary()],
 		Options :: #{atom() => term()},
 		NewState :: #hdl_state{}.
-cmd_startup_sim (#hdl_state{timer=T, clients=Clients}=State, Which, #{stagger:={N,Per}}=Options) ->
+cmd_startup_sim (#hdl_state{timer=T, clients=Clients}=State, Which, #{stagger:={N,Per}}=Options) ->	
 	case get_client_ids_in_state (Clients, ready, Which) of
 		[] ->
 			io:format("DONE STARTING CLIENTS~n"),
 			T2 = owls_timers:mark("startup sequence end",T),
 			State#hdl_state{timer=T2};
-		Ready ->
+		Ready ->	
 			T2 = owls_timers:mark("startup sequence ...",T),
 			Sp = min(N,length(Ready)),
 			{ToStart,_} = lists:split(Sp,Ready),

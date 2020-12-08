@@ -158,11 +158,10 @@ handle_call({connect,NodeName}, _From, State = #simnode_state{}) ->
 handle_call(connected, _From, State = #simnode_state{}) ->
 	{ reply, { ok, State#simnode_state.manager } , State };
 handle_call({set_configuration,Configuration}, _From, State = #simnode_state{}) ->
-	io:format(": ~p~n",[Configuration]),
 	safe_execute( State#simnode_state.ap_client_handler, set_configuration, [Configuration]),
 	safe_execute( State#simnode_state.mqtt_server_handler, set_configuration, [Configuration]),
 	safe_execute( State#simnode_state.ovsdb_server_handler, set_configuration, [Configuration]),
-	io:format("All handlers updated~n"),
+	?L_I("Configuration sent to all handlers."),
 	{ reply, ok , State#simnode_state{ sim_configuration = Configuration } };
 handle_call(get_configuration, _From, State = #simnode_state{}) ->
 	{ reply, {ok , State#simnode_state.sim_configuration} ,State };
@@ -289,5 +288,5 @@ create_os_stats_report() ->
 safe_execute(undefined,_F,_A)->
 	ok;
 safe_execute(M,F,A)->
-	io:format("Executing: ~p:~p(Config)~n",[M,F]),
+%%	io:format("Executing: ~p:~p(Config)~n",[M,F]),
 	apply(M,F,A).

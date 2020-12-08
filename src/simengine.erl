@@ -79,7 +79,6 @@ push(SimName,Attributes,Notification)->
 
 -spec start(SimName::string()|binary(), Attributes::#{ atom() => term}, Notification::notification_cb() )-> ok | generic_error().
 start(SimName,Attributes,{_M,_F,_A}=Notification)->
-	io:format(">>>Starting...~n"),
 	gen_server:call(?SERVER,{start,utils:safe_binary(SimName),Attributes,Notification}).
 
 -spec stop(SimName::string()|binary(), Attributes::#{ atom() => term}, Notification::notification_cb() )-> ok | generic_error().
@@ -191,12 +190,10 @@ handle_call({push,SimName,Attributes,Callback}, _From, State = #simengine_state{
 	end;
 
 handle_call({start,SimName,Attributes,Callback}, _From, State = #simengine_state{}) ->
-	io:format(">>>Starting...~n"),
 	case get_sim(SimName) of
 		[] ->
 			{ reply, ?ERROR_SIM_UNKNOWN, State };
 		[SimInfo] ->
-			io:format(">>>Starting...~n"),
 			S = maps:get(SimName,State#simengine_state.sim_states),
 			case is_pid(S#sim_state.current_op_pid) of
 				true->

@@ -290,7 +290,7 @@ handle_cast(_Request, State = #simengine_state{}) ->
 handle_info({ SimName,Node,MsgType,TimeStamp}=Msg, State = #simengine_state{}) ->
 	NS = try
 				 io:format("INFO MESSAGE RECEIVED: ~p~n",[Msg]),
-		{ok,SimState} = maps:get(SimName,State#simengine_state.sim_states),
+		SimState = maps:get(SimName,State#simengine_state.sim_states,undefined),
 		NewNodes = lists:delete(Node,SimState#sim_state.outstanding_nodes),
 		Now = erlang:timestamp(),
 		Elapsed = timer:now_diff(Now,TimeStamp) / 1000,

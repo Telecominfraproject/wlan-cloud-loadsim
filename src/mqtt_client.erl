@@ -77,7 +77,7 @@ full_start(State)->
 	timer:sleep(5000),
 	full_start(NewState).
 
--spec run_client(Socket::ssl:sslsocket(),CS::#client_state{}) -> no_return().
+-spec run_client(Socket::ssl:sslsocket(),CS::#client_state{}) -> #client_state{}.
 run_client(Socket,CS)->
 	_=ssl:setopts(Socket,[{active,true}]),
 	C = #mqtt_connect_variable_header{
@@ -101,7 +101,8 @@ run_client(Socket,CS)->
 			io:format("Failed connection message: ~p...~n",[Error]),
 			?L_IA("MQTT_CONNECTION for ID=~p failed (~p)",[CS#client_state.id,Error])
 	end,
-	CS#client_state.manager_pid ! { stats, connection , -1 }.
+	CS#client_state.manager_pid ! { stats, connection , -1 },
+	CS.
 
 -spec manage_connection(Socket::ssl:sslsocket(),CS::#client_state{}) -> no_return().
 manage_connection(Socket,CS) ->

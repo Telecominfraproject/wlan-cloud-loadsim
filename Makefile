@@ -7,7 +7,7 @@ DEPS = lager gpb jiffy cowlib ranch gun cowboy rec2json uuid yamerl
 ERLC_OPTS += -I deps/gpb/include
 ERLC_OPTS += +'{parse_transform, lager_transform}'
 ERLC_OPTS += +'debug_info'
-#ERLC_OPTS += -Ddebug
+ERLC_OPTS += -Ddebug
 
 # Apps necessary for dialyzer
 PLT_APPS += ssl os_mon sasl crypto inets eunit syntax_tools public_key mnesia tftp

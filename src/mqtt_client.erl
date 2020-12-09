@@ -61,7 +61,7 @@ full_start(State)->
 	                     [{session_tickets,auto},{versions, ['tlsv1.2','tlsv1.3']},
 	                      {cert,State#client_state.details#client_info.cert},
 												{key,State#client_state.details#client_info.key},
-												{cacerts,[State#client_state.details#client_info.cacert]},
+%%												{cacerts,[State#client_state.details#client_info.cacert]},
 												{active,false},binary]) of
 								{ok,SSLSocket} ->
 									io:format(">>>Connected~n"),

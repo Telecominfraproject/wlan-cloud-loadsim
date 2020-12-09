@@ -721,7 +721,7 @@ create_client(CAInfo,Attributes,State)->
 		csr = ClientCertCsrData
 	},
 
-	io:format(">>>SERIAL: ~p~n",[Serial]),
+	%% io:format(">>>SERIAL: ~p~n",[Serial]),
 
 	_R = add_record(Client),
 	%% io:format("RESULT>>>=~p~n",[R]),

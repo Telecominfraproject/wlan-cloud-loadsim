@@ -64,13 +64,13 @@ full_start(State)->
 												{cacerts,[State#client_state.details#client_info.cacert]},
 												{active,false},binary]) of
 								{ok,SSLSocket} ->
-									io:format(">>>Connected~n"),
+									io:format("MQTT_CLIENT: Connected~n"),
 									RS = run_client(SSLSocket,State#client_state{ connects = State#client_state.connects+1, t1 = T1 }),
 									utils:do(State#client_state.keep_alive_ref =/= undefined,{timer,cancel,[State#client_state.keep_alive_ref]}),
 									ssl:close(SSLSocket),
 									RS#client_state{ disconnects = State#client_state.disconnects +1 };
 								{error,_}=Error->
-									io:format(">>>Cannot connect: ~p~n",[Error]),
+									io:format("MQTT_CLIENT: Cannot connect: ~p~n",[Error]),
 									?L_IA("MQTT Client cannot connect: ~p.",[Error]),
 									State
 							end,
@@ -97,15 +97,15 @@ run_client(Socket,CS)->
 		keep_alive = 180	},
 	M = #mqtt_msg{ variable_header = C},
 	ConnectMessage = mqtt_message:encode(M),
-	io:format(">>>>CONNECTMESSAGE: ~p~n",[ConnectMessage]),
+	io:format("MQTT_CLIENT: CONNECTMESSAGE: ~p~n",[ConnectMessage]),
 	_=case ssl:send(Socket,ConnectMessage) of
 		ok ->
 			Res = ssl:setopts(Socket,[{active,true}]),
-			io:format("Sent connection message. Res=~p..~n",[Res]),
+			io:format("MQTT_CLIENT: Sent connection message. Res=~p..~n",[Res]),
 			CS#client_state.manager_pid ! { stats, connection , 1 },
 			manage_connection(Socket,CS#client_state{ current_state = waiting_for_hello });
 		Error ->
-			io:format("Failed connection message: ~p...~n",[Error]),
+			io:format("MQTT_CLIENT: Failed connection message: ~p...~n",[Error]),
 			?L_IA("MQTT_CONNECTION for ID=~p failed (~p)",[CS#client_state.id,Error])
 	end,
 	CS#client_state.manager_pid ! { stats, connection , -1 },
@@ -115,7 +115,7 @@ run_client(Socket,CS)->
 manage_connection(Socket,CS) ->
 	receive
 		{ssl,Socket,Data} ->
-			io:format("Received ~p bytes: ~p.~n",[size(Data),Data]),
+			io:format("MQTT_CLIENT: Received ~p bytes: ~p.~n",[size(Data),Data]),
 			case manage_state(Data,CS) of
 				{ none, NewState } ->
 					manage_connection(Socket,NewState);
@@ -125,13 +125,13 @@ manage_connection(Socket,CS) ->
 			end;
 		{ssl_closed,Socket} ->
 			?L_I("MQTT socket closed by server"),
-			io:format("Closing socket.~n");
+			io:format("MQTT_CLIENT: Closing socket.~n");
 		{ send_data,Data } ->
-			io:format("Received a message to return some data: ~p~n",[Data]),
+			io:format("MQTT_CLIENT: Received a message to return some data: ~p~n",[Data]),
 			_ = ssl:send(Socket,Data),
 			manage_connection(Socket,CS#client_state{ internal_messages = 1+CS#client_state.internal_messages });
 		Anything ->
-			io:format("Unknown message: ~p.~n",[Anything]),
+			io:format("MQTT_CLIENT: Unknown message: ~p.~n",[Anything]),
 			manage_connection(Socket,CS#client_state{ errors = CS#client_state.errors+1 })
 	end.
 
@@ -153,7 +153,7 @@ manage_state(Data,CS)->
 
 %% this is responsible for sending the ping at 1 minutes interval.
 send_ping(Pid)->
-	io:format("SENDING PING...~n"),
+	io:format("MQTT_CLIENT: SENDING PING...~n"),
 	Blob = mqtt_message:encode(#mqtt_msg{ variable_header = #mqtt_pingreq_variable_header_v4{} }),
 	Pid ! { send_data, Blob }.
 

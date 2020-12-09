@@ -145,7 +145,8 @@ handle_info({'DOWN', _Ref, process, Pid, _Why},State)->
 				client_pids = maps:remove(Pid,State#mqtt_client_manager_state.client_pids ) },
 			{noreply,NewState}
 	end;
-handle_info({stats,Type,Value}, State = #mqtt_client_manager_state{}) ->
+handle_info({stats,Type,Value}=Info, State = #mqtt_client_manager_state{}) ->
+	io:format("MQTT_CLIENT_MANAGER: processing message: ~p~n",[Info]),
 	CS = State#mqtt_client_manager_state.stats,
 	NewStats = case Type of
 		connection ->
@@ -159,6 +160,7 @@ handle_info({stats,Type,Value}, State = #mqtt_client_manager_state{}) ->
 		  NewAvg = utils:compute_avg(Value,ConnAvgTime),
 		  CS#{ connect_avg_time => NewAvg, connect_avg_time_hwm => max(NewAvg,CAvgHwm), connect_avg_time_lwm => min(NewAvg,CAvgLwm) };
 	  _ ->
+		  io:format(">>>>MQTTCLIENTMANAGER: unknow stats type = ~p~n",[Type]),
 		  CS
 	end,
 	{noreply, State#mqtt_client_manager_state{stats = NewStats }};

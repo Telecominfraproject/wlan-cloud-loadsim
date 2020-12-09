@@ -106,7 +106,7 @@ run_client(Socket,CS)->
 manage_connection(Socket,CS) ->
 	receive
 		{ssl,Socket,Data} ->
-			%% io:format("Received ~p bytes: ~p.~n",[size(Data),Data]),
+			io:format("Received ~p bytes: ~p.~n",[size(Data),Data]),
 			case manage_state(Data,CS) of
 				{ none, NewState } ->
 					manage_connection(Socket,NewState);
@@ -144,6 +144,7 @@ manage_state(Data,CS)->
 
 %% this is responsible for sending the ping at 1 minutes interval.
 send_ping(Pid)->
+	io:format("SENDING PING...~n"),
 	Blob = mqtt_message:encode(#mqtt_msg{ variable_header = #mqtt_pingreq_variable_header_v4{} }),
 	Pid ! { send_data, Blob }.
 

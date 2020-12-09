@@ -163,7 +163,8 @@ handle_info({stats,Type,Value}, State = #mqtt_client_manager_state{}) ->
 	end,
 	{noreply, State#mqtt_client_manager_state{stats = NewStats }};
 
-handle_info(_Info, State = #mqtt_client_manager_state{}) ->
+handle_info(Info, State = #mqtt_client_manager_state{}) ->
+	io:format("MQTT_CLIENT_MANAGER: unprocessed message: ~p~n",[Info]),
 	{noreply, State}.
 
 %% @private
@@ -191,7 +192,6 @@ code_change(_OldVsn, State = #mqtt_client_manager_state{}, _Extra) ->
 
 -spec start_client_process(CAName::binary(),Id::binary(),Configuration::map(),State::#mqtt_client_manager_state{}) -> NewState::#mqtt_client_manager_state{}.
 start_client_process(CAName,Id,Configuration,State)->
-	io:format("MQTT-Client ~p starting.~n",[Id]),
 	?L_IA("MQTT-Client ~p starting.",[Id]),
 	Pid = spawn_link(mqtt_client,start,[CAName,Id,Configuration,self()]),
 	NewState = State#mqtt_client_manager_state{

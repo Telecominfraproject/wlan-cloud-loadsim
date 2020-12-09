@@ -135,7 +135,7 @@ mqttserver_processor_secure(Socket,State)->
 			FullData = <<(State#mqtt_processor_state.bytes_left)/binary,Data/binary>>,
 			{ ok, NewState } = mqtt_process:process(State#mqtt_processor_state{ bytes_left = FullData }),
 			mqtt_server_manager:set_session_stats(State#mqtt_processor_state.parent_pid,State#mqtt_processor_state.listener_pid,self(),NewState#mqtt_processor_state.stats),
-			mqttserver_processor(Socket,NewState);
+			mqttserver_processor_secure(Socket,NewState);
 		{ssl_closed,Socket} ->
 			mqtt_server_manager:increase_session(State#mqtt_processor_state.parent_pid,State#mqtt_processor_state.listener_pid),
 			mqtt_server_manager:delete_session_stats(State#mqtt_processor_state.parent_pid,State#mqtt_processor_state.listener_pid,self()),
@@ -143,6 +143,6 @@ mqttserver_processor_secure(Socket,State)->
 			ok;
 		Anything ->
 			io:format("Anything ->~p~n",[Anything]),
-			mqttserver_processor(Socket,State)
+			mqttserver_processor_secure(Socket,State)
 	end.
 

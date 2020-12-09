@@ -597,7 +597,7 @@ run_batch([],_,SimInfo,_)->
 run_batch([H|T],BatchSize,SimInfo,BatchNumber)->
 	io:format("~n~s: creating ~p of ~p clients.~n",[binary_to_list(SimInfo#simulation.name),BatchSize,SimInfo#simulation.num_devices]),
 	BatchName = binary:list_to_bin([SimInfo#simulation.name,<<"-">>,integer_to_binary(BatchNumber)]),
-	Attributes = #{ id => H, name => BatchName, serial => H, mac => <<>> },
+	Attributes = #{ id => H, name => BatchName, serial => list_to_binary("SIM" ++ integer_to_list(BatchNumber)), mac => <<>> },
 	_ = inventory:make_clients(SimInfo#simulation.ca,
 	                       1,
 	                       min(BatchSize,SimInfo#simulation.num_devices - (BatchSize * (BatchNumber-1))),

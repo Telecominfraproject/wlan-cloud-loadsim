@@ -61,7 +61,7 @@ full_start(State)->
 	                     [{session_tickets,auto},{versions, ['tlsv1.2','tlsv1.3']},
 	                      {cert,State#client_state.details#client_info.cert},
 												{key,State#client_state.details#client_info.key},
-%%												{cacerts,[State#client_state.details#client_info.cacert]},
+												{cacerts,[State#client_state.details#client_info.cacert]},
 												{active,false},binary]) of
 								{ok,SSLSocket} ->
 									io:format(">>>Connected~n"),
@@ -87,8 +87,8 @@ run_client(Socket,CS)->
 		will_qos_flag = 0,
 		will_flag = 0 ,
 		clean_start_flag = 1,
-		client_identifier = CS#client_state.id,
-		keep_alive = 60	},
+		client_identifier = CS#client_state.details#client_info.serial,
+		keep_alive = 180	},
 	M = #mqtt_msg{ variable_header = C},
 	ConnectMessage = mqtt_message:encode(M),
 	io:format(">>>>CONNECTMESSAGE: ~p~n",[ConnectMessage]),

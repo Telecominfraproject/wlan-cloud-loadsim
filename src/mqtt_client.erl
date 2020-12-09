@@ -38,7 +38,7 @@
 -spec start(CAName::binary(),Id::binary(),Configuration::gen_configuration_b(), ManagerPid::pid()) -> no_return().
 start(CAName,Id,Configuration,ManagerPid)->
 	#{ <<"broker">> := Broker, <<"compress">> := Compress, <<"port">> := Port, <<"topics">> := Topics } = Configuration,
-	io:format(">>>>Trying topic: ~p  connect to: ~p:~p~n",[Topics,Broker,Port]),
+	%% io:format(">>>>Trying topic: ~p  connect to: ~p:~p~n",[Topics,Broker,Port]),
 	NewConfig = #{ broker => Broker, compress => Compress,
 	            port => list_to_integer(binary_to_list(Port)), topics => Topics },
 	{ok,DeviceConfiguration} = inventory:get_client(CAName,Id),
@@ -79,6 +79,12 @@ full_start(State)->
 
 -spec run_client(Socket::ssl:sslsocket(),CS::#client_state{}) -> #client_state{}.
 run_client(Socket,CS)->
+	%% "/ap/sim1-1-000050_SIM1000050/opensync"
+	RealSerial = case string:tokens(binary_to_list(CS#client_state.topics),"/") of
+		             [_,Serial,_] -> list_to_binary(Serial);
+								 _ -> CS#client_state.details#client_info.serial
+	             end,
+
 	C = #mqtt_connect_variable_header{
 		protocol_version = ?MQTT_PROTOCOL_VERSION_3_11,
 		username_flag = 0,
@@ -87,7 +93,7 @@ run_client(Socket,CS)->
 		will_qos_flag = 0,
 		will_flag = 0 ,
 		clean_start_flag = 1,
-		client_identifier = CS#client_state.details#client_info.serial,
+		client_identifier = RealSerial,
 		keep_alive = 180	},
 	M = #mqtt_msg{ variable_header = C},
 	ConnectMessage = mqtt_message:encode(M),

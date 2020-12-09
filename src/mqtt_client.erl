@@ -79,7 +79,6 @@ full_start(State)->
 
 -spec run_client(Socket::ssl:sslsocket(),CS::#client_state{}) -> #client_state{}.
 run_client(Socket,CS)->
-	_=ssl:setopts(Socket,[{active,true}]),
 	C = #mqtt_connect_variable_header{
 		protocol_version = ?MQTT_PROTOCOL_VERSION_3_11,
 		username_flag = 0,
@@ -94,7 +93,8 @@ run_client(Socket,CS)->
 	ConnectMessage = mqtt_message:encode(M),
 	_=case ssl:send(Socket,ConnectMessage) of
 		ok ->
-			io:format("Sent connection message...~n"),
+			Res = ssl:setopts(Socket,[{active,true}]),
+			io:format("Sent connection message. Res=~p..~n",[Res]),
 			CS#client_state.manager_pid ! { stats, connection , 1 },
 			manage_connection(Socket,CS#client_state{ current_state = waiting_for_hello });
 		Error ->

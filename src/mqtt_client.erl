@@ -167,12 +167,12 @@ process( M, CS ) when is_record(M,mqtt_pingreq_variable_header_v4) ->
 	{ Response, CS#client_state{ messages = 1+CS#client_state.messages }}.
 
 c_cfg()->
-	#{broker => <<"renegademac.arilia.com">>,
-	  compress => <<"zlib">>,
-	  port => <<"1883">>,
-	  qos => <<"0">>,
-	  remote_log => <<"1">>,
-	  topics => <<"/ap/Open_AP_21P10C69717951/opensync">>}.
+	#{<<"broker">> => <<"renegademac.arilia.com">>,
+	  <<"compress">> => <<"zlib">>,
+	  <<"port">> => <<"1883">>,
+	  <<"qos">> => <<"0">>,
+	  <<"remote_log">> => <<"1">>,
+	  <<"topics">> => <<"/ap/Open_AP_21P10C69717951/opensync">>}.
 
 s_cfg()->
 	#{port => 1883,
@@ -183,5 +183,5 @@ t1()->
 	mqtt_server_manager:start_server(<<"sim1">>,<<"mqtt-1">>,s_cfg()).
 
 t2()->
-	mqtt_client_manager:start_client(<<"sim1">>,<<"sim1-1-00002D">>,c_cfg()).
+	mqtt_client_manager:start_client(<<"sim1">>,<<"sim1-1-000010">>,c_cfg()).
 

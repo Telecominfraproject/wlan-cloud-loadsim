@@ -91,6 +91,7 @@ run_client(Socket,CS)->
 		keep_alive = 60	},
 	M = #mqtt_msg{ variable_header = C},
 	ConnectMessage = mqtt_message:encode(M),
+	io:format(">>>>CONNECTMESSAGE: ~p~n",[ConnectMessage]),
 	_=case ssl:send(Socket,ConnectMessage) of
 		ok ->
 			Res = ssl:setopts(Socket,[{active,true}]),

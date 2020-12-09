@@ -17,14 +17,17 @@
 -export([start_link/0]).
 
 %% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
-         code_change/3,creation_info/0,start_client/3,stop_client/2,is_running/2]).
+-export([ init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
+          code_change/3,creation_info/0,start_client/3,stop_client/2,is_running/2,
+					get_stats/0,update_stats/0]).
 
 -define(SERVER, ?MODULE).
 
 -record(mqtt_client_manager_state, {
 	client_configurations = #{} :: #{ binary() => { pid(),#{} }},
-	client_pids = #{} :: #{ pid() => binary()} }).
+	client_pids = #{} :: #{ pid() => binary()} ,
+	stats = #{} :: #{ atom() => term() },
+	stats_updater :: timer:tref() } ).
 
 %%%===================================================================
 %%% API
@@ -49,6 +52,14 @@ stop_client(CAName,Id)->
 is_running(CAName,Id)->
 	gen_server:call(?SERVER,{is_running,utils:safe_binary(CAName),utils:safe_binary(Id)}).
 
+-spec get_stats()-> {ok,#{ atom() => term() }}.
+get_stats()->
+	gen_server:call(?SERVER,get_stats).
+
+update_stats()->
+	{ok,Stats} = get_stats(),
+	statistics:submit_report(mqtt_client_handler,Stats).
+
 %% @doc Spawns the server and registers the local name (unique)
 -spec(start_link() ->
 	{ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
@@ -65,7 +76,16 @@ start_link() ->
 	{ok, State :: #mqtt_client_manager_state{}} | {ok, State :: #mqtt_client_manager_state{}, timeout() | hibernate} |
 	{stop, Reason :: term()} | ignore).
 init([]) ->
-	{ok, #mqtt_client_manager_state{}}.
+	{ok,TRef} = timer:apply_interval(5000,?MODULE,update_stats,[]),
+	Stats = #{
+		current_connections => 0,
+		errors => 0,
+		connect_avg_time => utils:new_avg(),
+		connect_avg_time_hwm => 0,
+		connect_avg_time_lwm => 1000000,
+		connections_hwm => 0
+		},
+	{ok, #mqtt_client_manager_state{ stats_updater = TRef, stats = Stats }}.
 
 %% @private
 %% @doc Handling call messages
@@ -95,6 +115,8 @@ handle_call({is_running,_CAName,Id}, _From, State = #mqtt_client_manager_state{}
 		{_Pid,_Configuration}=Client ->
 			{reply, {ok,Client} , State}
 	end;
+handle_call(get_stats,_From,State = #mqtt_client_manager_state{}) ->
+	{reply, {ok,State#mqtt_client_manager_state.stats} , State};
 handle_call(_Request, _From, State = #mqtt_client_manager_state{}) ->
 	{reply, ok, State}.
 
@@ -123,6 +145,24 @@ handle_info({'DOWN', _Ref, process, Pid, _Why},State)->
 				client_pids = maps:remove(Pid,State#mqtt_client_manager_state.client_pids ) },
 			{noreply,NewState}
 	end;
+handle_info({stats,Type,Value}, State = #mqtt_client_manager_state{}) ->
+	CS = State#mqtt_client_manager_state.stats,
+	NewStats = case Type of
+		connection ->
+			#{ current_connections := CurConns, connections_hwm :=CurHWM  } = CS,
+			CS#{ current_connections => CurConns+Value, connections_hwm => max(CurHWM,CurConns+Value)};
+		error ->
+			#{ errors := Errors } = CS,
+			CS#{ errors => Errors+1 };
+	  connect_time ->
+		  #{ connect_avg_time := ConnAvgTime, connect_avg_time_hwm := CAvgHwm, connect_avg_time_lwm := CAvgLwm } = CS,
+		  NewAvg = utils:compute_avg(Value,ConnAvgTime),
+		  CS#{ connect_avg_time => NewAvg, connect_avg_time_hwm => max(NewAvg,CAvgHwm), connect_avg_time_lwm => min(NewAvg,CAvgLwm) };
+	  _ ->
+		  CS
+	end,
+	{noreply, State#mqtt_client_manager_state{stats = NewStats }};
+
 handle_info(_Info, State = #mqtt_client_manager_state{}) ->
 	{noreply, State}.
 
@@ -133,7 +173,8 @@ handle_info(_Info, State = #mqtt_client_manager_state{}) ->
 %% with Reason. The return value is ignored.
 -spec(terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
                 State :: #mqtt_client_manager_state{}) -> term()).
-terminate(_Reason, _State = #mqtt_client_manager_state{}) ->
+terminate(_Reason, State = #mqtt_client_manager_state{}) ->
+	_ = timer:cancel(State#mqtt_client_manager_state.stats_updater),
 	ok.
 
 %% @private

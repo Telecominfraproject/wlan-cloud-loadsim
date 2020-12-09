@@ -50,8 +50,7 @@ start(CAName,Id,Configuration,ManagerPid)->
 		broker = Broker,
 		port = list_to_integer(binary_to_list(Port)),
 		topics = Topics,
-		compress = Compress}),
-	ok.
+		compress = Compress}).
 
 -spec full_start(State::#client_state{})->no_return().
 full_start(State)->
@@ -95,11 +94,13 @@ run_client(Socket,CS)->
 	_=case ssl:send(Socket,ConnectMessage) of
 		ok ->
 			%% io:format("Sent connection message...~n"),
+			CS#client_state.manager_pid ! { stats, connection , 1 },
 			manage_connection(Socket,CS#client_state{ current_state = waiting_for_hello });
 		Error ->
 			%% io:format("Failed connection message...~n"),
 			?L_IA("MQTT_CONNECTION for ID=~p failed (~p)",[CS#client_state.id,Error])
-	end.
+	end,
+	CS#client_state.manager_pid ! { stats, connection , -1 }.
 
 -spec manage_connection(Socket::ssl:sslsocket(),CS::#client_state{}) -> no_return().
 manage_connection(Socket,CS) ->
@@ -151,6 +152,7 @@ process( M, CS ) when is_record(M,mqtt_connack_variable_header_v4) ->
 		0 ->
 			{ok,TRef} = timer:apply_interval(60*1000,?MODULE,send_ping,[self()]),
 			ConnectTime = os:system_time() - CS#client_state.t1,
+			CS#client_state.manager_pid ! { stats, connect_time , ConnectTime },
 			{none,CS#client_state{ messages = 1+CS#client_state.messages, current_state = connected , keep_alive_ref = TRef, connect_time = ConnectTime, t1 = 0 }};
 		Error ->
 			?L_IA("Device ~p gets error ~p when trying to connect.",[CS#client_state.id,Error]),

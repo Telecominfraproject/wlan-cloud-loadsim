@@ -63,13 +63,13 @@ full_start(State)->
 												{cacerts,[State#client_state.details#client_info.cacert]},
 												{active,false},binary]) of
 								{ok,SSLSocket} ->
-									%% io:format(">>>Connected~n"),
+									io:format(">>>Connected~n"),
 									RS = run_client(SSLSocket,State#client_state{ connects = State#client_state.connects+1, t1 = T1 }),
 									utils:do(State#client_state.keep_alive_ref =/= undefined,{timer,cancel,[State#client_state.keep_alive_ref]}),
 									ssl:close(SSLSocket),
 									RS#client_state{ disconnects = State#client_state.disconnects +1 };
 								{error,_}=Error->
-									%% io:format(">>>Cannot connect: ~p~n",[Error]),
+									io:format(">>>Cannot connect: ~p~n",[Error]),
 									?L_IA("MQTT Client cannot connect: ~p.",[Error]),
 									State
 							end,
@@ -93,11 +93,11 @@ run_client(Socket,CS)->
 	ConnectMessage = mqtt_message:encode(M),
 	_=case ssl:send(Socket,ConnectMessage) of
 		ok ->
-			%% io:format("Sent connection message...~n"),
+			io:format("Sent connection message...~n"),
 			CS#client_state.manager_pid ! { stats, connection , 1 },
 			manage_connection(Socket,CS#client_state{ current_state = waiting_for_hello });
 		Error ->
-			%% io:format("Failed connection message...~n"),
+			io:format("Failed connection message: ~p...~n",[Error]),
 			?L_IA("MQTT_CONNECTION for ID=~p failed (~p)",[CS#client_state.id,Error])
 	end,
 	CS#client_state.manager_pid ! { stats, connection , -1 }.
@@ -118,7 +118,7 @@ manage_connection(Socket,CS) ->
 			?L_I("MQTT socket closed by server");
 			%io:format("Closing socket.~n");
 		{ send_data,Data } ->
-			%% io:format("Received a message: ~p~n",[Message]),
+			io:format("Received a message to return some data: ~p~n",[Data]),
 			_ = ssl:send(Socket,Data),
 			manage_connection(Socket,CS#client_state{ internal_messages = 1+CS#client_state.internal_messages });
 		Anything ->
@@ -156,6 +156,7 @@ process( M, CS ) when is_record(M,mqtt_connack_variable_header_v4) ->
 			CS#client_state.manager_pid ! { stats, connect_time , ConnectTime },
 			{none,CS#client_state{ messages = 1+CS#client_state.messages, current_state = connected , keep_alive_ref = TRef, connect_time = ConnectTime, t1 = 0 }};
 		Error ->
+			io:format("Device ~p gets error ~p when trying to connect.",[CS#client_state.id,Error]),
 			?L_IA("Device ~p gets error ~p when trying to connect.",[CS#client_state.id,Error]),
 			{none,CS#client_state{ messages = 1+CS#client_state.messages, errors = 1+CS#client_state.errors }}
 	end;

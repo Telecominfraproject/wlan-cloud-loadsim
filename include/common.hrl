@@ -46,7 +46,7 @@
 -define(L_E(X),_=lager:error(X)).
 -define(L_EA(X,Y),_=lager:error(X,Y)).
 
-%% Remove logging shortcuts
+%% Remote logging shortcuts
 -define(RL_I(X),_=manager:log_info(X)).
 -define(RL_IA(X,Y),_=manager:log_info(X,Y)).
 -define(RL_E(X),_=manager:log_error(X)).

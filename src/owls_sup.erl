@@ -19,6 +19,7 @@ start_link() ->
 	supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 init([]) ->
+	persistent_term:put(web_socket_pids,sets:new()),
 	Processes = case utils:app_env(role,undefined) of
 		manager ->
 			?L_I("Simulation Manager starting."),

@@ -23,6 +23,7 @@
 
 -spec init( Req :: cowboy_req:req(), State ::ws_state() ) -> { cowboy_websocket, cowboy_req:req(), State::ws_state() }.
 init(Req, State) ->
+	io:format("Web socket init...~n"),
 	Pids = persistent_term:get(web_socket_pids,sets:new()),
 	NewPids = sets:add_element(self(),Pids),
 	persistent_term:put(web_socket_pids,NewPids),
@@ -30,6 +31,7 @@ init(Req, State) ->
 
 -spec websocket_init(State::ws_state())-> call_result().
 websocket_init(State)->
+	io:format("Web socket starting...~n"),
 	{ok,State}.
 
 -spec websocket_handle(InFrame :: in_frame(),State::ws_state())-> call_result().
@@ -44,6 +46,7 @@ websocket_info(_Info,State)->
 
 -spec terminate(Reason::term(), PartialReq::#{}, State::ws_state() ) -> ok.
 terminate(_Reason,_PartialReq,_State)->
+	io:format("Web socket closing...~n"),
 	Pids = persistent_term:get(web_socket_pids,sets:new()),
 	NewPids = sets:del_element(self(),Pids),
 	persistent_term:put(web_socket_pids,NewPids),

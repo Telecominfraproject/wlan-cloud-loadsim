@@ -38,6 +38,7 @@
 -spec start(CAName::binary(),Id::binary(),Configuration::gen_configuration_b(), ManagerPid::pid()) -> no_return().
 start(CAName,Id,Configuration,ManagerPid)->
 	#{ <<"broker">> := Broker, <<"compress">> := Compress, <<"port">> := Port, <<"topics">> := Topics } = Configuration,
+	io:format(">>>>Trying to connect to: ~p:~p~n",[Broker,Port]),
 	NewConfig = #{ broker => Broker, compress => Compress,
 	            port => list_to_integer(binary_to_list(Port)), topics => Topics },
 	{ok,DeviceConfiguration} = inventory:get_client(CAName,Id),

@@ -117,15 +117,15 @@ manage_connection(Socket,CS) ->
 					manage_connection(Socket,NewState)
 			end;
 		{ssl_closed,Socket} ->
-			?L_I("MQTT socket closed by server");
-			%io:format("Closing socket.~n");
+			?L_I("MQTT socket closed by server"),
+			io:format("Closing socket.~n");
 		{ send_data,Data } ->
 			io:format("Received a message to return some data: ~p~n",[Data]),
 			_ = ssl:send(Socket,Data),
 			manage_connection(Socket,CS#client_state{ internal_messages = 1+CS#client_state.internal_messages });
 		Anything ->
 			io:format("Unknown message: ~p.~n",[Anything]),
-			manage_connection(Socket,CS#client_state{ errors = CS#client_state.errors })
+			manage_connection(Socket,CS#client_state{ errors = CS#client_state.errors+1 })
 	end.
 
 -spec manage_state(Data::binary(),CS::#client_state{}) -> { Response::binary() , NewState::#client_state{} } | { none , NewState::#client_state{} }.

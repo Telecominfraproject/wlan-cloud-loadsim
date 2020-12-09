@@ -721,6 +721,8 @@ create_client(CAInfo,Attributes,State)->
 		csr = ClientCertCsrData
 	},
 
+	%% io:format(">>>SERIAL: ~p~n",[Serial]),
+
 	_R = add_record(Client),
 	%% io:format("RESULT>>>=~p~n",[R]),
 
@@ -744,8 +746,9 @@ generate_client_batch(_CaInfo,_Prefix,_Current,_Start,0,_Attributes,{M,F,A}=_Not
 generate_client_batch(CaInfo,Prefix,Current,Start,Left,Attributes,Notification,State)->
 	[X1,X2,X3,X4,X5] = lists:flatten(string:pad(integer_to_list(Current,16),5,leading,$0)),
 	#{ serial := Serial, name := Name } = Attributes,
+	[A,B,$:,C,D,$:,E,F,$:] = Prefix,
 	Mac = Prefix ++ [X1,X2,$:,X3,X4,$:,X5,$0],
-	RealSerial = binary_to_list(Serial) ++ "_" ++ [X1,X2,X3,X4,X5,$0],
+	RealSerial = binary_to_list(Serial) ++ [A,B,C,D,E,F] ++ [X1,X2,X3,X4,X5,$0],
 	RealName = binary_to_list(Name) ++ "-" ++ [X1,X2,X3,X4,X5,$0],
 	_ = create_client(CaInfo, Attributes#{ name => list_to_binary(RealName), mac => list_to_binary(Mac) , serial => list_to_binary(RealSerial) },State),
 	generate_client_batch(CaInfo,Prefix,Current+1,Start,Left-1,Attributes,Notification,State).

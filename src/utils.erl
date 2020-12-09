@@ -14,7 +14,11 @@
 %% API
 -export([ make_dir/1,uuid/0,get_addr/0,get_addr2/0,app_name/0,app_name/1,priv_dir/0,app_env/2,to_string_list/2,to_binary_list/2,print_nodes_info/1,
 					do/2,pem_to_cert/1,pem_to_key/1,safe_binary/1,uuid_b/0,pem_key_is_encrypted/1,remove_pem_key_password/3,
-					noop/0,noop_mfa/0,split_into/2,select/3,adjust/2]).
+					noop/0,noop_mfa/0,split_into/2,select/3,adjust/2,
+					get_avg/1, new_avg/0,compute_avg/2]).
+
+-type average() :: { CurrentValue::number(), HowManyValues::integer(), PastValues::[number()]}.
+-export_type([average/0]).
 
 -spec make_dir( DirName::string() ) -> ok | { error, atom() }.
 make_dir(DirName)->
@@ -239,3 +243,25 @@ adjust(_Max,0)->
 	0;
 adjust(Max,Divisor)->
 	min(Max, Max - ( Max rem Divisor)).
+
+-spec new_avg()-> average().
+new_avg()->
+	{0,10,[]}.
+
+-spec compute_avg(number(),average())->average().
+compute_avg(V,Avg)->
+	{_,L,Values}=Avg,
+	case length(Values) == L of
+		true ->
+			NV = [V|tl(Values)],
+			NewAverage = lists:sum(NV) / L,
+			{ NewAverage, L, NV };
+		false ->
+			NV = [V|Values],
+			NewAverage = lists:sum(NV) / length(NV),
+			{ NewAverage, L, NV }
+	end.
+
+-spec get_avg(average())->number().
+get_avg({V,_,_})->
+	V.

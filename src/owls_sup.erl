@@ -29,6 +29,10 @@ init([]) ->
 			hardware:creation_info() ++
 			inventory:creation_info() ++
 			statistics:creation_info() ++
+
+			mqtt_client_manager:creation_info() ++
+			mqtt_server_manager:creation_info() ++
+
       simengine:creation_info();
 		node ->
 			?L_I("Simulation Node starting."),
@@ -37,7 +41,7 @@ init([]) ->
 			mqtt_server_manager:creation_info() ++
 			mqtt_server_handler:creation_info() ++
 			ovsdb_client_handler:creation_info() ++
-     	    node_rest_api:creation_info();
+			node_rest_api:creation_info();
 		undefined ->
 			lager:error("No role has been defined in configuration (must be manager or node)")
 	end,

@@ -375,35 +375,35 @@ handle_cast(_Request, State = #simengine_state{}) ->
 	{noreply, NewState :: #simengine_state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), NewState :: #simengine_state{}}).
 
-handle_info({ SimName,Node,MsgType,TimeStamp}=Msg, State = #simengine_state{}) ->
+handle_info({ SimName,Node,MsgType,TimeStamp}=_Msg, State = #simengine_state{}) ->
 	NS = try
-				 io:format("INFO MESSAGE RECEIVED: ~p~n",[Msg]),
+		%% io:format("INFO MESSAGE RECEIVED: ~p~n",[Msg]),
 		SimState = maps:get(SimName,State#simengine_state.sim_states,undefined),
 		NewNodes = lists:delete(Node,SimState#sim_state.outstanding_nodes),
 		Now = erlang:timestamp(),
-		Elapsed = timer:now_diff(Now,TimeStamp) / 1000,
-		 io:format("NewNodes: ~p SimState: ~p Elapsed: ~p~n",[NewNodes,SimState,Elapsed]),
+		Elapsed = timer:now_diff(Now,TimeStamp) / 1000000,
+		%% io:format("NewNodes: ~p SimState: ~p Elapsed: ~p~n",[NewNodes,SimState,Elapsed]),
 		NewSimState = case MsgType of
 			prepare_done->
-				io:format("Node ~p prepared. Took ~p seconds.",[Node,Elapsed]),
+				io:format("Node ~p prepared. Took ~p seconds.~n",[Node,Elapsed]),
 				SimState#sim_state{ outstanding_nodes = NewNodes, state = prepared };
 			push_done ->
-				io:format("Node ~p push done. Took ~p seconds.",[Node,Elapsed]),
+				io:format("Node ~p push done. Took ~p seconds.~n",[Node,Elapsed]),
 				SimState#sim_state{ outstanding_nodes = NewNodes , pushed = true , state = pushed };
 			start_done ->
-				io:format("Node ~p start done. Took ~p seconds.",[Node,Elapsed]),
+				io:format("Node ~p start done. Took ~p seconds.~n",[Node,Elapsed]),
 				SimState#sim_state{ outstanding_nodes = NewNodes, state = started };
 			stop_done ->
-				io:format("Node ~p stop done. Took ~p seconds.",[Node,Elapsed]),
+				io:format("Node ~p stop done. Took ~p seconds.~n",[Node,Elapsed]),
 				SimState#sim_state{ outstanding_nodes = NewNodes , state = stopped };
 			pause_done ->
-				io:format("Node ~p pause done. Took ~p seconds.",[Node,Elapsed]),
+				io:format("Node ~p pause done. Took ~p seconds.~n",[Node,Elapsed]),
 				SimState#sim_state{ outstanding_nodes = NewNodes, state = paused };
 			cancel_done ->
-				io:format("Node ~p cancel done. Took ~p seconds.",[Node,Elapsed]),
+				io:format("Node ~p cancel done. Took ~p seconds.~n",[Node,Elapsed]),
 				SimState#sim_state{ outstanding_nodes = NewNodes, state = cancelled };
 			restart_done ->
-				io:format("Node ~p restart done. Took ~p seconds.",[Node,Elapsed]),
+				io:format("Node ~p restart done. Took ~p seconds.~n",[Node,Elapsed]),
 				SimState#sim_state{ outstanding_nodes = NewNodes, state = started }
 		end,
 		State#simengine_state{ sim_states = maps:put(SimName,NewSimState,State#simengine_state.sim_states)}
@@ -597,7 +597,7 @@ run_batch([],_,SimInfo,_)->
 run_batch([H|T],BatchSize,SimInfo,BatchNumber)->
 	io:format("~n~s: creating ~p of ~p clients.~n",[binary_to_list(SimInfo#simulation.name),BatchSize,SimInfo#simulation.num_devices]),
 	BatchName = binary:list_to_bin([SimInfo#simulation.name,<<"-">>,integer_to_binary(BatchNumber)]),
-	Attributes = #{ id => H, name => BatchName, serial => H, mac => <<>> },
+	Attributes = #{ id => H, name => BatchName, serial => list_to_binary("SIM" ++ integer_to_list(BatchNumber)), mac => <<>> },
 	_ = inventory:make_clients(SimInfo#simulation.ca,
 	                       1,
 	                       min(BatchSize,SimInfo#simulation.num_devices - (BatchSize * (BatchNumber-1))),

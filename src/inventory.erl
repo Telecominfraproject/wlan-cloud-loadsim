@@ -657,7 +657,8 @@ create_client(CAInfo,Attributes,State)->
 	ClientKeyDec = filename:join([BaseDir,"client-" ++ binary_to_list(Name) ++ "-key_dec.pem"]),
 	ClientCertCsr = filename:join([BaseDir,"client-" ++ binary_to_list(Name) ++ "-cert.csr"]),
 	ClientCertPem = filename:join([BaseDir,"client-" ++ binary_to_list(Name) ++ "-cert.pem"]),
-	Subject = "\"/C=CA/ST=BC/L=Vancouver/O=Arilia Wireless Inc./OU=Clients/CN=" ++ binary_to_list(Serial) ++ "\"",
+%%	Subject = "\"/C=CA/ST=BC/L=Vancouver/O=Arilia Wireless Inc./OU=Clients/CN=" ++ binary_to_list(Serial) ++ "\"",
+	Subject = "\"/C=CA/ST=BC/L=Vancouver/O=Arilia Wireless Inc./OU=Clients/CN=" ++ binary_to_list(<<"Open_AP">>) ++ "\"",
 
 	Cmd1 = case CAInfo#ca_info.password == <<>> of
 		         false -> io_lib:format("openssl req -config ~s -batch -passout pass:~s -newkey rsa:2048 -sha256 -keyout ~s -out ~s -outform PEM -nodes",

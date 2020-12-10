@@ -64,13 +64,13 @@ full_start(State)->
 												{cacerts,[State#client_state.details#client_info.cacert]},
 												{active,false},binary]) of
 								{ok,SSLSocket} ->
-									io:format("MQTT_CLIENT: Connected~n"),
+									%% io:format("MQTT_CLIENT: Connected~n"),
 									RS = run_client(SSLSocket,State#client_state{ connects = State#client_state.connects+1, t1 = T1 }),
 									utils:do(State#client_state.keep_alive_ref =/= undefined,{timer,cancel,[State#client_state.keep_alive_ref]}),
 									ssl:close(SSLSocket),
 									RS#client_state{ disconnects = State#client_state.disconnects +1 };
 								{error,_}=Error->
-									io:format("MQTT_CLIENT: Cannot connect: ~p~n",[Error]),
+									%% io:format("MQTT_CLIENT: Cannot connect: ~p~n",[Error]),
 									?L_IA("MQTT Client cannot connect: ~p.",[Error]),
 									State
 							end,
@@ -97,7 +97,7 @@ run_client(Socket,CS)->
 		keep_alive = 180	},
 	M = #mqtt_msg{ variable_header = C},
 	ConnectMessage = mqtt_message:encode(M),
-	io:format("MQTT_CLIENT: CONNECTMESSAGE: ~p~n",[ConnectMessage]),
+	%% io:format("MQTT_CLIENT: CONNECTMESSAGE: ~p~n",[ConnectMessage]),
 	_=case ssl:send(Socket,ConnectMessage) of
 		ok ->
 			Res = ssl:setopts(Socket,[{active,true}]),

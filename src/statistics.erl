@@ -131,13 +131,7 @@ add_new_report(Node,Type,Report)->
 												                                       report = Report })
 	                    end ),
 	try
-		JSON = case Type of
-			       os_details ->
-				       %% io:format(">>> 1 >>>~p~n",[stat_os_report:to_json(Report)]),
-				       jiffy:encode(stat_os_report:to_json(Report));
-						 _ ->
-							 jiffy:encode(Report)
-		       end,
+	  JSON = jiffy:encode( #{ type => Type, report => Report } ),
 		web_socket_handler:send_frame( JSON ),
 		io:format("Good report: ~p~n",[Type])
 	catch

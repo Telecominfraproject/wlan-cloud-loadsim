@@ -312,30 +312,32 @@ cpu_details_to_tuples([{Cpu,Busy,Idle,_}|T],A)->
 
 create_os_stats_report() ->
 	{X1,X2,{_,X3}} = memsup:get_memory_data(),
-	MemoryData = [ #{total => X1}, #{allocated=>X2},#{biggest=>X3}],
+	MemoryData = #{total => X1, allocated=>X2, biggest=>X3 },
+	SystemMemoryData = memsup:get_system_memory_data(),
 	{ Cpus, DetailCpu, NonBusy, _ } = cpu_sup:util([detailed]),
 
-	Report = #stat_os_report{
-		cpu_avg1 = 		cpu_sup:avg1(),
-		cpu_avg5 = 		cpu_sup:avg5(),
-		cpu_avg15= 		cpu_sup:avg15(),
-		number_of_processes = cpu_sup:nprocs(),
-		sysmem_high_watermark = memsup:get_sysmem_high_watermark(),
-		procmem_high_watermark = memsup:get_procmem_high_watermark(),
-		mem_check_interval = memsup:get_check_interval(),
-		mem_helper_timeout = memsup:get_helper_timeout(),
-		disk_check_interval = disksup:get_check_interval(),
-		system_memory_data = memsup:get_system_memory_data(),
-		memory_data = MemoryData,
-		cpu_utilization = cpu_sup:util(),
-		number_of_cpus = length(Cpus),
-		kernel_utilization = proplists:get_value(kernel,DetailCpu,0.0),
-		nice_user = proplists:get_value(nice_user,DetailCpu,0.0),
-		user = proplists:get_value(user,DetailCpu,0.0),
-		idle = proplists:get_value(idle,NonBusy,0.0),
-		disk_almost_full_threshold = disksup:get_almost_full_threshold(),
-		disk_details = volumes_to_tuples(disksup:get_disk_data(),[]),
-		cpu_details = cpu_details_to_tuples(cpu_sup:util([per_cpu]),[])
+	Report = #{
+		cpu_avg1 => 		cpu_sup:avg1(),
+		cpu_avg5 => 		cpu_sup:avg5(),
+		cpu_avg15=> 		cpu_sup:avg15(),
+		number_of_processes => cpu_sup:nprocs(),
+		sysmem_high_watermark => memsup:get_sysmem_high_watermark(),
+		procmem_high_watermark => memsup:get_procmem_high_watermark(),
+		mem_check_interval => memsup:get_check_interval(),
+		mem_helper_timeout => memsup:get_helper_timeout(),
+		disk_check_interval => disksup:get_check_interval(),
+		memory_data => MemoryData,
+		number_of_cpus => length(Cpus),
+		kernel_utilization => proplists:get_value(kernel,DetailCpu,0.0),
+		nice_user => proplists:get_value(nice_user,DetailCpu,0.0),
+		user => proplists:get_value(user,DetailCpu,0.0),
+		idle => proplists:get_value(idle,NonBusy,0.0),
+		disk_almost_full_threshold => disksup:get_almost_full_threshold(),
+		free_memory => proplists:get_value(free_memory,SystemMemoryData,0),
+		total_memory => proplists:get_value(total_memory,SystemMemoryData,0),
+		system_total_memory => proplists:get_value(system_total_memory,SystemMemoryData,0)
+%%		disk_details = volumes_to_tuples(disksup:get_disk_data(),[]),
+%%		cpu_details = cpu_details_to_tuples(cpu_sup:util([per_cpu]),[])
 	},
 	Report.
 

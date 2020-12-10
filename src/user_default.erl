@@ -321,3 +321,6 @@ l1()->
 
 l2()->
 	prepare_simulation("sim1").
+
+m1()->
+	inventory:make_ca("sim1","").

@@ -15,7 +15,7 @@
 -export([ make_dir/1,uuid/0,get_addr/0,get_addr2/0,app_name/0,app_name/1,priv_dir/0,app_env/2,to_string_list/2,to_binary_list/2,print_nodes_info/1,
 					do/2,pem_to_cert/1,pem_to_key/1,safe_binary/1,uuid_b/0,pem_key_is_encrypted/1,remove_pem_key_password/3,
 					noop/0,noop_mfa/0,split_into/2,select/3,adjust/2,
-					get_avg/1, new_avg/0,compute_avg/2]).
+					get_avg/1, new_avg/0,compute_avg/2,search_replace/3]).
 
 -type average() :: { CurrentValue::number(), HowManyValues::integer(), PastValues::[number()]}.
 -export_type([average/0]).
@@ -265,3 +265,21 @@ compute_avg(V,Avg)->
 -spec get_avg(average())->number().
 get_avg({V,_,_})->
 	V.
+
+safe_list(I) when is_binary(I)->
+	binary_to_list(I);
+safe_list(I) when is_list(I)->
+	I.
+
+replace_data(Data,[])->
+	Data;
+replace_data(Data,[{From,To}|T])->
+	NewData = string:replace(Data,From,To,all),
+	replace_data(NewData,T).
+
+-spec search_replace(Infile::binary()|string(),OutFile::binary()|string(),[{From::string(),To::string()}]) -> ok.
+search_replace(InFile,OutFile,Elements)->
+	{ ok , InData } = file:read_file(safe_list(InFile)),
+	NewData = replace_data(binary_to_list(InData),Elements),
+	file:write_file(safe_list(OutFile),list_to_binary(NewData)).
+

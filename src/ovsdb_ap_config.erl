@@ -50,8 +50,16 @@ configure (#cfg{ca_name=CAName, id=ID, redirector=R}=Config) ->
 		{type,Info#client_info.type},
 		{wan_addr,make_ip_addr(ID)},
 		{wan_mac,Info#client_info.wan_mac0},
+		{lan_addr,<<"192.168.1.1">>},
 		{lan_mac,Info#client_info.lan_mac0},
 		{tip_redirector,R}
+		% {serial,<<"21P10C69717951">>},
+		% {type,<<"EA8300">>},
+		% {wan_addr,<<"10.20.0.113">>},
+		% {wan_mac,<<"58:ef:68:62:e7:f1">>},
+		% {lan_addr,<<"192.168.1.1">>},
+		% {lan_mac,<<"58:ef:68:62:e7:f0">>},
+		% {tip_redirector,<<"ssl:opensync-controller.wlan.local:6643">>}
 	],
 	initialize_ap_tables(Config#cfg.store_ref,validate_config(APC)),
 	Config#cfg{

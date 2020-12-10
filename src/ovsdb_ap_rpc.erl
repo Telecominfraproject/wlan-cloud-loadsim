@@ -29,20 +29,31 @@ eval_req(<<"transact">>,Id,#{<<"params">>:=P},Store) ->
 	Qr = table_query(P,Store),
 	{ok, make_result(Id,Qr)};
 
-eval_req(<<"get_schema">>, Id,_,_Store) ->
+eval_req(<<"get_schema">>, Id,_,Store) ->
 	?L_I(?DBGSTR("RPC request: ~s (~s)",[<<"get_schema">>,Id])),
-	{ok, ignore};
+	Schema = read_schema(Store),
+	{ok, make_result(Id,Schema)};
 
 eval_req (Method, Id, _Data, _Store) ->
 	?L_I(?DBGSTR("RPC request: ~s (~s)",[Method,Id])),
 	{error,io_lib:format("~s not recognized",[Method])}.
 
--spec make_result (Id :: binary(), Result :: map()) -> map().
+-spec make_result (Id :: binary(), Result :: map() | binary()) -> map().
+make_result (Id, <<>>) ->
+	iolist_to_binary(io_lib:format("{\"result\":null,\"id\":\"~s\",\"error\":\"internal error\"}",[Id]));
+make_result (Id, Res) when is_binary(Res) ->
+	iolist_to_binary(io_lib:format("{\"result\":~s,\"id\":\"~s\",\"error\":null}",[Res,Id]));
 make_result (Id, Res) when map_size(Res) == 0 ->
 	#{
 		<<"result">> => [],
 		<<"id">> => Id,
 		<<"error">> => null
+	};
+make_result (Id, Res) when is_map_key(error,Res) ->
+	#{
+		<<"result">> => null,
+		<<"id">> => Id,
+		<<"error">> => maps:get(error,Res)
 	};
 make_result (Id, Res) ->
 	#{
@@ -133,6 +144,22 @@ update_records (T,V,[R|Rest],Acc)  ->
 	Cand = lists:zip(rec_fields(T),R),
 	Updt = [Uv || {F,Ov} <- Cand, case maps:is_key(F,V) of true -> Uv=maps:get(F,V), true; _ -> Uv=Ov, true end],
 	update_records(T,V,Rest,[Updt|Acc]).
+
+%--------read_schema/1-------------------reads the schema from disk for a particular device type
+-spec read_schema(Store :: ets:tid()) -> binary().
+read_schema (Store) ->
+	[#'AWLAN_Node'{model=Model}|_] = ets:match_object(Store,#'AWLAN_Node'{_='_'}),
+	FName = filename:join([code:priv_dir(?OWLS_APP),"templates",iolist_to_binary([string:uppercase(Model),"_schema.json"])]),
+	case filelib:is_regular(FName) of
+		true ->
+			{ok, Schema} = file:read_file(FName),
+			Schema;
+		false ->
+			?L_EA("Cannot read schmea file for model: ~s",[Model]),
+			<<>>
+	end.
+
+
 
 %%------------------------------------------------------------------------------
 %% record convertion helpers

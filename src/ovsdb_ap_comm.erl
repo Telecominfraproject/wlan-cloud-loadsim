@@ -52,6 +52,9 @@ start_link (Options) ->
 send_term (Comm, Data) when is_pid(Comm) andalso is_map(Data) ->
 	Comm ! {send, self(), Data},
 	ok;
+send_term (Comm, Data) when is_pid(Comm) andalso is_binary(Data) ->
+	Comm ! {send_raw, self(), Data},
+	ok;
 send_term (_,_) ->
 	{error,"Data needs to be a map"}.
 
@@ -82,8 +85,8 @@ create_comm (Opts, AP) ->
 comm_loop (#c_state{socket=S, rxb=Rx, ap=AP, id=ID, options=Opts}=State) ->
 	receive 
 		{ssl, S, Data} ->
-			{Buffer, Pretty} = process_rx_data(<<Rx/binary,Data/binary>>,AP),
-			?L_I(?DBGSTR("GOT REQUEST: from ~s:~B to ~s~n~s",[proplists:get_value(host,Opts,"unknown"),proplists:get_value(port,Opts,0),ID,Pretty])),
+			{Buffer, JSON} = process_rx_data(<<Rx/binary,Data/binary>>,AP),
+			?L_I(?DBGSTR("GOT REQUEST: from ~s:~B to ~s~n~s",[proplists:get_value(host,Opts,"unknown"),proplists:get_value(port,Opts,0),ID,JSON])),
 			ovsdb_ap:post_event(AP,comm_event,{<<"RX">>,size(Data)},io_lib:format("receive ~Bbytes",[size(Data)])),
 			case ssl:setopts(S,[{active,once}]) of
 				ok ->
@@ -114,13 +117,32 @@ comm_loop (#c_state{socket=S, rxb=Rx, ap=AP, id=ID, options=Opts}=State) ->
 					ToSendP = jiffy:encode(Data,[pretty]),
 					%?L_I(?DBGSTR("Sending: ~B bytes of date",[size(ToSend)])),
 					?L_I(?DBGSTR("SENDING RESPONSE: from ~s to ~s:~B~n~s",[ID,proplists:get_value(host,Opts,"unknown"),proplists:get_value(port,Opts,0),ToSendP])),
-					case ssl:send(S,ToSend) of
+					case ssl:send(S,[ToSend,<<"\n">>]) of
 						ok ->
 							ovsdb_ap:post_event(AP,comm_event,{<<"TX">>,size(ToSend)},io_lib:format("sending ~Bbytes",[size(ToSend)])),
 							comm_loop(State#c_state{status=active});
 						{error, closed} ->
 							ovsdb_ap:post_event(AP,comm_error,{<<"send_error">>},<<"trying to send data with no socket">>),
 							?L_E(?DBGSTR("trying to send data with closed socket")),
+							comm_loop(try_reconnect(State))
+					end
+			end;
+
+		{send_raw, AP, Data} ->
+			case S of 
+				none ->
+					?L_E(?DBGSTR("trying to send raw data with no socket")),
+					ovsdb_ap:post_event(AP,comm_error,{<<"send_error">>},<<"trying to send raw data with no socket">>),
+					comm_loop(State#c_state{status=error});
+				_ ->
+					?L_I(?DBGSTR("SENDING RAW RESPONSE: from ~s to ~s:~B ~n~s~n",[ID,proplists:get_value(host,Opts,"unknown"),proplists:get_value(port,Opts,0),Data])),
+					case ssl:send(S,Data) of
+						ok ->
+							ovsdb_ap:post_event(AP,comm_event,{<<"TX">>,byte_size(Data)},io_lib:format("sending ~Bbytes",[byte_size(Data)])),
+							comm_loop(State#c_state{status=active});
+						{error, closed} ->
+							ovsdb_ap:post_event(AP,comm_error,{<<"send_error">>},<<"trying to send raw data with no socket">>),
+							?L_E(?DBGSTR("trying to send raw data with closed socket")),
 							comm_loop(try_reconnect(State))
 					end
 			end;
@@ -198,12 +220,13 @@ process_rx_data (Data, AP) ->
 	try jiffy:decode(Data,[return_maps,copy_strings,return_trailer]) of
 		{has_trailer,Map,Tail} ->
 			ovsdb_ap:rpc_cmd(AP,Map),
-			{iolist_to_binary(Tail),jiffy:encode(Map,[pretty])};
+			{iolist_to_binary(Tail),jiffy:encode(Map)};
 		Map ->
 			ovsdb_ap:rpc_cmd(AP,Map),
-			{<<"">>,jiffy:encode(Map,[pretty])}
+			{<<"">>,jiffy:encode(Map)}
 	catch
-		error:{_,truncated_json} ->
+		error:{N,Error} ->
+			?L_IA("JSON decode error: '~s' after ~B bytes",[Error,N]),
 			Data;
 		_:_ ->
 			<<"">>

@@ -23,30 +23,33 @@
 
 -spec init( Req :: cowboy_req:req(), State ::ws_state() ) -> { cowboy_websocket, cowboy_req:req(), State::ws_state() }.
 init(Req, State) ->
-	io:format("Web socket init...~n"),
-	Pids = persistent_term:get(web_socket_pids,sets:new()),
-	NewPids = sets:add_element(self(),Pids),
-	persistent_term:put(web_socket_pids,NewPids),
+	%% io:format("Web socket init.~p..~n",[self()]),
 	{cowboy_websocket,Req,State}.
 
 -spec websocket_init(State::ws_state())-> call_result().
 websocket_init(State)->
-	io:format("Web socket starting...~n"),
+	Pids = persistent_term:get(web_socket_pids,sets:new()),
+	NewPids = sets:add_element(self(),Pids),
+	persistent_term:put(web_socket_pids,NewPids),
+	%% io:format("Web socket starting. ~p..~n",[self()]),
 	{ok,State}.
 
 -spec websocket_handle(InFrame :: in_frame(),State::ws_state())-> call_result().
-websocket_handle(_InFrame,State)->
+websocket_handle(InFrame,State)->
+	io:format("Web socket: ~p~n",[InFrame]),
 	{ok,State}.
 
 -spec websocket_info(Info::any(),State::ws_state())-> call_result().
 websocket_info({frame,Format,Data},State)->
+	%% io:format("Web socket message.~p..2~n",[self()]),
 	{reply,{Format,Data},State};
 websocket_info(_Info,State)->
+	%% io:format("Web socket starting: ~p..3.~n",[self()]),
 	{ok,State}.
 
 -spec terminate(Reason::term(), PartialReq::#{}, State::ws_state() ) -> ok.
 terminate(_Reason,_PartialReq,_State)->
-	io:format("Web socket closing...~n"),
+%%	io:format("Web socket closing: ~p..~n",[self()]),
 	Pids = persistent_term:get(web_socket_pids,sets:new()),
 	NewPids = sets:del_element(self(),Pids),
 	persistent_term:put(web_socket_pids,NewPids),
@@ -55,12 +58,14 @@ terminate(_Reason,_PartialReq,_State)->
 send_frame( Data ) when is_binary(Data)->
 	Pids = persistent_term:get(web_socket_pids,sets:new()),
 	sets:fold( fun(E,A) ->
+%%							io:format("sending to ~p~n",[E]),
 							E ! { frame, binary , Data }, A
 						 end,[], Pids ),
 	ok;
 send_frame( Data ) when is_list(Data)->
 	Pids = persistent_term:get(web_socket_pids,sets:new()),
 	sets:fold( fun(E,A) ->
+%%						io:format("sending to ~p~n",[E]),
 							E ! { frame, text, Data }, A
 	           end,[], Pids ),
 	ok.

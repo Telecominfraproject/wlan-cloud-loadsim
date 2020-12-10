@@ -54,7 +54,7 @@ start_link() ->
 init([]) ->
 	process_flag(trap_exit, true),
 	Port = utils:app_env( rest_api_port, 9090),
-	Secure = utils:app_env( rest_api_secure, true ),
+	Secure = utils:app_env( rest_api_secure, false),
 	PrivDir = utils:priv_dir(),
 	Dispatch = cowboy_router:compile([
 		{

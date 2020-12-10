@@ -324,3 +324,6 @@ l2()->
 
 m1()->
 	inventory:make_ca("sim1","").
+
+ws(Msg) ->
+	web_socket_handler:send_frame(Msg).

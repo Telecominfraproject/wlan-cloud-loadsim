@@ -158,7 +158,7 @@ handle_info({stats,Type,Value}=Info, State = #mqtt_client_manager_state{}) ->
 	  connect_time ->
 		  #{ connect_avg_time := ConnAvgTime, connect_avg_time_hwm := CAvgHwm, connect_avg_time_lwm := CAvgLwm } = CS,
 		  NewAvg = utils:compute_avg(Value,ConnAvgTime),
-		  CS#{ connect_avg_time => NewAvg, connect_avg_time_hwm => max(NewAvg,CAvgHwm), connect_avg_time_lwm => min(NewAvg,CAvgLwm) };
+		  CS#{ connect_avg_time => utils:get_avg(NewAvg), connect_avg_time_hwm => max(NewAvg,CAvgHwm), connect_avg_time_lwm => min(NewAvg,CAvgLwm) };
 	  _ ->
 		  io:format(">>>>MQTTCLIENTMANAGER: unknow stats type = ~p~n",[Type]),
 		  CS

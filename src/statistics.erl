@@ -133,7 +133,7 @@ add_new_report(Node,Type,Report)->
 	try
 		JSON = case Type of
 			       os_details ->
-				       io:format(">>> 1 >>>~p~n",[stat_os_report:to_json(Report)]),
+				       %% io:format(">>> 1 >>>~p~n",[stat_os_report:to_json(Report)]),
 				       jiffy:encode(stat_os_report:to_json(Report));
 						 _ ->
 							 jiffy:encode(Report)
@@ -142,7 +142,7 @@ add_new_report(Node,Type,Report)->
 		io:format("Good report: ~p~n",[Type])
 	catch
 		_:_ ->
-			io:format("FAILED REPORT: ~p~n",[Report]),
+			io:format("FAILED REPORT: ~p~n",[Type]),
 			ok
 	end,
 	ok.

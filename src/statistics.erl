@@ -131,7 +131,7 @@ add_new_report(Node,Type,Report)->
 												                                       report = Report })
 	                    end ),
 	try
-	  JSON = jiffy:encode( #{ type => Type, report => Report } ),
+	  JSON = jiffy:encode( #{ type => report, name => Type , node => Node, value => Report } ),
 		web_socket_handler:send_frame( JSON ),
 		io:format("Good report: ~p~n",[Type])
 	catch

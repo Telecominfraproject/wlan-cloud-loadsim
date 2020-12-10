@@ -303,12 +303,12 @@ try_connecting(NodeName,State)->
 volumes_to_tuples([],A)->
 	A;
 volumes_to_tuples([{Name,Size,_}|T],A)->
-	volumes_to_tuples(T,[#{ list_to_atom(Name) => Size}|A]).
+	volumes_to_tuples(T,[#{ list_to_atom(Name) => Size, size => Size }|A]).
 
 cpu_details_to_tuples([],A)->
 	A;
 cpu_details_to_tuples([{Cpu,Busy,Idle,_}|T],A)->
-	cpu_details_to_tuples(T,[[#{cpu=>Cpu},#{busy=>Busy},#{idle=>Idle}]|A]).
+	cpu_details_to_tuples(T,[[#{cpu=>Cpu , busy=>Busy, idle=>Idle}]|A]).
 
 create_os_stats_report() ->
 	{X1,X2,{_,X3}} = memsup:get_memory_data(),
@@ -317,9 +317,9 @@ create_os_stats_report() ->
 	{ Cpus, DetailCpu, NonBusy, _ } = cpu_sup:util([detailed]),
 
 	Report = #{
-		cpu_avg1 => 		cpu_sup:avg1(),
-		cpu_avg5 => 		cpu_sup:avg5(),
-		cpu_avg15=> 		cpu_sup:avg15(),
+		cpu_avg1  => 		cpu_sup:avg1(),
+		cpu_avg5  => 		cpu_sup:avg5(),
+		cpu_avg15 => 		cpu_sup:avg15(),
 		number_of_processes => cpu_sup:nprocs(),
 		sysmem_high_watermark => memsup:get_sysmem_high_watermark(),
 		procmem_high_watermark => memsup:get_procmem_high_watermark(),
@@ -335,9 +335,9 @@ create_os_stats_report() ->
 		disk_almost_full_threshold => disksup:get_almost_full_threshold(),
 		free_memory => proplists:get_value(free_memory,SystemMemoryData,0),
 		total_memory => proplists:get_value(total_memory,SystemMemoryData,0),
-		system_total_memory => proplists:get_value(system_total_memory,SystemMemoryData,0)
-%%		disk_details = volumes_to_tuples(disksup:get_disk_data(),[]),
-%%		cpu_details = cpu_details_to_tuples(cpu_sup:util([per_cpu]),[])
+		system_total_memory => proplists:get_value(system_total_memory,SystemMemoryData,0),
+		cpu_details => cpu_details_to_tuples(cpu_sup:util([per_cpu]),[]),
+		disk_details => volumes_to_tuples(disksup:get_disk_data(),[])
 	},
 	Report.
 

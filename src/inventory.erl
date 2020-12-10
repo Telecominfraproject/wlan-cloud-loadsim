@@ -437,47 +437,55 @@ create_ca(CaName,Password,State,_Pid)->
 	%% Make all the directories
 	CaDir = filename:join([State#inventory_state.cert_db_dir,binary_to_list(CaName)]),
 	ok = utils:make_dir(CaDir),
+	ok = file:write_file( filename:join([CaDir, "index.txt"]),<<>>),
+	ok = file:write_file( filename:join([CaDir, "serial.txt"]),<<$0,$1>>),
+	ok = utils:make_dir(filename:join([CaDir,"certs"])),
+	ok = utils:make_dir(filename:join([CaDir,"newcerts"])),
+	ok = utils:make_dir(filename:join([CaDir,"crl"])),
+	ok = utils:make_dir(filename:join([CaDir,"private"])),
 	CaClientsDir = filename:join([CaDir,"clients"]),
 	CaServersDir = filename:join([CaDir,"servers"]),
 	ok = utils:make_dir(CaClientsDir),
 	ok = utils:make_dir(CaServersDir),
 
-	{ ok , TemplateConf } = file:read_file( filename:join([utils:priv_dir(),"templates","ca.cnf.template"] )),
-	NewConf = string:replace(binary_to_list(TemplateConf),"$$DIR_ROOT$$",CaDir,all),
-	CaConfigFileName = filename:join([CaDir,binary_to_list(CaName)++".cnf"]),
-	ok = file:write_file(CaConfigFileName , list_to_binary(NewConf)),
+	CaTemplateFileName = filename:join([utils:priv_dir(),"templates","ssl-ca.cnf"]),
+	CaConfigFileName = filename:join([CaDir,"ssl-ca.cnf"]),
+	utils:search_replace(CaTemplateFileName,CaConfigFileName,[{"$$ROOT_DIR$$",CaDir}]),
 
-	CaKeyFileName = filename:join([CaDir,binary_to_list(CaName) ++ "_key.pem"]),
-	CaKeyCertFileName = filename:join([CaDir,binary_to_list(CaName) ++ "_cert.pem"]),
-	CaConfigFileName = filename:join([CaDir,binary_to_list(CaName)++".cnf"]),
+	ClientTemplateFileName = filename:join([utils:priv_dir(),"templates","ssl-client.cnf"]),
+	ClientConfigFileName = filename:join([CaDir,"ssl-client.cnf"]),
+	utils:search_replace(ClientTemplateFileName,ClientConfigFileName,[{"$$ROOT_DIR$$",CaDir}]),
 
-	Cmd0 = case Password == <<>> of
-		       false -> io_lib:format("openssl genrsa -passout pass:~s -aes256 -out ~s 4096",[Password,CaKeyFileName]);
-		       true -> io_lib:format("openssl genrsa -out ~s 4096",[CaKeyFileName])
-	       end,
-	_CommandResult0 = os:cmd(Cmd0),
-	_ = file:change_mode(CaKeyFileName,8#0400),
-	%% io:format("> CMD0: ~s, RESULT: ~s~n~n",[Cmd0,CommandResult0]),
-	Cmd1 = case Password == <<>> of
-		       false -> io_lib:format("openssl req -config ~s -batch -new -x509 -days 3000 -sha256 -extensions v3_ca -passin pass:~s -key ~s -out ~s",
-									[ CaConfigFileName,	Password, CaKeyFileName, CaKeyCertFileName ]);
-		       true -> io_lib:format("openssl req -config ~s -batch -new -x509 -days 3000 -sha256 -extensions v3_ca -key ~s -out ~s",
-		                              [ CaConfigFileName,	CaKeyFileName, CaKeyCertFileName ])
-	       end,
-	_CommandResult1 = os:cmd(Cmd1),
-	_ = file:change_mode(CaKeyCertFileName,8#0400),
-	%% io:format("> CMD1: ~s, RESULT: ~s~n~n",[Cmd1,CommandResult1]),
+	ServerTemplateFileName = filename:join([utils:priv_dir(),"templates","ssl-server.cnf"]),
+	ServerConfigFileName = filename:join([CaDir,"ssl-server.cnf"]),
+	utils:search_replace(ServerTemplateFileName,ServerConfigFileName,[{"$$ROOT_DIR$$",CaDir}]),
 
-	ok = file:write_file( filename:join([CaDir, "index.txt"]),<<>>),
-	ok = file:write_file( filename:join([CaDir, "serial.txt"]),<<$0,$1>>),
+	CreateCaScriptTemplate =	filename:join([utils:priv_dir(),"templates","ssl-create-ca.sh"]),
+	CreateCaScriptFileName = filename:join([CaDir,"ssl-create-ca.sh"]),
+	utils:search_replace(CreateCaScriptTemplate,CreateCaScriptFileName,[{"$$ROOT_DIR$$",CaDir}]),
 
-	ok = utils:make_dir(filename:join([CaDir,"certs"])),
-	ok = utils:make_dir(filename:join([CaDir,"newcerts"])),
-	ok = utils:make_dir(filename:join([CaDir,"crl"])),
-	ok = utils:make_dir(filename:join([CaDir,"private"])),
+	CreateClientScriptTemplate =	filename:join([utils:priv_dir(),"templates","ssl-create-client.sh"]),
+	CreateClientScriptFileName = filename:join([CaDir,"ssl-create-client.sh"]),
+	utils:search_replace(CreateClientScriptTemplate,CreateClientScriptFileName,[{"$$ROOT_DIR$$",CaDir}]),
 
+	CreateServerScriptTemplate =	filename:join([utils:priv_dir(),"templates","ssl-create-server.sh"]),
+	CreateServerScriptFileName = filename:join([CaDir,"ssl-create-server.sh"]),
+	utils:search_replace(CreateServerScriptTemplate,CreateServerScriptFileName,[{"$$ROOT_DIR$$",CaDir}]),
+
+	_ = file:change_mode(CreateCaScriptFileName,8#0777),
+	_ = file:change_mode(CreateClientScriptFileName,8#0777),
+	_ = file:change_mode(CreateServerScriptFileName,8#0777),
+
+	_Result = os:cmd(CreateCaScriptFileName),
+	%% io:format("RESULT: ~p~n",[Result]),
+
+	CaKeyCertFileName = filename:join([CaDir,"cacert.pem"]),
+	CaKeyFileName = filename:join([CaDir,"cakey.pem"]),
 	{ok,CertData}=utils:pem_to_cert(CaKeyCertFileName),
 	{ok,KeyData}=utils:pem_to_key(CaKeyFileName),
+
+	_ = file:change_mode(CaKeyFileName,8#0400),
+	_ = file:change_mode(CaKeyCertFileName,8#0400),
 
 	NewCa = #ca_info{ name = CaName,
 										dir_name = list_to_binary(CaDir),
@@ -488,8 +496,7 @@ create_ca(CaName,Password,State,_Pid)->
 										config_file_name = list_to_binary(CaConfigFileName),
 										cert = CertData,
 	                  key = KeyData,
-										password = Password,
-								    config_data = list_to_binary(NewConf)
+										password = Password
 			},
 	_ = add_record(NewCa),
 	ets:insert(?CADB_TABLE,NewCa),
@@ -502,36 +509,56 @@ import_a_ca(CaName,Attributes,State,_Pid)->
 	%% Make all the directories
 	#{ password := OPassword , keyfilename := OKeyFileNAme , certfilename := OCertFileName } = Attributes,
 	CaDir = filename:join([State#inventory_state.cert_db_dir,binary_to_list(CaName)]),
+	CaDir = filename:join([State#inventory_state.cert_db_dir,binary_to_list(CaName)]),
 	ok = utils:make_dir(CaDir),
+	ok = file:write_file( filename:join([CaDir, "index.txt"]),<<>>),
+	ok = file:write_file( filename:join([CaDir, "serial.txt"]),<<$0,$1>>),
+	ok = utils:make_dir(filename:join([CaDir,"certs"])),
+	ok = utils:make_dir(filename:join([CaDir,"newcerts"])),
+	ok = utils:make_dir(filename:join([CaDir,"crl"])),
+	ok = utils:make_dir(filename:join([CaDir,"private"])),
 	CaClientsDir = filename:join([CaDir,"clients"]),
 	CaServersDir = filename:join([CaDir,"servers"]),
 	ok = utils:make_dir(CaClientsDir),
 	ok = utils:make_dir(CaServersDir),
 
-	{ ok , TemplateConf } = file:read_file( filename:join([utils:priv_dir(),"templates","ca.cnf.template"] )),
-	NewConf = string:replace(binary_to_list(TemplateConf),"$$DIR_ROOT$$",CaDir,all),
-	CaConfigFileName = filename:join([CaDir,binary_to_list(CaName)++".cnf"]),
-	ok = file:write_file(CaConfigFileName , list_to_binary(NewConf)),
+	CaTemplateFileName = filename:join([utils:priv_dir(),"templates","ssl-ca.cnf"]),
+	CaConfigFileName = filename:join([CaDir,"ssl-ca.cnf"]),
+	utils:search_replace(CaTemplateFileName,CaConfigFileName,[{"$$ROOT_DIR$$",CaDir}]),
 
-	CaKeyFileName = filename:join([CaDir,binary_to_list(CaName) ++ "_key.pem"]),
-	CaKeyCertFileName = filename:join([CaDir,binary_to_list(CaName) ++ "_cert.pem"]),
-	CaConfigFileName = filename:join([CaDir,binary_to_list(CaName)++".cnf"]),
+	ClientTemplateFileName = filename:join([utils:priv_dir(),"templates","ssl-client.cnf"]),
+	ClientConfigFileName = filename:join([CaDir,"ssl-client.cnf"]),
+	utils:search_replace(ClientTemplateFileName,ClientConfigFileName,[{"$$ROOT_DIR$$",CaDir}]),
+
+	ServerTemplateFileName = filename:join([utils:priv_dir(),"templates","ssl-server.cnf"]),
+	ServerConfigFileName = filename:join([CaDir,"ssl-server.cnf"]),
+	utils:search_replace(ServerTemplateFileName,ServerConfigFileName,[{"$$ROOT_DIR$$",CaDir}]),
+
+	CreateCaScriptTemplate =	filename:join([utils:priv_dir(),"templates","ssl-create-ca.sh"]),
+	CreateCaScriptFileName = filename:join([CaDir,"ssl-create-ca.sh"]),
+	utils:search_replace(CreateCaScriptTemplate,CreateCaScriptFileName,[{"$$ROOT_DIR$$",CaDir}]),
+
+	CreateClientScriptTemplate =	filename:join([utils:priv_dir(),"templates","ssl-create-client.sh"]),
+	CreateClientScriptFileName = filename:join([CaDir,"ssl-create-client.sh"]),
+	utils:search_replace(CreateClientScriptTemplate,CreateClientScriptFileName,[{"$$ROOT_DIR$$",CaDir}]),
+
+	CreateServerScriptTemplate =	filename:join([utils:priv_dir(),"templates","ssl-create-server.sh"]),
+	CreateServerScriptFileName = filename:join([CaDir,"ssl-create-server.sh"]),
+	utils:search_replace(CreateServerScriptTemplate,CreateServerScriptFileName,[{"$$ROOT_DIR$$",CaDir}]),
+
+	_ = file:change_mode(CreateCaScriptFileName,8#0777),
+	_ = file:change_mode(CreateClientScriptFileName,8#0777),
+	_ = file:change_mode(CreateServerScriptFileName,8#0777),
+
+	CaKeyFileName = filename:join([CaDir,"cakey.pem"]),
+	CaKeyCertFileName = filename:join([CaDir,"cacert.pem"]),
+	CaConfigFileName = filename:join([CaDir,"ssl-ca.cnf"]),
 
 	_R1 = file:copy( OKeyFileNAme , CaKeyFileName ),
 	_R2 = file:copy( OCertFileName, CaKeyCertFileName ),
 
-	%% io:format("R1=~p R2=~p O=~p N=~p~n",[R1,R2,OKeyFileNAme,CaKeyFileName]),
-
 	_ = file:change_mode(CaKeyFileName,8#0400),
 	_ = file:change_mode(CaKeyCertFileName,8#0400),
-
-	ok = file:write_file( filename:join([CaDir, "index.txt"]),<<>>),
-	ok = file:write_file( filename:join([CaDir, "serial.txt"]),<<$0,$1>>),
-
-	ok = utils:make_dir(filename:join([CaDir,"certs"])),
-	ok = utils:make_dir(filename:join([CaDir,"newcerts"])),
-	ok = utils:make_dir(filename:join([CaDir,"crl"])),
-	ok = utils:make_dir(filename:join([CaDir,"private"])),
 
 	{ok,CertData}=utils:pem_to_cert(CaKeyCertFileName),
 	{ok,KeyData}=utils:pem_to_key(CaKeyFileName),
@@ -545,8 +572,7 @@ import_a_ca(CaName,Attributes,State,_Pid)->
 	                  config_file_name = list_to_binary(CaConfigFileName),
 	                  cert = CertData,
 	                  key = KeyData,
-	                  password = list_to_binary(OPassword),
-	                  config_data = list_to_binary(NewConf)
+	                  password = list_to_binary(OPassword)
 	},
 	_ = add_record(NewCa),
 	ets:insert(?CADB_TABLE,NewCa),
@@ -569,59 +595,24 @@ delete_ca(CAInfo,State,_Pid)->
 -spec create_server(CAInfo::ca_info(),Name::binary(),Type::service_role(),State::#inventory_state{},ParentPid::pid()) -> { ok , NewState::#inventory_state{} } | generic_error().
 create_server(CAInfo,Name,Type,State,_Pid)->
 	BaseDir = binary_to_list(CAInfo#ca_info.servers_dir_name),
-	ServerKeyPem = filename:join([BaseDir,"server-" ++ binary_to_list(Name) ++ "-key.pem"]),
-	ServerKeyDec = filename:join([BaseDir,"server-" ++ binary_to_list(Name) ++ "-key_dec.pem"]),
-	ServerCertCsr = filename:join([BaseDir,"server-" ++ binary_to_list(Name) ++ "-cert.csr"]),
-	ServerCertPem = filename:join([BaseDir,"server-" ++ binary_to_list(Name) ++ "-cert.pem"]),
-	Subject = "\"/C=CA/ST=BC/L=Vancouver/O=Arilia Wireless Inc./OU=Servers/CN=" ++ binary_to_list(Name) ++ "\"",
-	Cmd1 = case CAInfo#ca_info.password == <<>> of
-					 false ->
-						 io_lib:format("openssl req -config ~s -batch -passout pass:~s -newkey rsa:2048 -sha256 -keyout ~s -out ~s -outform PEM -nodes",
-						               [ binary_to_list(CAInfo#ca_info.config_file_name),
-						                 binary_to_list(CAInfo#ca_info.password),
-						                 ServerKeyPem,
-						                 ServerCertCsr]);
-					 true ->
-						 io_lib:format("openssl req -config ~s -batch -newkey rsa:2048 -sha256 -keyout ~s -out ~s -outform PEM -nodes",
-						               [ binary_to_list(CAInfo#ca_info.config_file_name),
-						                 ServerKeyPem,
-						                 ServerCertCsr])
-%%						                "openssl req -config ~s -batch -newkey rsa:2048 -sha256 -keyout ~s -out ~s -outform PEM -nodes"
-	       end,
-	_CommandResult1 = os:cmd(Cmd1),
-	%% io:format("> CMD1: ~s, RESULT: ~s~n~n",[Cmd1,CommandResult1]),
-	Cmd2 = case CAInfo#ca_info.password == <<>> of
-					 false -> io_lib:format("openssl ca -batch -passin pass:~s -config ~s -subj ~s -keyfile ~s -cert ~s -extensions server_cert -policy policy_loose -out ~s -infiles ~s",
-					                        [ binary_to_list(CAInfo#ca_info.password),
-					                          binary_to_list(CAInfo#ca_info.config_file_name),
-					                          Subject,
-					                          binary_to_list(CAInfo#ca_info.key_file_name),
-					                          binary_to_list(CAInfo#ca_info.cert_file_name),
-					                          ServerCertPem,
-					                          ServerCertCsr]);
-					 true -> io_lib:format("openssl ca -batch -config ~s -subj ~s -keyfile ~s -cert ~s -extensions server_cert -policy policy_loose -out ~s -infiles ~s",
-					                       [ binary_to_list(CAInfo#ca_info.config_file_name),
-					                         Subject,
-					                         binary_to_list(CAInfo#ca_info.key_file_name),
-					                         binary_to_list(CAInfo#ca_info.cert_file_name),
-					                         ServerCertPem,
-					                         ServerCertCsr])
-	       end,
-	_CommandResult2 = os:cmd(Cmd2),
-	%% io:format("> CMD2: ~s, RESULT: ~s~n~n",[Cmd2,CommandResult2]),
-	Cmd3 = case CAInfo#ca_info.password == <<>> of
-           false ->io_lib:format("openssl rsa -passin pass:~s -in ~s -out ~s",
-											[	binary_to_list(CAInfo#ca_info.password), ServerKeyPem, ServerKeyDec]);
-					 true -> io_lib:format("openssl rsa -in ~s -out ~s",
-					                       [ ServerKeyPem, ServerKeyDec])
-				 end,
-	_CommandResult3 = os:cmd(Cmd3),
-	%% io:format("> CMD3: ~s, RESULT: ~s~n~n",[Cmd3,CommandResult3]),
+	ServerKeyPem = filename:join([BaseDir,binary_to_list(Name) ++ "-key.pem"]),
+	ServerKeyDec = filename:join([BaseDir,binary_to_list(Name) ++ "-key_dec.pem"]),
+	ServerCertCsr = filename:join([BaseDir,binary_to_list(Name) ++ "-cert.csr"]),
+	ServerCertPem = filename:join([BaseDir,binary_to_list(Name) ++ "-cert.pem"]),
+
+	CaBase = binary_to_list(CAInfo#ca_info.dir_name),
+	CreateServerScriptFileName = filename:join([CaBase,"ssl-create-server.sh"]),
+	_Result = os:cmd(CreateServerScriptFileName),
+	%% io:format("RESULT: ~p~n",[Result]),
+
+	file:rename( filename:join([CaBase,"servercert.csr"]),ServerCertCsr ),
+	file:rename( filename:join([CaBase,"servercert.pem"]),ServerCertPem ),
+	file:rename( filename:join([CaBase,"serverkey.pem"]),ServerKeyPem ),
+	file:rename( filename:join([CaBase,"serverkey_dec.pem"]),ServerKeyDec ),
 
 	{ok,KeyPemData} = utils:pem_to_key(ServerKeyPem),
 	{ok,ServerCertPemData} = utils:pem_to_cert(ServerCertPem),
 	{ok,ServerKeyDecPemData} = utils:pem_to_key(ServerKeyDec),
-
 	{ok,ServerCertCsrPemData} = file:read_file(ServerCertCsr),
 
 	NewServerInfo = #server_info{
@@ -651,48 +642,22 @@ create_servers(CAInfo,[H|T],Type,State,Pid)->
 -spec create_client( CAInfo :: ca_info(), Attributes::#{ atom() => term() }, State::#inventory_state{}) ->
 			{ ok , NewState::#inventory_state{} } | { error , Reason :: term()}.
 create_client(CAInfo,Attributes,State)->
-	BaseDir = binary_to_list(CAInfo#ca_info.clients_dir_name),
 	#{ mac := Mac, serial := Serial, name := Name , id := HardwareId } = Attributes,
-	ClientKeyPem = filename:join([BaseDir,"client-" ++ binary_to_list(Name) ++ "-key.pem"]),
-	ClientKeyDec = filename:join([BaseDir,"client-" ++ binary_to_list(Name) ++ "-key_dec.pem"]),
-	ClientCertCsr = filename:join([BaseDir,"client-" ++ binary_to_list(Name) ++ "-cert.csr"]),
-	ClientCertPem = filename:join([BaseDir,"client-" ++ binary_to_list(Name) ++ "-cert.pem"]),
-	Subject = "\"/C=CA/ST=BC/L=Vancouver/O=Arilia Wireless Inc./OU=Clients/CN=" ++ binary_to_list(Serial) ++ "\"",
+	BaseFileName = filename:join( [ binary_to_list(CAInfo#ca_info.clients_dir_name),binary_to_list(Serial)]),
+	ClientKeyPem = BaseFileName ++ "-key.pem",
+	ClientKeyDec = BaseFileName ++  "-key_dec.pem",
+	ClientCertCsr = BaseFileName ++  "-cert.csr",
+	ClientCertPem = BaseFileName ++  "-cert.pem",
 
-	Cmd1 = case CAInfo#ca_info.password == <<>> of
-		         false -> io_lib:format("openssl req -config ~s -batch -passout pass:~s -newkey rsa:2048 -sha256 -keyout ~s -out ~s -outform PEM -nodes",
-															[ binary_to_list(CAInfo#ca_info.config_file_name), binary_to_list(CAInfo#ca_info.password), ClientKeyPem,ClientCertCsr]);
-						 true ->  io_lib:format("openssl req -config ~s -batch -newkey rsa:2048 -sha256 -keyout ~s -out ~s -outform PEM -nodes",
-			                        [ binary_to_list(CAInfo#ca_info.config_file_name), ClientKeyPem, ClientCertCsr])
-				 end,
-	_CommandResult1 = os:cmd(Cmd1),
-	%% io:format("CMD1: ~s, RESULT: ~s~n~n",[Cmd1,CommandResult1]),
-	Cmd2 = case CAInfo#ca_info.password == <<>> of
-		       false -> io_lib:format("openssl ca -batch -passin pass:~s -config ~s -subj ~s -keyfile ~s -cert ~s -extensions usr_cert -policy policy_loose -out ~s -infiles ~s",
-						[ binary_to_list(CAInfo#ca_info.password),
-						  binary_to_list(CAInfo#ca_info.config_file_name),
-							Subject,
-							binary_to_list(CAInfo#ca_info.key_file_name),
-							binary_to_list(CAInfo#ca_info.cert_file_name),
-							ClientCertPem	,
-							ClientCertCsr
-							]);
-					 true -> io_lib:format("openssl ca -batch -config ~s -subj ~s -keyfile ~s -cert ~s -extensions usr_cert -policy policy_loose -out ~s -infiles ~s",
-	             [ binary_to_list(CAInfo#ca_info.config_file_name),
-	               Subject,
-	               binary_to_list(CAInfo#ca_info.key_file_name),
-	               binary_to_list(CAInfo#ca_info.cert_file_name),
-	               ClientCertPem	,
-	               ClientCertCsr ])
-				 end,
-	_CommandResult2 = os:cmd(Cmd2),
-	%% io:format("CMD2: ~s, RESULT: ~s~n~n",[Cmd2,CommandResult2]),
-	Cmd3 = case CAInfo#ca_info.password == <<>> of
-					 false -> io_lib:format("openssl rsa -passin pass:~s -in ~s -out ~s", [	binary_to_list(CAInfo#ca_info.password), ClientKeyPem, ClientKeyDec]);
-					 true -> io_lib:format("openssl rsa -in ~s -out ~s", [	ClientKeyPem, ClientKeyDec])
-	       end,
-	_CommandResult3 = os:cmd(Cmd3),
-	%% io:format("CMD3: ~s, RESULT: ~s~n~n",[Cmd3,CommandResult3]),
+	CaBase = binary_to_list(CAInfo#ca_info.dir_name),
+	CreateClientScriptFileName = filename:join([CaBase,"ssl-create-client.sh"]),
+	_Result = os:cmd(CreateClientScriptFileName),
+	%% io:format("RESULT: ~p~n",[Result]),
+
+	file:rename( filename:join([CaBase,"clientcert.csr"]),ClientCertCsr ),
+	file:rename( filename:join([CaBase,"clientcert.pem"]),ClientCertPem ),
+	file:rename( filename:join([CaBase,"clientkey.pem"]),ClientKeyPem ),
+	file:rename( filename:join([CaBase,"clientkey_dec.pem"]),ClientKeyDec ),
 
 	{ok,ClientCertCsrData} = file:read_file(ClientCertCsr),
 	{ok,ClientKeyDecData} = utils:pem_to_key(ClientKeyDec),
@@ -720,12 +685,9 @@ create_client(CAInfo,Attributes,State)->
 		cacert = CAInfo#ca_info.cert,
 		csr = ClientCertCsrData
 	},
-
 	%% io:format(">>>SERIAL: ~p~n",[Serial]),
-
 	_R = add_record(Client),
 	%% io:format("RESULT>>>=~p~n",[R]),
-
 	{ ok, State }.
 
 generate_client_batch(CAInfo,Start,HowMany,Attributes,Notification,State)->

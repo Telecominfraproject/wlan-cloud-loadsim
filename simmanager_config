@@ -6,7 +6,7 @@ main([]) ->
         NodeName = input("Please enter a node name", make_nodename() ),
         Cookie = input("Please enter a network cookie", "oreo" ),
         DirName = input("Please enter a directory name", DefaultDirName ),
-        WebUiPort = input("Please enter the WEB UI port", "9091" ),
+        WebUiPort = input("Please enter the WEB UI port", "9090" ),
         file_substitute(filename:join(["priv","templates","simmanager.config.template"]),
             filename:join(["config","simmanager.config"]),
             [{"$$PROJECT_HOME$$",DirName},{"$$WEB_UI_PORT$$",WebUiPort}]),

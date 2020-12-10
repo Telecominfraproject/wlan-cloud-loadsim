@@ -64,13 +64,13 @@ full_start(State)->
 												{cacerts,[State#client_state.details#client_info.cacert]},
 												{active,false},binary]) of
 								{ok,SSLSocket} ->
-									io:format("MQTT_CLIENT: Connected~n"),
+									%% io:format("MQTT_CLIENT: Connected~n"),
 									RS = run_client(SSLSocket,State#client_state{ connects = State#client_state.connects+1, t1 = T1 }),
 									utils:do(State#client_state.keep_alive_ref =/= undefined,{timer,cancel,[State#client_state.keep_alive_ref]}),
 									ssl:close(SSLSocket),
 									RS#client_state{ disconnects = State#client_state.disconnects +1 };
 								{error,_}=Error->
-									io:format("MQTT_CLIENT: Cannot connect: ~p~n",[Error]),
+									%% io:format("MQTT_CLIENT: Cannot connect: ~p~n",[Error]),
 									?L_IA("MQTT Client cannot connect: ~p.",[Error]),
 									State
 							end,
@@ -80,10 +80,10 @@ full_start(State)->
 -spec run_client(Socket::ssl:sslsocket(),CS::#client_state{}) -> #client_state{}.
 run_client(Socket,CS)->
 	%% "/ap/sim1-1-000050_SIM1000050/opensync"
-	RealSerial = case string:tokens(binary_to_list(CS#client_state.topics),"/") of
-		             [_,Serial,_] -> list_to_binary(Serial);
-								 _ -> CS#client_state.details#client_info.serial
-	             end,
+	%%RealSerial = case string:tokens(binary_to_list(CS#client_state.topics),"/") of
+	%%	             [_,Serial,_] -> list_to_binary(Serial);
+	%%							 _ -> CS#client_state.details#client_info.serial
+	%%            end,
 
 	C = #mqtt_connect_variable_header{
 		protocol_version = ?MQTT_PROTOCOL_VERSION_3_11,
@@ -93,11 +93,11 @@ run_client(Socket,CS)->
 		will_qos_flag = 0,
 		will_flag = 0 ,
 		clean_start_flag = 1,
-		client_identifier = RealSerial,
+		client_identifier = CS#client_state.details#client_info.serial,
 		keep_alive = 180	},
 	M = #mqtt_msg{ variable_header = C},
 	ConnectMessage = mqtt_message:encode(M),
-	io:format("MQTT_CLIENT: CONNECTMESSAGE: ~p~n",[ConnectMessage]),
+	%% io:format("MQTT_CLIENT: CONNECTMESSAGE: ~p~n",[ConnectMessage]),
 	_=case ssl:send(Socket,ConnectMessage) of
 		ok ->
 			Res = ssl:setopts(Socket,[{active,true}]),

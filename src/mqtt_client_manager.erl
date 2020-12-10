@@ -58,7 +58,7 @@ get_stats()->
 
 update_stats()->
 	{ok,Stats} = get_stats(),
-	statistics:submit_report(mqtt_client_handler,Stats).
+	statistics:submit_report(mqtt_client_handler,Stats#{ connect_avg_time => utils:get_avg(maps:get(connect_avg_time,Stats)) }).
 
 %% @doc Spawns the server and registers the local name (unique)
 -spec(start_link() ->
@@ -145,8 +145,8 @@ handle_info({'DOWN', _Ref, process, Pid, _Why},State)->
 				client_pids = maps:remove(Pid,State#mqtt_client_manager_state.client_pids ) },
 			{noreply,NewState}
 	end;
-handle_info({stats,Type,Value}=Info, State = #mqtt_client_manager_state{}) ->
-	io:format("MQTT_CLIENT_MANAGER: processing message: ~p~n",[Info]),
+handle_info({stats,Type,Value}=_Info, State = #mqtt_client_manager_state{}) ->
+	%% io:format("MQTT_CLIENT_MANAGER: processing message: ~p~n",[Info]),
 	CS = State#mqtt_client_manager_state.stats,
 	NewStats = case Type of
 		connection ->
@@ -163,6 +163,8 @@ handle_info({stats,Type,Value}=Info, State = #mqtt_client_manager_state{}) ->
 		  io:format(">>>>MQTTCLIENTMANAGER: unknow stats type = ~p~n",[Type]),
 		  CS
 	end,
+	#{ current_connections := CurrentConnections } = NewStats,
+	io:format("MQTT Clients: ~p Concurrent: ~p~n",[maps:size(State#mqtt_client_manager_state.client_pids),CurrentConnections]),
 	{noreply, State#mqtt_client_manager_state{stats = NewStats }};
 
 handle_info(Info, State = #mqtt_client_manager_state{}) ->

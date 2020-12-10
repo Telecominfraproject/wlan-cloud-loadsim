@@ -1,0 +1,36 @@
+HOME            = $$ROOT_DIR$$
+RANDFILE        = $$ROOT_DIR$$/.rnd
+
+####################################################################
+[ req ]
+default_bits       = 2048
+default_keyfile    = $$ROOT_DIR$$/clientkey.pem
+distinguished_name = client_distinguished_name
+req_extensions     = client_req_extensions
+string_mask        = utf8only
+
+####################################################################
+[ client_distinguished_name ]
+countryName         = Country Name (2 letter code)
+countryName_default = CA
+stateOrProvinceName = State or Province Name (full name)
+stateOrProvinceName_default = BC
+localityName         = Locality Name (eg, city)
+localityName_default = Vancouver
+organizationName            = Organization Name (eg, company)
+organizationName_default    = Arilia Wireless Inc.
+commonName           = Common Name (e.g. server FQDN or YOUR name)
+commonName_default   = Open_AP
+emailAddress         = Email Address
+emailAddress_default = test@example.com
+
+####################################################################
+[ client_req_extensions ]
+subjectKeyIdentifier = hash
+#authorityKeyIdentifier  = keyid:always, issuer:always
+basicConstraints     = critical, CA:FALSE
+keyUsage             = critical, digitalSignature, keyEncipherment
+extendedKeyUsage     = critical, clientAuth
+nsComment            = "OpenSSL Generated Client Certificate"
+
+####################################################################

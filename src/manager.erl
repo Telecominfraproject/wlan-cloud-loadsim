@@ -15,7 +15,7 @@
 
 %% API
 -export([start_link/0,creation_info/0,connect/0,disconnect/0,connected_nodes/0]).
--export([log_info/1,log_info/2,log_error/1,log_error/2]).
+-export([log_info/1,log_info/2,log_error/1,log_error/2,report_event/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -57,6 +57,11 @@ log_error(Message)->
 log_error(Message,Args)->
 	gen_server:cast({global,?SERVER},{log_error,node(),Message,Args}).
 
+-spec report_event(Event::atom(),EventData::#{})->no_return().
+report_event(Event,EventData)->
+	gen_server:cast({global,?SERVER},{event,node(),Event,EventData}).
+
+
 %% @doc Spawns the server and registers the local name (unique)
 -spec(start_link() ->
 	{ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
@@ -95,7 +100,7 @@ handle_call({connect,NodeName}, _From, State = #manager_state{}) ->
 			erlang:monitor_node(NodeName,true),
 			?L_IA("Node ~p is connecting.",[NodeName]),
 			Result = rpc:call(NodeName,utils,get_addr,[]),
-			io:format(">>Node ~p at address ~p~n",[NodeName,Result]),
+			manager:report_event(node_connect,#{ connecting_node => NodeName, address => Result}),
 			{reply, ok, State#manager_state{ nodes = NewNodes }}
 	end;
 handle_call({disconnect,NodeName}, _From, State = #manager_state{}) ->
@@ -107,6 +112,7 @@ handle_call({disconnect,NodeName}, _From, State = #manager_state{}) ->
 			NewStats = maps:remove(NodeName,State#manager_state.stats),
 			erlang:monitor_node(NodeName,false),
 			?L_IA("Node ~p is disconnecting.",[NodeName]),
+			manager:report_event(node_disconnect,#{ disconnecting_node => NodeName }),
 			{reply, ok, State#manager_state{ nodes = NewNodes , stats = NewStats }}
 	end;
 handle_call(connected_nodes, _From, State = #manager_state{}) ->
@@ -131,6 +137,15 @@ handle_cast({log_error,NodeName,Message}, State = #manager_state{}) ->
 	{noreply, State};
 handle_cast({log_error,NodeName,Message,Args}, State = #manager_state{}) ->
 	_=lager:error("~p: "++Message,[NodeName|Args]),
+	{noreply, State};
+handle_cast({event,NodeName,Event,EventData}, State = #manager_state{}) ->
+	try
+		JSON = jiffy:encode( #{ type => event, name => Event , node => NodeName , value => EventData} ),
+		web_socket_handler:send_frame( JSON )
+	catch
+		_:_ ->
+			io:format("Bad event: ~p from node: ~p~nData:~p~n",[Event,NodeName,EventData])
+	end,
 	{noreply, State};
 handle_cast(_Request, State = #manager_state{}) ->
 	{noreply, State}.

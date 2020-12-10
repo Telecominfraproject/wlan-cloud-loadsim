@@ -133,6 +133,7 @@ add_new_report(Node,Type,Report)->
 	try
 		JSON = case Type of
 			       os_details ->
+				       io:format(">>> 1 >>>~p~n",[stat_os_report:to_json(Report)]),
 				       jiffy:encode(stat_os_report:to_json(Report));
 						 _ ->
 							 jiffy:encode(Report)

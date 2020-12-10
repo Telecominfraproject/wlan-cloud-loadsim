@@ -303,16 +303,16 @@ try_connecting(NodeName,State)->
 volumes_to_tuples([],A)->
 	A;
 volumes_to_tuples([{Name,Size,_}|T],A)->
-	volumes_to_tuples(T,[{Name,Size}|A]).
+	volumes_to_tuples(T,[#{ list_to_atom(Name) => Size}|A]).
 
 cpu_details_to_tuples([],A)->
 	A;
 cpu_details_to_tuples([{Cpu,Busy,Idle,_}|T],A)->
-	cpu_details_to_tuples(T,[[{"CPU",Cpu},{"Busy",Busy},{"Idle",Idle}]|A]).
+	cpu_details_to_tuples(T,[[#{cpu=>Cpu},#{busy=>Busy},#{idle=>Idle}]|A]).
 
 create_os_stats_report() ->
 	{X1,X2,{_,X3}} = memsup:get_memory_data(),
-	MemoryData = [ {total,X1}, {allocated,X2},{biggest,X3}],
+	MemoryData = [ #{total => X1}, #{allocated=>X2},#{biggest=>X3}],
 	{ Cpus, DetailCpu, NonBusy, _ } = cpu_sup:util([detailed]),
 
 	Report = #stat_os_report{

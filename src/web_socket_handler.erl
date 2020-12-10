@@ -29,7 +29,7 @@ init(Req, State) ->
 	{cowboy_websocket,Req,State}.
 
 -spec websocket_init(State::ws_state())-> call_result().
-websocket_init(State)->
+websocket_init(_State)->
 	Pids = persistent_term:get(web_socket_pids,sets:new()),
 	NewPids = sets:add_element(self(),Pids),
 	persistent_term:put(web_socket_pids,NewPids),
@@ -38,6 +38,8 @@ websocket_init(State)->
 	{ok,#conn_state{ pid = self(), keep_alive = TRef }}.
 
 -spec websocket_handle(InFrame :: in_frame(),State::ws_state())-> call_result().
+websocket_handle(pong,State)->
+	{ok,State};
 websocket_handle(InFrame,State)->
 	io:format("Web socket: ~p~n",[InFrame]),
 	{ok,State}.

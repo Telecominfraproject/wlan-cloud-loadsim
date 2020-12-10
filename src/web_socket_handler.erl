@@ -21,6 +21,8 @@
 		| {stop, ws_state()}.
 -type ws_state() :: any().
 
+-record( conn_state, { pid, keep_alive :: timer:tref() }).
+
 -spec init( Req :: cowboy_req:req(), State ::ws_state() ) -> { cowboy_websocket, cowboy_req:req(), State::ws_state() }.
 init(Req, State) ->
 	%% io:format("Web socket init.~p..~n",[self()]),
@@ -31,8 +33,9 @@ websocket_init(State)->
 	Pids = persistent_term:get(web_socket_pids,sets:new()),
 	NewPids = sets:add_element(self(),Pids),
 	persistent_term:put(web_socket_pids,NewPids),
+	{ok,TRef} = timer:send_interval(5000,ping),
 	%% io:format("Web socket starting. ~p..~n",[self()]),
-	{ok,State}.
+	{ok,State#conn_state{ pid = self(), keep_alive = TRef }}.
 
 -spec websocket_handle(InFrame :: in_frame(),State::ws_state())-> call_result().
 websocket_handle(InFrame,State)->
@@ -43,6 +46,9 @@ websocket_handle(InFrame,State)->
 websocket_info({frame,Format,Data},State)->
 	%% io:format("Web socket message.~p..2~n",[self()]),
 	{reply,{Format,Data},State};
+websocket_info(ping,State)->
+	%% io:format("Web socket message.~p..2~n",[self()]),
+	{reply,ping,State};
 websocket_info(_Info,State)->
 	%% io:format("Web socket starting: ~p..3.~n",[self()]),
 	{ok,State}.

@@ -80,10 +80,10 @@ full_start(State)->
 -spec run_client(Socket::ssl:sslsocket(),CS::#client_state{}) -> #client_state{}.
 run_client(Socket,CS)->
 	%% "/ap/sim1-1-000050_SIM1000050/opensync"
-	RealSerial = case string:tokens(binary_to_list(CS#client_state.topics),"/") of
-		             [_,Serial,_] -> list_to_binary(Serial);
-								 _ -> CS#client_state.details#client_info.serial
-	             end,
+	%%RealSerial = case string:tokens(binary_to_list(CS#client_state.topics),"/") of
+	%%	             [_,Serial,_] -> list_to_binary(Serial);
+	%%							 _ -> CS#client_state.details#client_info.serial
+	%%            end,
 
 	C = #mqtt_connect_variable_header{
 		protocol_version = ?MQTT_PROTOCOL_VERSION_3_11,
@@ -93,7 +93,7 @@ run_client(Socket,CS)->
 		will_qos_flag = 0,
 		will_flag = 0 ,
 		clean_start_flag = 1,
-		client_identifier = RealSerial,
+		client_identifier = CS#client_state.details#client_info.serial,
 		keep_alive = 180	},
 	M = #mqtt_msg{ variable_header = C},
 	ConnectMessage = mqtt_message:encode(M),

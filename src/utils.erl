@@ -282,4 +282,3 @@ search_replace(InFile,OutFile,Elements)->
 	{ ok , InData } = file:read_file(safe_list(InFile)),
 	NewData = replace_data(binary_to_list(InData),Elements),
 	file:write_file(safe_list(OutFile),list_to_binary(NewData)).
-

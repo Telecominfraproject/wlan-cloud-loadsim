@@ -146,7 +146,7 @@ handle_cast({event,NodeName,Event,EventData}, State = #manager_state{}) ->
 		_:_ ->
 			io:format("Bad event: ~p from node: ~p~nData:~p~n",[Event,NodeName,EventData])
 	end,
-	{noreply, State}.
+	{noreply, State};
 handle_cast(_Request, State = #manager_state{}) ->
 	{noreply, State}.
 

@@ -35,7 +35,7 @@ websocket_init(State)->
 	persistent_term:put(web_socket_pids,NewPids),
 	{ok,TRef} = timer:send_interval(5000,ping),
 	%% io:format("Web socket starting. ~p..~n",[self()]),
-	{ok,State#conn_state{ pid = self(), keep_alive = TRef }}.
+	{ok,#conn_state{ pid = self(), keep_alive = TRef }}.
 
 -spec websocket_handle(InFrame :: in_frame(),State::ws_state())-> call_result().
 websocket_handle(InFrame,State)->

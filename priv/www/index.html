@@ -3,29 +3,87 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Websocket</title>
+    <title>OWLS</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1" crossorigin="anonymous">
+
+    <style>
+      html, body, #app {
+        height: 100%;
+      }
+      #app {
+        display: grid;
+        grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+      }
+      .sidebar {
+        background: #e9ecef;
+      }
+      .output {
+        background: var(--bs-light);
+        white-space: pre;
+        max-width: 100%;
+        overflow: auto;
+        display: flex;
+        flex-direction: column;
+        font-size: 0.875rem;
+      }
+
+    </style>
+
   </head>
   <body>
 
-    <div id="app" class="pt-3 container">
+    <div id="app">
 
-      <h1>Websocket test</h1>
-      <p><em>*open console for more output</em></p>
+      <div class="sidebar p-3">
+        <h1 class="h3">OWLS test</h1>
+        <p><em>*open console for more output</em></p>
 
-      <div class="d-flex mb-3">
-        <label class="form-label me-3" for="wss">WS URL</label> 
-        <input type="text" name="wss" v-model="wss" class="form-control w-auto" />
-        <button v-on:click="setupWebsocket()" class="btn btn-secondary">Start</button>
+        <div class="border border-secondary border-1 p-3 mb-3">
+
+          <h2 class="h5">API</h2>
+          <label class="form-label" for="apiBase">API base</label> 
+          <input type="text" name="apiBase" v-model="apiBase" class="form-control" />
+          <div class="mt-2 d-flex flex-wrap">
+            <button class="btn btn-sm btn-secondary" v-on:click="apiGet('/api/v1/nodes')">GET /nodes</button>
+          </div>
+          <div class="mt-2 d-flex flex-wrap">
+            <button class="btn btn-sm btn-secondary" v-on:click="apiGet('/api/v1/ouis')">GET /OUIs</button>
+          </div>
+          <div class="mt-2 d-flex flex-wrap">
+            <button class="btn btn-sm btn-secondary" v-on:click="apiGet('/api/v1/vendors')">GET /vendors</button>
+          </div>
+          <div class="mt-2 d-flex flex-wrap">
+            <button class="btn btn-sm btn-secondary" v-on:click="apiGet('/api/v1/cas')">GET /cas</button>
+          </div>
+
+        </div>
+
+        <div class="border border-secondary border-1 p-3 mb-3">
+
+          <h2 class="h5">Websocket</h2>
+          <label class="form-label" for="wss">WebSocket URL</label> 
+          <input type="text" name="wss" v-model="wss" class="form-control" />
+          <div class="mt-2">
+            <button v-on:click="setupWebsocket()" class="btn btn-primary">Start</button>
+            <button class="btn btn-light mw-2" v-on:click="closeWebsocket()" v-show="socketOpen">Close</button>
+          </div>
+
+          <div class="mb-3" v-if="socketOpen">
+            <input type="text" class="form-control w-auto" name="msg" v-model="msg" />
+            <button class="btn btn-sm btn-secondary" v-on:click="send()">Send Message</button>
+          </div> 
+
+        </div>
+
       </div>
 
-      <div class="mt-3" v-show="socket">
-        <input type="text" name="msg" v-model="msg" />
-        <button class="btn btn-secondary" v-on:click="send()">Send Message</button>
+      <div class="p-3">
 
-        <h2 class="mt-3">Output</h2>
-        <pre><code class="d-block" v-for="(message, index) in output" :key="index">{{ message }}</code></pre>
-      </div>
+          <h2 class="h3">Output</h2>
+          <div class="output">
+            <code v-for="(msg, index) in output" :key="index">{{ msg }}</code>
+          </div>
+        </div>
 
     </div>
 
@@ -34,8 +92,10 @@
       const App = {
         data() {
           return {
+            apiBase: 'http://localhost:9090',
             output: [],
             socket: null,
+            socketOpen: false,
             wss: '',
             msg: 'Hello World',
           }
@@ -46,20 +106,36 @@
         methods: {
 
           setupWebsocket: function() {
+            if( !this.wss ) {
+              console.log('Missing websocket URL');
+              return false;
+            }
 
-            console.log('Starting web socket...');
+            console.log('Starting websocket...');
             this.socket = new WebSocket(this.wss);
             
             this.socket.onmessage = (event) => {
               console.log(event);
-              this.output.push(event.data);
+              this.output = [];
+              this.output.push(JSON.parse(event.data));
             }
 
             this.socket.onopen = (event) => {
               console.log(event);
-              console.log("Connected to socket");
+              this.output.push('Websocket opened');
+              this.socketOpen = true;
             }
 
+            this.socket.onclose = (event) => {
+              this.output.push('Websocket closed');
+              this.socketOpen = false;
+            }
+
+          },
+
+          closeWebsocket: function() {
+            if( this.socket )
+              this.socket.close();
           },
 
           // send a msg through the socket...
@@ -68,6 +144,18 @@
             // should check if socket is good before
             this.socket.send(this.msg)
           },
+
+          // generic get
+          apiGet: function(path) {
+            const location = this.apiBase + path;
+            fetch( location )
+              .then(response => response.json())
+              .then(data => {
+                console.log(data);
+                this.output = [];
+                this.output.push(data);
+              });
+          }
 
         },
       };

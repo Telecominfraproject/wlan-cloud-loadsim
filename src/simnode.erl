@@ -25,13 +25,10 @@
 -define(SERVER, ?MODULE).
 -define(START_SERVER,{local,?MODULE}).
 
-
 %% API
--export([start_link/1,creation_info/0,connect/1,disconnect/0,find_manager/2,connected/0,
-	set_configuration/1,reset_configuration/1,
-	get_configuration/0,set_configuration/2,get_configuration/1,
-	update_stats/3,send_os_stats/0,
-	start/2,restart/2,pause/2,cancel/2,stop/2,create_os_stats_report/0]).
+-export([start_link/1,creation_info/0,set_configuration/1,reset_configuration/1,
+	 get_configuration/0,set_configuration/2,get_configuration/1,update_stats/3,start/2,restart/2,
+   pause/2,cancel/2,stop/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -82,18 +79,6 @@ stop( UIDS,Attributes ) ->
 cancel( UIDS,Attributes ) ->
 	gen_server:call(?SERVER,{cancel,UIDS,Attributes}).
 
--spec connect(NodeName::atom())-> {ok, none | node()}.
-connect(NodeName) ->
-	gen_server:call(?SERVER,{connect,NodeName}).
-
--spec disconnect() -> ok.
-disconnect() ->
-	gen_server:call(?SERVER,{disconnect,node()}).
-
--spec connected()->{ok,none|node()}.
-connected()->
-	gen_server:call(?SERVER,connected).
-
 set_configuration(Configuration)->
 	gen_server:call(?SERVER,{set_configuration,Configuration}).
 
@@ -115,9 +100,6 @@ reset_configuration(State)->
 update_stats(Client,Role,Stats)->
 	gen_server:cast(?SERVER,{update_stats,Client,Role,Stats}).
 
-send_os_stats()->
-	statistics:submit_report(os_details,create_os_stats_report()).
-
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
@@ -134,11 +116,7 @@ start_link(Config) ->
 	{stop, Reason :: term()} | ignore).
 init([Config]) ->
 	NodeId = utils:app_env(node_id,1),
-	{ok,NodeFinder} = timer:apply_interval(7500,?MODULE,find_manager,[self(),NodeId]),
-	{ok,StatsUpdater} = timer:apply_interval(5000,?MODULE,send_os_stats,[]),
-	{ok,#simnode_state{ node_finder = NodeFinder,
-	                    os_stats_updater = StatsUpdater ,
-	                    node_id = NodeId,
+	{ok,#simnode_state{ node_id = NodeId,
 	                    ap_client_handler = proplists:get_value(ap_client,Config,undefined),
 	                    mqtt_server_handler = proplists:get_value(mqtt_server,Config,undefined),
 	                    ovsdb_server_handler = proplists:get_value(ovsdb_server,Config,undefined),
@@ -154,19 +132,6 @@ init([Config]) ->
 	{noreply, NewState :: #simnode_state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), Reply :: term(), NewState :: #simnode_state{}} |
 	{stop, Reason :: term(), NewState :: #simnode_state{}}).
-handle_call({disconnect,_},_From,State=#simnode_state{})->
-	manager:disconnect(),
-	{ reply, ok, State#simnode_state{ manager = none }};
-handle_call({connect,NodeName}, _From, State = #simnode_state{}) ->
-	NewState = case State#simnode_state.manager of
-		none ->
-			try_connecting(NodeName,State);
-	  _ ->
-		  State
-	end,
-	{ reply, {ok,NewState#simnode_state.manager}, NewState };
-handle_call(connected, _From, State = #simnode_state{}) ->
-	{ reply, { ok, State#simnode_state.manager } , State };
 handle_call({set_configuration,Configuration}, _From, State = #simnode_state{}) ->
 	safe_execute( State#simnode_state.ap_client_handler, set_configuration, [Configuration]),
 	safe_execute( State#simnode_state.mqtt_server_handler, set_configuration, [Configuration]),
@@ -222,14 +187,6 @@ handle_call(_Request, _From, State = #simnode_state{}) ->
 	{noreply, NewState :: #simnode_state{}} |
 	{noreply, NewState :: #simnode_state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), NewState :: #simnode_state{}}).
-handle_cast( {manager_found,NodeName}, State = #simnode_state{}) ->
-	case State#simnode_state.manager == NodeName of
-		true ->
-			{noreply, State};
-		false ->
-			NewState=try_connecting(NodeName,State),
-			{noreply, NewState}
-	end;
 handle_cast({update_stats,_Client,_Role,_Stats}, State = #simnode_state{}) ->
 	{noreply,State};
 handle_cast(_Request, State = #simnode_state{}) ->
@@ -255,9 +212,7 @@ handle_info(_Info, State = #simnode_state{}) ->
 %% with Reason. The return value is ignored.
 -spec(terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
 		State :: #simnode_state{}) -> term()).
-terminate(_Reason, State = #simnode_state{}) ->
-	_=timer:cancel(State#simnode_state.os_stats_updater),
-	_=timer:cancel(State#simnode_state.node_finder),
+terminate(_Reason, _State = #simnode_state{}) ->
 	ok.
 
 %% @private
@@ -271,76 +226,6 @@ code_change(_OldVsn, State = #simnode_state{}, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
--define(D,io:format(">>>~p:~p ~p~n",[?MODULE,?FUNCTION_NAME,?LINE])).
-
-find_manager(Pid,Id) ->
-	case node_finder:receiver(Id) of
-		{error,_Reason} ->
-			ok;
-		{ok,NodeName} ->
-			gen_server:cast( Pid , { manager_found, NodeName}),
-			ok
-	end.
-
-try_connecting(NodeName,State)->
-	case NodeName == State#simnode_state.manager of
-		true ->
-			State;
-		false ->
-			case net_adm:ping(NodeName) of
-				pong ->
-					_=global:sync(),
-					manager:connect(),
-					erlang:monitor_node(NodeName,true),
-					_=lager:info("Adding new manager ~p node.",[NodeName]),
-					State#simnode_state{ manager = NodeName };
-				pang ->
-					_=lager:info("Manager node ~p unresponsive.",[NodeName]),
-					State
-			end
-	end.
-
-volumes_to_tuples([],A)->
-	A;
-volumes_to_tuples([{Name,Size,_}|T],A)->
-	volumes_to_tuples(T,[#{ list_to_atom(Name) => Size, size => Size }|A]).
-
-cpu_details_to_tuples([],A)->
-	A;
-cpu_details_to_tuples([{Cpu,Busy,Idle,_}|T],A)->
-	cpu_details_to_tuples(T,[[#{cpu=>Cpu , busy=>Busy, idle=>Idle}]|A]).
-
-create_os_stats_report() ->
-	{X1,X2,{_,X3}} = memsup:get_memory_data(),
-	MemoryData = #{total => X1, allocated=>X2, biggest=>X3 },
-	SystemMemoryData = memsup:get_system_memory_data(),
-	{ Cpus, DetailCpu, NonBusy, _ } = cpu_sup:util([detailed]),
-
-	Report = #{
-		cpu_avg1  => 		cpu_sup:avg1(),
-		cpu_avg5  => 		cpu_sup:avg5(),
-		cpu_avg15 => 		cpu_sup:avg15(),
-		number_of_processes => cpu_sup:nprocs(),
-		sysmem_high_watermark => memsup:get_sysmem_high_watermark(),
-		procmem_high_watermark => memsup:get_procmem_high_watermark(),
-		mem_check_interval => memsup:get_check_interval(),
-		mem_helper_timeout => memsup:get_helper_timeout(),
-		disk_check_interval => disksup:get_check_interval(),
-		memory_data => MemoryData,
-		number_of_cpus => length(Cpus),
-		kernel_utilization => proplists:get_value(kernel,DetailCpu,0.0),
-		nice_user => proplists:get_value(nice_user,DetailCpu,0.0),
-		user => proplists:get_value(user,DetailCpu,0.0),
-		idle => proplists:get_value(idle,NonBusy,0.0),
-		disk_almost_full_threshold => disksup:get_almost_full_threshold(),
-		free_memory => proplists:get_value(free_memory,SystemMemoryData,0),
-		total_memory => proplists:get_value(total_memory,SystemMemoryData,0),
-		system_total_memory => proplists:get_value(system_total_memory,SystemMemoryData,0),
-		cpu_details => cpu_details_to_tuples(cpu_sup:util([per_cpu]),[]),
-		disk_details => volumes_to_tuples(disksup:get_disk_data(),[])
-	},
-	Report.
-
 safe_execute(undefined,_F,_A)->
 	ok;
 safe_execute(M,F,A)->

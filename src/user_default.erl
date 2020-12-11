@@ -145,7 +145,8 @@ list_simulations() ->
 -spec analyze_nodes()-> ok.
 analyze_nodes()->
 	{ok,Nodes}=show_nodes(),
-	utils:print_nodes_info([node()|Nodes]).
+	NodeList = [ X || {X,_} <- Nodes ],
+	utils:print_nodes_info([node()|NodeList]).
 
 -spec show_plan(SimName::string()) -> {ok,Attributes::attribute_list()} | generic_error().
 show_plan(_SimName)->

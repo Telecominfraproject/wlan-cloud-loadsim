@@ -174,7 +174,7 @@ code_change(_OldVsn, State = #node_state{}, _Extra) ->
 volumes_to_tuples([],A)->
 	A;
 volumes_to_tuples([{Name,Size,_}|T],A)->
-	volumes_to_tuples(T,[#{ list_to_atom(Name) => Size, size => Size }|A]).
+	volumes_to_tuples(T,[#{ name => Name, size => Size }|A]).
 
 cpu_details_to_tuples([],A)->
 	A;

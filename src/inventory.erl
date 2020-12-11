@@ -642,7 +642,7 @@ create_servers(CAInfo,[H|T],Type,State,Pid)->
 -spec create_client( CAInfo :: ca_info(), Attributes::#{ atom() => term() }, State::#inventory_state{}) ->
 			{ ok , NewState::#inventory_state{} } | { error , Reason :: term()}.
 create_client(CAInfo,Attributes,State)->
-	#{ mac := Mac, serial := Serial, name := Name , id := HardwareId } = Attributes,
+	#{ mac := Mac, serial := Serial, name := _Name , id := HardwareId } = Attributes,
 	BaseFileName = filename:join( [ binary_to_list(CAInfo#ca_info.clients_dir_name),binary_to_list(Serial)]),
 	ClientKeyPem = BaseFileName ++ "-key.pem",
 	ClientKeyDec = BaseFileName ++  "-key_dec.pem",
@@ -666,7 +666,7 @@ create_client(CAInfo,Attributes,State)->
 
 	[X1a,X1b,$:,X2a,X2b,$:,X3a,X3b,$:,X4a,X4b,$:,X5a,X5b,$:,X6a,_X6b] = binary_to_list(Mac),
 	Client = #client_info{
-		name = Name,
+		name = Serial,
 		ca = CAInfo#ca_info.name,
 		cap = [ mqtt_client , ovsdb_client ],
 		wan_mac0 = list_to_binary([X1a,X1b,$:,X2a,X2b,$:,X3a,X3b,$:,X4a,X4b,$:,X5a,X5b,$:,X6a,$0]),

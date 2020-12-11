@@ -26,7 +26,11 @@
 -record(mqtt_client_manager_state, {
 	client_configurations = #{} :: #{ binary() => { pid(),#{} }},
 	client_pids = #{} :: #{ pid() => binary()} ,
-	stats = #{} :: #{ atom() => term() },
+	connect_avg_time,
+	connect_avg_time_hwm = 0.0 :: number(),
+	current_connections = 0 :: integer(),
+	connections_hwm = 0 :: integer(),
+	errors =0 :: integer(),
 	stats_updater :: timer:tref() } ).
 
 %%%===================================================================
@@ -58,7 +62,7 @@ get_stats()->
 
 update_stats()->
 	{ok,Stats} = get_stats(),
-	statistics:submit_report(mqtt_client_handler,Stats#{ connect_avg_time => utils:get_avg(maps:get(connect_avg_time,Stats)) }).
+	statistics:submit_report(mqtt_client_handler,Stats).
 
 %% @doc Spawns the server and registers the local name (unique)
 -spec(start_link() ->
@@ -77,15 +81,9 @@ start_link() ->
 	{stop, Reason :: term()} | ignore).
 init([]) ->
 	{ok,TRef} = timer:apply_interval(5000,?MODULE,update_stats,[]),
-	Stats = #{
-		current_connections => 0,
-		errors => 0,
-		connect_avg_time => utils:new_avg(),
-		connect_avg_time_hwm => 0,
-		connect_avg_time_lwm => 1000000,
-		connections_hwm => 0
-		},
-	{ok, #mqtt_client_manager_state{ stats_updater = TRef, stats = Stats }}.
+	{ok, #mqtt_client_manager_state{
+		stats_updater = TRef,
+		connect_avg_time = utils:new_avg() }}.
 
 %% @private
 %% @doc Handling call messages
@@ -116,9 +114,18 @@ handle_call({is_running,_CAName,Id}, _From, State = #mqtt_client_manager_state{}
 			{reply, {ok,Client} , State}
 	end;
 handle_call(get_stats,_From,State = #mqtt_client_manager_state{}) ->
-	{reply, {ok,State#mqtt_client_manager_state.stats} , State};
+	{reply, {ok,extract_stats(State)} , State};
 handle_call(_Request, _From, State = #mqtt_client_manager_state{}) ->
 	{reply, ok, State}.
+
+extract_stats(State)->
+	#{
+		current_connections => State#mqtt_client_manager_state.current_connections,
+		connections_hwm => State#mqtt_client_manager_state.connections_hwm,
+		errors => State#mqtt_client_manager_state.errors,
+		connection_avg_time => utils:get_avg(State#mqtt_client_manager_state.connect_avg_time),
+		connection_avg_time_hwm => State#mqtt_client_manager_state.connect_avg_time_hwm
+	}.
 
 %% @private
 %% @doc Handling cast messages
@@ -147,25 +154,22 @@ handle_info({'DOWN', _Ref, process, Pid, _Why},State)->
 	end;
 handle_info({stats,Type,Value}=_Info, State = #mqtt_client_manager_state{}) ->
 	%% io:format("MQTT_CLIENT_MANAGER: processing message: ~p~n",[Info]),
-	CS = State#mqtt_client_manager_state.stats,
-	NewStats = case Type of
+	State1 = case Type of
 		connection ->
-			#{ current_connections := CurConns, connections_hwm :=CurHWM  } = CS,
-			CS#{ current_connections => CurConns+Value, connections_hwm => max(CurHWM,CurConns+Value)};
+			CurConns = State#mqtt_client_manager_state.current_connections + Value,
+			State#mqtt_client_manager_state{ current_connections = CurConns, connections_hwm = max(CurConns,State#mqtt_client_manager_state.connections_hwm) };
 		error ->
-			#{ errors := Errors } = CS,
-			CS#{ errors => Errors+1 };
+			State#mqtt_client_manager_state{ errors = State#mqtt_client_manager_state.errors+1};
 	  connect_time ->
-		  #{ connect_avg_time := ConnAvgTime, connect_avg_time_hwm := CAvgHwm, connect_avg_time_lwm := CAvgLwm } = CS,
-		  NewAvg = utils:compute_avg(Value,ConnAvgTime),
-		  CS#{ connect_avg_time => NewAvg, connect_avg_time_hwm => max(NewAvg,CAvgHwm), connect_avg_time_lwm => min(NewAvg,CAvgLwm) };
+		  NewAvg = utils:compute_avg(Value,State#mqtt_client_manager_state.connect_avg_time),
+		  NewAvgHWM = max(State#mqtt_client_manager_state.connect_avg_time_hwm,utils:get_avg(NewAvg)),
+		  State#mqtt_client_manager_state{ connect_avg_time= NewAvg, connect_avg_time_hwm = NewAvgHWM };
 	  _ ->
 		  io:format(">>>>MQTTCLIENTMANAGER: unknow stats type = ~p~n",[Type]),
-		  CS
+		  State
 	end,
-	#{ current_connections := CurrentConnections } = NewStats,
-	io:format("MQTT Clients: ~p Concurrent: ~p~n",[maps:size(State#mqtt_client_manager_state.client_pids),CurrentConnections]),
-	{noreply, State#mqtt_client_manager_state{stats = NewStats }};
+	io:format("MQTT Clients: ~p Concurrent: ~p~n",[maps:size(State#mqtt_client_manager_state.client_pids),State1#mqtt_client_manager_state.current_connections]),
+	{noreply, State1};
 
 handle_info(Info, State = #mqtt_client_manager_state{}) ->
 	io:format("MQTT_CLIENT_MANAGER: unprocessed message: ~p~n",[Info]),

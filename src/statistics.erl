@@ -135,7 +135,7 @@ add_new_report(Node,Type,Report)->
 		web_socket_handler:send_frame( JSON )
 	catch
 		_:_ ->
-			io:format("FAILED REPORT: ~p~n",[Type]),
+			io:format("FAILED REPORT: ~p~n ~p~n",[Type,Report]),
 			ok
 	end,
 	ok.

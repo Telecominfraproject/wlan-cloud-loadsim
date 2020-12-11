@@ -92,18 +92,16 @@ init([]) ->
 	{stop, Reason :: term(), Reply :: term(), NewState :: #manager_state{}} |
 	{stop, Reason :: term(), NewState :: #manager_state{}}).
 handle_call({connect,NodeName,Type}, _From, State = #manager_state{}) ->
-	io:format("Finishing connect 1~n"),
 	case maps:is_key(NodeName,State#manager_state.nodes) of
 		true ->
-			io:format("Finishing connect 2~n"),
 			{reply,ok,State};
 		false ->
-			io:format("Finishing connect 3~n"),
 			erlang:monitor_node(NodeName,true),
 			Result = rpc:call(NodeName,utils,get_addr,[]),
 			NewNodes = maps:put(NodeName,Type,State#manager_state.nodes),
 			manager:report_event(node_connect,#{ connecting_node => NodeName, address => Result}),
 			?L_IA("Node ~p is connecting (~p).",[NodeName,Type]),
+			report_event(nodeup,#{ nodename => NodeName }),
 			{reply, ok, State#manager_state{ nodes = NewNodes }}
 	end;
 handle_call({disconnect,NodeName}, _From, State = #manager_state{}) ->
@@ -163,6 +161,7 @@ handle_info({nodedown,Node},State=#manager_state{})->
 	io:format("Node ~p is going down.~n",[Node]),
 	NewNodes = maps:remove(Node, State#manager_state.nodes),
 	NewStats = maps:remove(Node, State#manager_state.stats),
+	report_event(nodedown,#{ nodename => Node }),
 	{noreply,State#manager_state{ nodes = NewNodes, stats = NewStats }};
 handle_info(_Info, State = #manager_state{}) ->
 	{noreply, State}.

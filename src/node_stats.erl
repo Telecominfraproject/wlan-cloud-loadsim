@@ -208,10 +208,13 @@ create_os_stats_report() ->
 	Report.
 
 find_manager(Pid,Id) ->
+	io:format("Looking for manager~n"),
 	case node_finder:receiver(Id) of
 		{error,_Reason} ->
+			io:format("No manager~n"),
 			ok;
 		{ok,NodeName} ->
+			io:format("Found manager~n"),
 			gen_server:cast( Pid , { manager_found, NodeName}),
 			ok
 	end.

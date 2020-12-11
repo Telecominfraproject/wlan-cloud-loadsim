@@ -98,14 +98,16 @@ print_line([H|T])->
 	io:format("|~37s |~9.2f MB |~9.2f MB | ~9.2f MB | ~7b |~n",[atom_to_list(H),Total,Allocated,Worst,Processes]),
 	print_line(T).
 
+-spec node_info(Node::node())->#{ atom() => term()}.
 node_info(Node)->
 	try
-		{Total,Allocated,{ _Pid, Worst}}=rpc:call(Node,memsup,get_memory_data,[]),
-		Processes = rpc:call(Node,cpu_sup,nprocs,[]),
-		#{ name => Node, total => Total/(1 bsl 20), allocated => Allocated/(1 bsl 20), worst => Worst/(1 bsl 20), processes => Processes }
+		N = list_to_atom(Node),
+		{Total,Allocated,{ _Pid, Worst}}=rpc:call(N,memsup,get_memory_data,[]),
+		Processes = rpc:call(N,cpu_sup,nprocs,[]),
+		#{ name => list_to_binary(Node), total => Total/(1 bsl 20), allocated => Allocated/(1 bsl 20), worst => Worst/(1 bsl 20), processes => Processes }
 	catch
 		_:_ ->
-			#{ name => Node, total => 0, allocated => 0, worst => 0, processes => 0 }
+			#{ name => list_to_binary(Node), total => 0, allocated => 0, worst => 0, processes => 0 }
 	end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

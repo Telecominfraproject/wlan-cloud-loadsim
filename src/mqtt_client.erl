@@ -39,7 +39,7 @@
 start(CAName,Id,Configuration,ManagerPid)->
 	#{ <<"broker">> := Broker, <<"compress">> := Compress, <<"port">> := Port, <<"topics">> := Topics } = Configuration,
 	%% io:format(">>>>Trying topic: ~p  connect to: ~p:~p~n",[Topics,Broker,Port]),
-	NewConfig = #{ broker => Broker, compress => Compress,
+	NewConfig = #{ broker => <<"opensync-mqtt-broker.wlan.local">>, compress => Compress,
 	            port => list_to_integer(binary_to_list(Port)), topics => Topics },
 	{ok,DeviceConfiguration} = inventory:get_client(CAName,Id),
 	full_start(#client_state{

@@ -131,7 +131,7 @@ manage_connection(Socket,CS) ->
 			?L_I("MQTT socket closed by server"),
 			io:format("MQTT_CLIENT: Closing socket.~n");
 		{ send_data,Data } ->
-			io:format("MQTT_CLIENT: Received a message to return some data: ~p~n",[Data]),
+			%% io:format("MQTT_CLIENT: Received a message to return some data: ~p~n",[Data]),
 			_ = ssl:send(Socket,Data),
 			manage_connection(Socket,CS#client_state{ internal_messages = 1+CS#client_state.internal_messages });
 		Anything ->

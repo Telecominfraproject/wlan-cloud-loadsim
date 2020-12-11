@@ -9,7 +9,7 @@ main([]) ->
         DirName = input("Please enter a directory name", DefaultDirName ),
         file_substitute(filename:join(["priv","templates","simmonitor.config.template"]),
             filename:join(["config","simmonitor.config"]),
-            [{"$$PROJECT_HOME$$",DirName},{"$$WEB_UI_PORT$$",WebUiPort}]),
+            [{"$$PROJECT_HOME$$",DirName}]),
         file_substitute(filename:join(["priv","templates","simmonitor.args.template"]),
             filename:join(["config","simmonitor.args"]),
             [{"$$NODE_NAME$$",NodeName},{"$$COOKIE$$",Cookie}]),
@@ -52,4 +52,27 @@ input(Prompt,Default)->
     case InputData=="" of
         true -> Default;
         false -> InputData
+    end.
+
+input_int(Prompt,Min,Max)->
+    InputData=string:trim(io:get_line( Prompt ++ "(" ++ integer_to_list(Min) ++ ".." ++ integer_to_list(Max) ++ ") [" ++ integer_to_list(Min) ++ "] :")),
+    case InputData=="" of
+        true ->
+            Min;
+        false ->
+            D = string:trim(InputData),
+            try
+                I = list_to_integer(D),
+                case ((I >= Min) and (I =< Max)) of
+                    true ->
+                        I;
+                    false ->
+                        io:format("Must be a number between ~p and ~p.~n",[Min,Max]),
+                        input_int(Prompt,Min,Max)
+                end
+            catch
+                _:_ ->
+                    io:format("Must be a number between ~p and ~p.~n",[Min,Max]),
+                    input_int(Prompt,Min,Max)
+            end
     end.

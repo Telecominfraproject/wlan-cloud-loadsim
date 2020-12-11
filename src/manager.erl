@@ -92,10 +92,13 @@ init([]) ->
 	{stop, Reason :: term(), Reply :: term(), NewState :: #manager_state{}} |
 	{stop, Reason :: term(), NewState :: #manager_state{}}).
 handle_call({connect,NodeName,Type}, _From, State = #manager_state{}) ->
+	io:format("Finishing connect 1~n"),
 	case maps:is_key(NodeName,State#manager_state.nodes) of
 		true ->
+			io:format("Finishing connect 2~n"),
 			{reply,ok,State};
 		false ->
+			io:format("Finishing connect 3~n"),
 			erlang:monitor_node(NodeName,true),
 			Result = rpc:call(NodeName,utils,get_addr,[]),
 			NewNodes = maps:put(NodeName,Type,State#manager_state.nodes),

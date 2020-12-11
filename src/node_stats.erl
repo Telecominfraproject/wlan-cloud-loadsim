@@ -120,6 +120,7 @@ handle_cast(update_stats, State = #node_state{}) ->
 	statistics:submit_report(os_details,create_os_stats_report()),
 	{noreply, State};
 handle_cast( {manager_found,NodeName}, State = #node_state{}) ->
+	io:format("Trying to connect now to ~p~n",[NodeName]),
 	case State#node_state.manager == NodeName of
 		true ->
 			{noreply, State};
@@ -226,6 +227,7 @@ try_connecting(NodeName,State)->
 		false ->
 			case net_adm:ping(NodeName) of
 				pong ->
+					io:format("got pong~n"),
 					_=global:sync(),
 					manager:connect(State#node_state.node_type),
 					erlang:monitor_node(NodeName,true),

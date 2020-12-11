@@ -149,22 +149,27 @@ get_host_or_port (Part, Addr) when is_binary(Addr) ->
 %%------------------------------------------------------------------------------
 %% table creation
 
+
+
 -spec create_table (Table :: atom(), AP_Config :: [{atom(),term()}], Store :: ets:tid()) -> true.
 create_table ('Wifi_Radio_State',_APC,Store) ->
 	ets:insert(Store, #'Wifi_Radio_State'{
 		row_idx = 0,
 		freq_band = <<"5GU">>,
-		if_name = <<"radio0">>
+		if_name = <<"radio0">>,
+		allowed_channels = [<<"set">>,[100,104,108,112,116,120,124,128,132,136,140,144,149,153,157,161,165]]
 	}),
 	ets:insert(Store, #'Wifi_Radio_State'{
 		row_idx = 1,
 		freq_band = <<"2.4G">>,
-		if_name = <<"radio1">>
+		if_name = <<"radio1">>,
+		allowed_channels = [<<"set">>,[1,2,3,4,5,6,7,8,9,10,11]]
 	}),
 	ets:insert(Store, #'Wifi_Radio_State'{
 		row_idx = 2,
 		freq_band = <<"5GL">>,
-		if_name = <<"radio2">>
+		if_name = <<"radio2">>,
+		allowed_channels = [<<"set">>,[36,40,44,48,52,56,60,64]]
 	});
 
 create_table ('Wifi_Inet_State',APC,Store) -> 

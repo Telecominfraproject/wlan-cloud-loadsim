@@ -63,9 +63,8 @@ terminate(_Reason,_PartialReq,_State)->
 	persistent_term:put(web_socket_pids,NewPids),
 	ok.
 
-send_frame( Data ) when is_binary(Data)->
-	send_frame(binary_to_list(Data));
-send_frame( Data ) when is_list(Data)->
+-spec send_frame(Data::binary()|string())->ok.
+send_frame(Data)->
 	Pids = persistent_term:get(web_socket_pids,sets:new()),
 	sets:fold( fun(E,A) ->
 %%						io:format("sending to ~p~n",[E]),

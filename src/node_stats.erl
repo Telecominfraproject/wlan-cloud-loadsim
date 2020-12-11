@@ -174,11 +174,12 @@ code_change(_OldVsn, State = #node_state{}, _Extra) ->
 volumes_to_tuples([],A)->
 	A;
 volumes_to_tuples([{Name,Size,_}|T],A)->
-	volumes_to_tuples(T,[#{ name => Name, size => Size }|A]).
+	volumes_to_tuples(T,[#{ name => list_to_binary(Name), size => Size }|A]).
 
 cpu_details_to_tuples([],A)->
 	A;
 cpu_details_to_tuples([{Cpu,Busy,Idle,_}|T],A)->
+%%	io:format("CPU: ~p BUSY: ~p IDLE: ~p~n",[Cpu,Busy,Idle]),
 	cpu_details_to_tuples(T,[[#{cpu=>Cpu , busy=>Busy, idle=>Idle}]|A]).
 
 create_os_stats_report() ->
@@ -187,7 +188,10 @@ create_os_stats_report() ->
 	SystemMemoryData = memsup:get_system_memory_data(),
 	{ Cpus, DetailCpu, NonBusy, _ } = cpu_sup:util([detailed]),
 
+%%	io:format("CPUS: ~p~n",[cpu_sup:util([per_cpu])]),
+
 	Report = #{
+		cpu_utilization => cpu_sup:util(),
 		cpu_avg1  => 		cpu_sup:avg1(),
 		cpu_avg5  => 		cpu_sup:avg5(),
 		cpu_avg15 => 		cpu_sup:avg15(),

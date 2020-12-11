@@ -29,7 +29,7 @@
 init(Req, _State) ->
 	Res =cowboy_req:binding( restype , Req , nothing ),
 	Id = cowboy_req:binding( resid , Req , nothing ),
-	io:format("REQUEST: ~p ~n  RES: ~p~n  ID: ~p~n",[cowboy_req:method(Req),Res,Id]),
+	%% io:format("REQUEST: ~p ~n  RES: ~p~n  ID: ~p~n",[cowboy_req:method(Req),Res,Id]),
 	{ cowboy_rest,Req,#request_state{
 		resource = Res,
 		id = Id,

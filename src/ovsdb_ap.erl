@@ -123,9 +123,9 @@ cancel_ap (Node) ->
 %%%============================================================================
 
 
--spec rpc_cmd (Node :: pid(), Rpc :: term()) -> ok | invalid.
+-spec rpc_cmd (Node :: pid(), Rpc :: term()) -> ok.
 rpc_cmd (Node,Rpc) ->
-	gen_server:call(Node,{exec_rpc,Rpc}).
+	gen_server:cast(Node,{exec_rpc,Rpc}).
 
 -spec reset_comm (Node :: pid()) -> ok.
 reset_comm (Node) ->
@@ -225,6 +225,68 @@ handle_cast ({stats_update,Event},State) ->
 handle_cast (send_report,State) ->
 	{noreply, report_statistics(State)};
 
+handle_cast ({exec_rpc, RPC}, #ap_state{status=paused}=State) when is_map(RPC) andalso
+												 					is_map_key(<<"method">>,RPC) andalso
+												 					is_map_key(<<"id">>,RPC) ->
+	case  maps:get(<<"method">>,RPC) of
+		<<"echo">> -> 
+			case ovsdb_ap_rpc:eval_req(<<"echo">>, maps:get(<<"id">>,RPC), RPC, State#ap_state.store) of
+				{ok, Result} when is_map(Result) andalso is_map_key(<<"result">>,Result) ->
+						ok = ovsdb_ap_comm:send_term(State#ap_state.comm,Result),
+						{reply,ok,State};
+				_ ->
+						{reply, ignored, State}
+			end;
+		_ ->
+			{noreply, State}
+	end;
+handle_cast ({exec_rpc, _RPC}, #ap_state{status=paused}=State) ->
+	{noreply, State};
+handle_cast ({exec_rpc, RPC}, State) when is_map(RPC) andalso
+										  is_map_key(<<"method">>,RPC) andalso
+										  is_map_key(<<"id">>,RPC) ->
+	case ovsdb_ap_rpc:eval_req(maps:get(<<"method">>,RPC),
+								maps:get(<<"id">>,RPC),
+								RPC,
+								State#ap_state.store) of
+		{ok, ignore} ->
+			{noreply, State};
+
+		{ok, Result} when is_map(Result) andalso is_map_key(<<"result">>,Result) ->
+			R= io_lib:format("~p",[Result]),
+			Bytes = length(lists:flatten(R)),
+			?L_I(?DBGSTR("RPC RESULT (~s): ~Bbytes",[maps:get(<<"id">>,RPC),Bytes])),
+			ok = ovsdb_ap_comm:send_term(State#ap_state.comm,Result),
+			{noreply, State};
+
+		{ok, Result} when is_binary(Result) ->
+			?L_I(?DBGSTR("RPC RAW RESULT (~s): ~Bbytes",[maps:get(<<"id">>,RPC),byte_size(Result)])),
+			ok = ovsdb_ap_comm:send_term(State#ap_state.comm,Result),
+			{noreply, State};
+
+		{error, Reason} ->
+			?L_E(?DBGSTR("RPC call '~s' failed with reason: ~s",[maps:get(<<"method">>,RPC),Reason])),
+			{norepl,State}
+	end;
+handle_cast ({exec_rpc, RPC},  State) when is_map(RPC) andalso
+										   is_map_key(<<"result">>,RPC) andalso
+										   is_map_key(<<"id">>,RPC) ->
+	case ovsdb_ap_rpc:eval_resp(maps:get(<<"id">>,RPC),
+								 RPC,
+								 State#ap_state.req_queue,
+								 State#ap_state.store) of
+		ok ->
+			{noreply,State};
+
+		{error, Reason} ->
+			?L_E(?DBGSTR("RPC response to request '~B' failed with reason: ~p",[maps:get(<<"id">>,RPC),Reason])),
+			{noreply,State}
+	end;
+	
+handle_cast ({exec_rpc, RPC}, State) ->
+	?L_E(?DBGSTR("invalid RPC: ~p~n",[RPC])),
+	{reply,noreply, State};
+
 handle_cast (R,State) ->
 	?L_E(?DBGSTR("got unknown request: ~p",[R])),
 	{noreply, State}.
@@ -240,65 +302,7 @@ handle_cast (R,State) ->
 		Reason :: term(),
 		NewState :: #ap_state{}.
 
-handle_call ({exec_rpc, RPC}, _From, #ap_state{status=paused}=State) when is_map(RPC) andalso
-												 						  is_map_key(<<"method">>,RPC) andalso
-												 						  is_map_key(<<"id">>,RPC) ->
-	case  maps:get(<<"method">>,RPC) of
-		<<"echo">> -> 
-			case ovsdb_ap_rpc:eval_req(<<"echo">>, maps:get(<<"id">>,RPC), RPC, State#ap_state.store) of
-				{ok, Result} when is_map(Result) andalso is_map_key(<<"result">>,Result) ->
-						ok = ovsdb_ap_comm:send_term(State#ap_state.comm,Result),
-						{reply,ok,State};
-				_ ->
-						{reply, ignored, State}
-			end;
-		_ ->
-			{reply, ignored, State}
-	end;
 
-handle_call ({exec_rpc, _RPC}, _From, #ap_state{status=paused}=State) ->
-	{reply, ignored, State};
-
-handle_call ({exec_rpc, RPC}, _From, State) when is_map(RPC) andalso
-												 is_map_key(<<"method">>,RPC) andalso
-												 is_map_key(<<"id">>,RPC) ->
-	case ovsdb_ap_rpc:eval_req(maps:get(<<"method">>,RPC),
-								maps:get(<<"id">>,RPC),
-								RPC,
-								State#ap_state.store) of
-		{ok, ignore} ->
-			{reply,ok,State};
-
-		{ok, Result} when is_map(Result) andalso is_map_key(<<"result">>,Result) ->
-			R= io_lib:format("~p",[Result]),
-			Bytes = length(lists:flatten(R)),
-			?L_I(?DBGSTR("RPC RESULT (~s): ~Bbytes",[maps:get(<<"id">>,RPC),Bytes])),
-			ok = ovsdb_ap_comm:send_term(State#ap_state.comm,Result),
-			{reply,ok,State};
-
-		{error, Reason} ->
-			?L_E(?DBGSTR("RPC call '~s' failed with reason: ~s",[maps:get(<<"method">>,RPC),Reason])),
-			{reply,invalid,State}
-	end;
-	
-handle_call ({exec_rpc, RPC}, _From, State) when is_map(RPC) andalso
-												 is_map_key(<<"result">>,RPC) andalso
-												 is_map_key(<<"id">>,RPC) ->
-	case ovsdb_ap_rpc:eval_resp(maps:get(<<"id">>,RPC),
-								 RPC,
-								 State#ap_state.req_queue,
-								 State#ap_state.store) of
-		ok ->
-			{reply,ok,State};
-
-		{error, Reason} ->
-			?L_E(?DBGSTR("RPC response to request '~B' failed with reason: ~p",[maps:get(<<"id">>,RPC),Reason])),
-			{reply,invalid,State}
-	end;
-	
-handle_call ({exec_rpc, RPC}, _From, State) ->
-	?L_E(?DBGSTR("invalid RPC: ~p~n",[RPC])),
-	{reply,invalid, State};
 
 handle_call (Request, From, State) ->
 	?L_E(?DBGSTR("got unknow request ~p from ~p",[Request,From])),

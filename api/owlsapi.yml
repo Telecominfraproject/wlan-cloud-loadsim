@@ -106,7 +106,13 @@ paths:
           name: filter
           schema:
             type: string
-          required: false      
+          required: false
+        - in: query
+          description: Detailed version
+          name: filter
+          schema:
+            type: integer
+          required: false
       responses:
         200:
           description: The list of Nodes Currently connected.
@@ -115,7 +121,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/NodeList'
                 
-  /makers:
+  /vendors:
     get:
       tags: [ Manufacturers ]
       summary: Get the list of all available OUIs as known by the system for a given manufacturer.
@@ -149,7 +155,7 @@ paths:
         403:
           $ref: '#/components/responses/Unauthorized'
 
-  /makers/{id}:
+  /vendors/{id}:
     get:
       tags: [ Manufacturers ]
       summary: Get the OUIs associated with a maker.
@@ -536,7 +542,7 @@ components:
       properties:
         OUIs:
           type: array
-          items:
+          Data:
             type: string
           
     MakerList:
@@ -544,7 +550,7 @@ components:
       properties:
         Manufacturers:
           type: array
-          items: 
+          Data: 
             type: string
             
     MakerOUIList:
@@ -555,7 +561,7 @@ components:
             string
         OUIs:
           type: array
-          items:
+          Data:
             type: string
           
     OUIMaker:
@@ -573,7 +579,7 @@ components:
       properties:
         CAs:
           type: array
-          items:
+          Data:
             type: string
             
     CADetails:
@@ -716,7 +722,7 @@ components:
       description: Returning a list of CAs
       readOnly: true
       properties:
-        Items:
+        Data:
           $ref: '#/components/schemas/CAList'
         Meta:
           $ref: '#/components/schemas/PaginationInfo'
@@ -725,11 +731,33 @@ components:
       description: Returning a list of OUIs
       readOnly: true
       properties:
-        Items: 
+        Data: 
           $ref: '#/components/schemas/OUIList'
         Meta:
           $ref: '#/components/schemas/PaginationInfo'
-          
+
+    DetailedNodeList:
+      description: Detailed list of nodes.
+      readOnly: true
+      properties:
+        Nodes:
+          description: Node list
+          type: array
+          items:
+            properties:
+              name:
+                type: string
+              processes:
+                type: integer
+              worst:
+                type: number
+              total:
+                type: number
+              allocated:
+                type: number
+        Meta:
+          $ref: '#/components/schemas/PaginationInfo'
+
     NodeList:
       description: List of nodes.
       readOnly: true
@@ -737,8 +765,11 @@ components:
         Nodes:
           description: Node list
           type: array
+          oneOf:
+            - type: string
+            - $ref: '#/components/schemas/DetailedNodeList'
           items:
-            type: string      
+            type: string
         Meta:
           $ref: '#/components/schemas/PaginationInfo'        
               

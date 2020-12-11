@@ -137,6 +137,10 @@ handle_cast(_Request, State = #node_state{}) ->
 	{noreply, NewState :: #node_state{}} |
 	{noreply, NewState :: #node_state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), NewState :: #node_state{}}).
+handle_info({nodedown,Node},State=#node_state{})->
+%%	io:format("Node ~p is going down.~n",[Node]),
+	manager:report_event(nodedown,#{ nodename => Node }),
+	{noreply,State#node_state{ manager = none }};
 handle_info(_Info, State = #node_state{}) ->
 	{noreply, State}.
 

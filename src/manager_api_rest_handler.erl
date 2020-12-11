@@ -49,7 +49,7 @@ content_types_accepted(Req, State) ->
 is_authorized(Req,#request_state{ method = <<"OPTIONS">> }=State)->
 	{true,Req,State};
 is_authorized(Req, State) ->
-	Answer = case restutils:get_access_token(Req) of
+	Answer = case restutils:get_access_token_not_secure(Req) of
 		{ok,Token} ->
 			case restutils:validate_token(Token) of
 				true ->
@@ -145,7 +145,8 @@ do( ?HTTP_GET ,Req,#request_state{resource = <<"cas">>,id=nothing}=State)->
 
 do( ?HTTP_GET , Req , #request_state{ resource = <<"nodes">> , id = nothing } = State ) ->
 	PaginationParameters = restutils:get_pagination_parameters(Req),
-	{ok,Nodes}=manager:connected_nodes(),
+	{ok,AllNodes}=manager:connected_nodes(),
+	Nodes = [ X || {X,Role} <- AllNodes, Role == node ],
 	{ SubList, PaginationInfo }  = restutils:paginate(PaginationParameters,Nodes),
 	JSON = restutils:create_paginated_return( "Nodes" , SubList, PaginationInfo),
 	{JSON,restutils:add_CORS(Req),State};

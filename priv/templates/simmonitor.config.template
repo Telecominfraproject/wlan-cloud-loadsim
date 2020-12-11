@@ -1,0 +1,20 @@
+[ {
+  owls ,
+  [
+    { role , pseudo },
+    ]}
+  ,
+  {lager,
+    [
+      {log_root, "$$PROJECT_HOME$$/logs"},
+      {colored,true},
+      {handlers,
+        [
+          {lager_console_backend, [{level,error}]},
+          {lager_file_backend, [{file, "error.log"}, {level, error}, {size, 10485760}, {date, "$D0"}, {count, 5}]},
+          {lager_file_backend, [{file, "info.log"}, {level, info}, {size, 10485760}, {date, "$D0"}, {count, 5}]},
+          {lager_file_backend, [{file, "warning.log"}, {level, warning}, {size, 10485760}, {date, "$D0"}, {count, 5}]}
+        ]}
+    ] }
+].
+

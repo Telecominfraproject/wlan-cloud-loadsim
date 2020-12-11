@@ -1,0 +1,55 @@
+#!/usr/bin/env escript
+
+main([]) ->
+    try
+        {ok,DefaultDirName}=file:get_cwd(),
+        Id = input_int("Please enter a node number", 1,99),
+        NodeName = input("Please enter a node name", make_nodename(Id) ),
+        Cookie = input("Please enter a network cookie", "oreo" ),
+        DirName = input("Please enter a directory name", DefaultDirName ),
+        file_substitute(filename:join(["priv","templates","simmonitor.config.template"]),
+            filename:join(["config","simmonitor.config"]),
+            [{"$$PROJECT_HOME$$",DirName},{"$$WEB_UI_PORT$$",WebUiPort}]),
+        file_substitute(filename:join(["priv","templates","simmonitor.args.template"]),
+            filename:join(["config","simmonitor.args"]),
+            [{"$$NODE_NAME$$",NodeName},{"$$COOKIE$$",Cookie}]),
+        file:make_dir(filename:join(["priv","mnesia"]))
+    catch
+        _:_ ->
+            usage()
+    end;
+main(_) ->
+    usage().
+
+usage() ->
+    io:format("usage: simmonitor <project_home_prefix>~n"),
+    halt(1).
+
+find_hostname()->
+    {ok,Hostname}=inet:gethostname(),
+    {ok,{hostent,_RealHostname,_,inet,4,[A|_]}}=inet_res:gethostbyname(Hostname),
+    {ok,{hostent,VerifiedHostName,_,inet,4,_}}=inet_res:gethostbyaddr(A),
+    VerifiedHostName.
+
+make_nodename(Id)->
+    "simmonitor" ++ integer_to_list(Id) ++ "@" ++ find_hostname().
+
+replace([],FinalBlob)->
+    FinalBlob;
+replace([{Variable,Value}|T],Blob) when is_integer(Value)->
+    replace(T,string:replace(Blob,Variable,integer_to_list(Value),all));
+replace([{Variable,Value}|T],Blob) when is_list(Value)->
+    replace(T,string:replace(Blob,Variable,Value,all)).
+
+file_substitute(FileNameIn,FileNameOut,VariableList)->
+    {ok,FileBin}=file:read_file(FileNameIn),
+    FileBlob=binary_to_list(FileBin),
+    NewBlob=replace(VariableList,FileBlob),
+    file:write_file(FileNameOut,list_to_binary(NewBlob)).
+
+input(Prompt,Default)->
+    InputData=string:trim(io:get_line( Prompt ++ " [" ++ Default ++ "] :")),
+    case InputData=="" of
+        true -> Default;
+        false -> InputData
+    end.

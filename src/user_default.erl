@@ -90,11 +90,13 @@ create_simulation(SimName)->
 -spec create_simulation(SimName::string(),CAName::string())-> generic_result().
 create_simulation(SimName,CAName) when is_list(SimName),is_list(CAName) ->
 	{ ok , Nodes } = manager:connected_nodes(),
+	%% Only keep the non-pseudo nodes
+	GoodNodes = [ X || {X,Role} <- Nodes, Role == node ],
 	io:format("Creation simulation: ~s~n",[SimName]),
-	io:format("  -nodes(~p): ~p~n",[length(Nodes),Nodes]),
-	MaxDevices = length(Nodes) * 10000,
+	io:format("  -nodes(~p): ~p~n",[length(GoodNodes),GoodNodes]),
+	MaxDevices = length(GoodNodes) * 10000,
 	NumberOfDevices = input("Number of devices (max:" ++ integer_to_list(MaxDevices) ++ ") ", integer_to_list(MaxDevices div 2)),
-	RealNumberOfDevices = utils:select( length(Nodes)==0 , list_to_integer(NumberOfDevices) , utils:adjust(list_to_integer(NumberOfDevices),length(Nodes))),
+	RealNumberOfDevices = utils:select( length(Nodes)==0 , list_to_integer(NumberOfDevices) , utils:adjust(list_to_integer(NumberOfDevices),length(GoodNodes))),
 	OVSDBServers = select_servers(),
 	Simulation = #simulation{ name = list_to_binary(SimName),
 	                          ca = list_to_binary(CAName),
@@ -103,7 +105,7 @@ create_simulation(SimName,CAName) when is_list(SimName),is_list(CAName) ->
 	                          servers = OVSDBServers,
 	                          start_date = undefined,
 	                          end_date = undefined,
-	                          nodes = Nodes },
+	                          nodes = GoodNodes },
 	simengine:create(Simulation).
 
 -spec show_simulation(SimName::string())-> {ok,Attributes::attribute_list()} | generic_error().

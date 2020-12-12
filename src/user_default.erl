@@ -12,6 +12,7 @@
 -include("../include/common.hrl").
 -include("../include/inventory.hrl").
 -include("../include/simengine.hrl").
+-include("../include/mqtt_definitions.hrl").
 
 %% API
 -compile(export_all).
@@ -324,12 +325,3 @@ l1()->
 
 l2()->
 	prepare_simulation("sim1").
-
-m1()->
-	inventory:make_ca("sim1","").
-
-ws(Msg) ->
-	web_socket_handler:send_frame(Msg).
-
-q1()->
-	mqtt_client:t2().

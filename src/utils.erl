@@ -104,10 +104,10 @@ node_info(Node)->
 		N = list_to_atom(Node),
 		{Total,Allocated,{ _Pid, Worst}}=rpc:call(N,memsup,get_memory_data,[]),
 		Processes = rpc:call(N,cpu_sup,nprocs,[]),
-		#{ name => list_to_binary(Node), total => Total/(1 bsl 20), allocated => Allocated/(1 bsl 20), worst => Worst/(1 bsl 20), processes => Processes }
+		#{ node => list_to_binary(Node), total => Total/(1 bsl 20), allocated => Allocated/(1 bsl 20), worst => Worst/(1 bsl 20), processes => Processes }
 	catch
 		_:_ ->
-			#{ name => list_to_binary(Node), total => 0, allocated => 0, worst => 0, processes => 0 }
+			#{ node => list_to_binary(Node), total => 0, allocated => 0, worst => 0, processes => 0 }
 	end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

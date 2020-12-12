@@ -147,7 +147,6 @@ do( ?HTTP_GET , Req , #request_state{ resource = <<"nodes">> , id = nothing } = 
 	PaginationParameters = restutils:get_pagination_parameters(Req),
 	{ok,AllNodes}=manager:connected_nodes(),
 	Nodes = [ atom_to_list(X) || {X,Role} <- AllNodes, Role == node ],
-	io:format("NODES>>>~p~n",[Nodes]),
 	{ SubList, PaginationInfo }  = restutils:paginate(PaginationParameters,Nodes),
 	JSON = case restutils:get_parameter(details,0,Req) of
 		0 -> restutils:create_paginated_return( "Nodes" , SubList, PaginationInfo);

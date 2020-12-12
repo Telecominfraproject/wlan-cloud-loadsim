@@ -1,0 +1,10 @@
+{"value":{"connecting_node":"simnode1@uberl.arilia.com","address":[49,48,46,50,46,49,54,52,46,49,51,49]},"type":"event","node":"simmanager@renegademac.arilia.com","name":"node_connect"}
+
+{"value":{"nodename":"simnode1@uberl.arilia.com"},"type":"event","node":"simmanager@renegademac.arilia.com","name":"nodeup"}
+
+{"value":{"nodename":"simnode1@uberl.arilia.com"},"type":"event","node":"simmanager@renegademac.arilia.com","name":"nodedown"}
+
+{"value":{"connecting_node":"simnode1@uberl.arilia.com","address":[49,48,46,50,46,49,54,52,46,49,51,49]},"type":"event","node":"simmanager@renegademac.arilia.com","name":"node_connect"}
+
+{"value":{"nodename":"simnode1@uberl.arilia.com"},"type":"event","node":"simmanager@renegademac.arilia.com","name":"nodeup"}
+

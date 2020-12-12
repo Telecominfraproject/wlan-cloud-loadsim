@@ -14,7 +14,7 @@
 -include("../include/common.hrl").
 
 %% API
--export([start_link/0,creation_info/0,connect/0,disconnect/0,connected_nodes/0]).
+-export([start_link/0,creation_info/0,connect/1,disconnect/0,connected_nodes/0]).
 -export([log_info/1,log_info/2,log_error/1,log_error/2,report_event/2]).
 
 %% gen_server callbacks
@@ -36,8 +36,8 @@ creation_info() ->
 		type => worker,
 		modules => [?MODULE]} ].
 
-connect()->
-	gen_server:call({global,?SERVER},{connect,node()}).
+connect(Type)->
+	gen_server:call({global,?SERVER},{connect,node(),Type}).
 
 disconnect()->
 	gen_server:call({global,?SERVER},{disconnect,node()}).
@@ -79,7 +79,7 @@ start_link() ->
 	{stop, Reason :: term()} | ignore).
 init([]) ->
 	startdb(),
-	{ok, #manager_state{ nodes = sets:new(), stats = maps:new() }}.
+	{ok, #manager_state{ nodes = maps:new(), stats = maps:new() }}.
 
 %% @private
 %% @doc Handling call messages
@@ -91,16 +91,17 @@ init([]) ->
 	{noreply, NewState :: #manager_state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), Reply :: term(), NewState :: #manager_state{}} |
 	{stop, Reason :: term(), NewState :: #manager_state{}}).
-handle_call({connect,NodeName}, _From, State = #manager_state{}) ->
-	case sets:is_element(NodeName,State#manager_state.nodes) of
+handle_call({connect,NodeName,Type}, _From, State = #manager_state{}) ->
+	case maps:is_key(NodeName,State#manager_state.nodes) of
 		true ->
 			{reply,ok,State};
 		false ->
-			NewNodes = sets:add_element(NodeName,State#manager_state.nodes),
 			erlang:monitor_node(NodeName,true),
-			?L_IA("Node ~p is connecting.",[NodeName]),
 			Result = rpc:call(NodeName,utils,get_addr,[]),
+			NewNodes = maps:put(NodeName,Type,State#manager_state.nodes),
 			manager:report_event(node_connect,#{ connecting_node => NodeName, address => Result}),
+			?L_IA("Node ~p is connecting (~p).",[NodeName,Type]),
+			report_event(nodeup,#{ nodename => NodeName }),
 			{reply, ok, State#manager_state{ nodes = NewNodes }}
 	end;
 handle_call({disconnect,NodeName}, _From, State = #manager_state{}) ->
@@ -116,7 +117,7 @@ handle_call({disconnect,NodeName}, _From, State = #manager_state{}) ->
 			{reply, ok, State#manager_state{ nodes = NewNodes , stats = NewStats }}
 	end;
 handle_call(connected_nodes, _From, State = #manager_state{}) ->
-	{reply,{ok,sets:to_list(State#manager_state.nodes)},State};
+	{reply,{ok,maps:to_list(State#manager_state.nodes)},State};
 handle_call(_Request, _From, State = #manager_state{}) ->
 	{reply, ok, State}.
 
@@ -140,8 +141,11 @@ handle_cast({log_error,NodeName,Message,Args}, State = #manager_state{}) ->
 	{noreply, State};
 handle_cast({event,NodeName,Event,EventData}, State = #manager_state{}) ->
 	try
-		JSON = jiffy:encode( #{ type => event, name => Event , node => NodeName , value => EventData} ),
-		web_socket_handler:send_frame( JSON )
+		JSON = jiffy:encode( #{ type => event, name => Event , node => NodeName , data => EventData} ),
+		web_socket_handler:send_frame( JSON ),
+		_ = file:write_file(filename:join([code:priv_dir(?OWLS_APP),"events.json"]),JSON,[append]),
+		_ = file:write_file(filename:join([code:priv_dir(?OWLS_APP),"events.json"]),<<"\n">>,[append]),
+		_ = file:write_file(filename:join([code:priv_dir(?OWLS_APP),"events.json"]),<<"\n">>,[append])
 	catch
 		_:_ ->
 			io:format("Bad event: ~p from node: ~p~nData:~p~n",[Event,NodeName,EventData])
@@ -158,8 +162,9 @@ handle_cast(_Request, State = #manager_state{}) ->
 	{stop, Reason :: term(), NewState :: #manager_state{}}).
 handle_info({nodedown,Node},State=#manager_state{})->
 	io:format("Node ~p is going down.~n",[Node]),
-	NewNodes = sets:del_element(Node,State#manager_state.nodes),
-	NewStats = maps:remove( Node, State#manager_state.stats),
+	NewNodes = maps:remove(Node, State#manager_state.nodes),
+	NewStats = maps:remove(Node, State#manager_state.stats),
+	report_event(nodedown,#{ nodename => Node }),
 	{noreply,State#manager_state{ nodes = NewNodes, stats = NewStats }};
 handle_info(_Info, State = #manager_state{}) ->
 	{noreply, State}.

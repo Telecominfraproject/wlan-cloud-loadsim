@@ -29,7 +29,7 @@
 init(Req, _State) ->
 	Res =cowboy_req:binding( restype , Req , nothing ),
 	Id = cowboy_req:binding( resid , Req , nothing ),
-	io:format("REQUEST: ~p ~n  RES: ~p~n  ID: ~p~n",[cowboy_req:method(Req),Res,Id]),
+	%% io:format("REQUEST: ~p ~n  RES: ~p~n  ID: ~p~n",[cowboy_req:method(Req),Res,Id]),
 	{ cowboy_rest,Req,#request_state{
 		resource = Res,
 		id = Id,
@@ -49,7 +49,7 @@ content_types_accepted(Req, State) ->
 is_authorized(Req,#request_state{ method = <<"OPTIONS">> }=State)->
 	{true,Req,State};
 is_authorized(Req, State) ->
-	Answer = case restutils:get_access_token(Req) of
+	Answer = case restutils:get_access_token_not_secure(Req) of
 		{ok,Token} ->
 			case restutils:validate_token(Token) of
 				true ->
@@ -145,9 +145,14 @@ do( ?HTTP_GET ,Req,#request_state{resource = <<"cas">>,id=nothing}=State)->
 
 do( ?HTTP_GET , Req , #request_state{ resource = <<"nodes">> , id = nothing } = State ) ->
 	PaginationParameters = restutils:get_pagination_parameters(Req),
-	{ok,Nodes}=manager:connected_nodes(),
+	{ok,AllNodes}=manager:connected_nodes(),
+	Nodes = [ atom_to_list(X) || {X,Role} <- AllNodes, Role == node ],
+	io:format("NODES>>>~p~n",[Nodes]),
 	{ SubList, PaginationInfo }  = restutils:paginate(PaginationParameters,Nodes),
-	JSON = restutils:create_paginated_return( "Nodes" , SubList, PaginationInfo),
+	JSON = case restutils:get_parameter(details,0,Req) of
+		0 -> restutils:create_paginated_return( "Nodes" , SubList, PaginationInfo);
+		1 -> restutils:create_paginated_return( "Nodes" , SubList, PaginationInfo,nodes)
+	end,
 	{JSON,restutils:add_CORS(Req),State};
 
 do( ?HTTP_GET ,Req,#request_state{resource = <<"hardware_definitions">>,id=nothing}=State)->

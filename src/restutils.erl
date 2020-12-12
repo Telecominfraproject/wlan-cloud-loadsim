@@ -12,7 +12,9 @@
 -include("../include/common.hrl").
 
 %% API
--export([create_paginated_return/3,create_paginated_return/4,dump_string_array/1,get_access_token/1,add_CORS/1,generate_error/2,get_pagination_parameters/1,paginate/2,validate_token/1]).
+-export([ create_paginated_return/3,create_paginated_return/4,dump_string_array/1,get_access_token/1,
+          add_CORS/1,generate_error/2,get_pagination_parameters/1,paginate/2,validate_token/1,
+					get_access_token_not_secure/1,get_parameter/3]).
 
 -record(pagination_info,{limit=0, offset=0, previous_offset=0,
 	next_offset=0, current_page=0, page_count=0, total_count=0}).
@@ -20,14 +22,20 @@
 %%% create paginated return
 create_paginated_return(Header,List,PaginationInfo )->
 	binary:list_to_bin(
-		[ "{ \"Items\": { \"" ++ Header ++ "\" : [ ",
+		[ "{ \"Data\": { \"" ++ Header ++ "\" : [ ",
 			dump_string_array(List),
 				" ] }, " ++
 				dump_pagination_info(PaginationInfo),"} "]).
 
+create_paginated_return(Header,List,PaginationInfo,nodes )->
+	binary:list_to_bin(
+		[ "{ \"Data\": { \"" ++ Header ++ "\" : [ ",
+			  utils:json_node_info(List),
+		  " ] }, " ++
+		  dump_pagination_info(PaginationInfo),"} "]);
 create_paginated_return(Header,List,PaginationInfo,Type )->
 	binary:list_to_bin(
-		[ "{ \"Items\": { \"" ++ Header ++ "\" : [ ",
+		[ "{ \"Data\": { \"" ++ Header ++ "\" : [ ",
 		  dump_record_array(List,Type),
 		  " ] }, " ++
 		  dump_pagination_info(PaginationInfo),"} "]).
@@ -64,6 +72,8 @@ dump_record_array([H1,H2|T],Type,Blob)->
 dump_record_array([H1|_],Type,Blob)->
 	binary:list_to_bin([ Blob, ${ , Type:to_json(H1), $} ]).
 
+get_access_token_not_secure(_Req) ->
+	{ok,<<"1234567890">>}.
 
 get_access_token(Req) ->
 	Result = case cowboy_req:header(<<"x-api-key">>, Req) of
@@ -93,6 +103,11 @@ validate_token(Token)->
 get_pagination_parameters(Req) ->
 	#{ offset := Offset , limit := Limit, filter := Filter } = cowboy_req:match_qs([{offset,int,1},{limit,int,0},{filter,[],<<>>}],Req),
 	{ Offset, Limit, Filter }.
+
+-spec get_parameter(Parameter::atom(),Default::any(),Req :: cowboy_req:req()) -> any().
+get_parameter(Parameter, Default, Req) when is_integer(Default) ->
+	#{ Parameter := Value } = cowboy_req:match_qs([{Parameter,int,Default}],Req),
+	Value.
 
 paginate( { Offset, Limit, Filter}, List ) ->
 	%% filter the list

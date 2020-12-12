@@ -37,13 +37,24 @@ inner_decode(#mqtt_msg{ packet_type = ?MQTT_CONNECT } = Msg,
 			CleanStart:1,0:1,
 			KeepAlive:16,Rest/binary>>, _ )->
 	{ ClientIdentifier , L1 } = mqttlib:dec_string(Rest),
-	{ WillTopic, WillPayload, WillProperties, L4 } = case WillFlag of
-												 0 -> { "" , <<>>, [], L1};
-												 1 -> { WProperties , R2 } = get_properties_section(L1),
-													    { TopicString , R3 } = mqttlib:dec_string(R2) ,
-													    { TopicData , R4 } = mqttlib:dec_binary(R3) ,
-													    { TopicString , TopicData , WProperties, R4 }
-	                     end,
+	{ TS, TD, TP, L4} =
+	case ProtocolLevel of
+		?MQTT_PROTOCOL_VERSION_5 ->
+			{ WillProperties , R2 } = get_properties_section(L1),
+			{ TopicString , R3 } = mqttlib:dec_string(R2) ,
+			{ TopicData , R4 } = mqttlib:dec_binary(R3),
+			{ TopicString , TopicData , WillProperties, R4 };
+		?MQTT_PROTOCOL_VERSION_3_11 ->
+			case WillFlag of
+				1 ->
+					{ TopicString , R3 } = mqttlib:dec_string(L1) ,
+					{ TopicData , R4 } = mqttlib:dec_binary(R3),
+					{ TopicString , TopicData , <<>>, R4 };
+				0 ->
+					{ "", <<>>, <<>>, L1 }
+			end
+	end,
+
 	{ UserName , L5 } = case UserNameFlag of
 												0 -> { "" , L4 };
 												1 -> mqttlib:dec_string(L4)
@@ -62,9 +73,9 @@ inner_decode(#mqtt_msg{ packet_type = ?MQTT_CONNECT } = Msg,
 		clean_start_flag = CleanStart,
 		keep_alive = KeepAlive,
 		client_identifier = list_to_binary(ClientIdentifier) ,
-		will_payload = WillPayload ,
-		will_properties = WillProperties,
-		will_topic = list_to_binary(WillTopic),
+		will_payload = TD ,
+		will_properties = TP,
+		will_topic = list_to_binary(TS),
 		username = list_to_binary(UserName),
 		password = Password},
 	{ok,Msg#mqtt_msg{ variable_header = VariableHeader }};
@@ -334,13 +345,11 @@ inner_encode( #mqtt_connect_variable_header{} = Header )->
 			          << (mqttlib:enc_string(Header#mqtt_connect_variable_header.client_identifier))/binary,
 			             (set_properties_section((Header#mqtt_connect_variable_header.will_properties)))/binary,
 			             WillTopic/binary,
-			             (mqttlib:enc_binary(Header#mqtt_connect_variable_header.will_payload))/binary,
 			             UserNamePayload/binary,
 			             UserPasswordPayload/binary>>;
 		          ?MQTT_PROTOCOL_VERSION_3_11 ->
 			          << (mqttlib:enc_string(Header#mqtt_connect_variable_header.client_identifier))/binary,
 			             WillTopic/binary,
-			             (mqttlib:enc_binary(Header#mqtt_connect_variable_header.will_payload))/binary,
 			             UserNamePayload/binary,
 			             UserPasswordPayload/binary>>
 	          end,

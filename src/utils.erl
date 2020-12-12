@@ -15,7 +15,7 @@
 -export([ make_dir/1,uuid/0,get_addr/0,get_addr2/0,app_name/0,app_name/1,priv_dir/0,app_env/2,to_string_list/2,to_binary_list/2,print_nodes_info/1,
 					do/2,pem_to_cert/1,pem_to_key/1,safe_binary/1,uuid_b/0,pem_key_is_encrypted/1,remove_pem_key_password/3,
 					noop/0,noop_mfa/0,split_into/2,select/3,adjust/2,
-					get_avg/1, new_avg/0,compute_avg/2,search_replace/3]).
+					get_avg/1, new_avg/0,compute_avg/2,search_replace/3,json_node_info/1]).
 
 -type average() :: { CurrentValue::number(), HowManyValues::integer(), PastValues::[number()]}.
 -export_type([average/0]).
@@ -80,6 +80,16 @@ print_nodes_info(Nodes)->
 	print_line(Nodes),
 	io:format("---------------------------------------------------------------------------------------------~n").
 
+json_node_info(Nodes)->
+	json_node_info(Nodes,[]).
+
+json_node_info([],Acc)->
+	jiffy:encode(Acc);
+json_node_info([H|T],Acc)->
+	NodeInfo = node_info(H),
+	%% #{ total := Total , allocated := Allocated , worst := Worst , processes := Processes } = NodeInfo,
+	json_node_info(T,[NodeInfo|Acc]).
+
 print_line([])->
 	ok;
 print_line([H|T])->
@@ -88,14 +98,16 @@ print_line([H|T])->
 	io:format("|~37s |~9.2f MB |~9.2f MB | ~9.2f MB | ~7b |~n",[atom_to_list(H),Total,Allocated,Worst,Processes]),
 	print_line(T).
 
+-spec node_info(Node::node())->#{ atom() => term()}.
 node_info(Node)->
 	try
-		{Total,Allocated,{ _Pid, Worst}}=rpc:call(Node,memsup,get_memory_data,[]),
-		Processes = rpc:call(Node,cpu_sup,nprocs,[]),
-		#{ total => Total/(1 bsl 20), allocated => Allocated/(1 bsl 20), worst => Worst/(1 bsl 20), processes => Processes }
+		N = list_to_atom(Node),
+		{Total,Allocated,{ _Pid, Worst}}=rpc:call(N,memsup,get_memory_data,[]),
+		Processes = rpc:call(N,cpu_sup,nprocs,[]),
+		#{ name => list_to_binary(Node), total => Total/(1 bsl 20), allocated => Allocated/(1 bsl 20), worst => Worst/(1 bsl 20), processes => Processes }
 	catch
 		_:_ ->
-			#{ total => 0, allocated => 0, worst => 0, processes => 0 }
+			#{ name => list_to_binary(Node), total => 0, allocated => 0, worst => 0, processes => 0 }
 	end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

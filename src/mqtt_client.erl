@@ -151,7 +151,7 @@ manage_connection(Socket,CS) ->
 															CS#client_state.details,
 															CS#client_state.lan_clients,
 															CS#client_state.wan_clients),
-			Data = mqtt_message:publish(rand:uniform(60000),CS#client_state.topics,OpenSyncReport,?MQTT_PROTOCOL_VERSION_3_11),
+			Data = mqtt_message:publish(rand:uniform(60000),CS#client_state.topics,zlib:compress(OpenSyncReport),?MQTT_PROTOCOL_VERSION_3_11),
 			_ = ssl:send(Socket,Data),
 			io:format("Sendinging an MQTT report.~n");
 		{ send_data,Data } ->

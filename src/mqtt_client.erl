@@ -147,7 +147,7 @@ manage_connection(Socket,CS) ->
 			io:format("MQTT_CLIENT: Closing socket.~n");
 		send_report ->
 			io:format("Sending an MQTT report~n"),
-			OpenSyncReport = mqtt_os_gen:gen( CS#client_state.start_time,
+			OpenSyncReport = mqtt_os_gen:gen_report( CS#client_state.start_time,
 															CS#client_state.details,
 															CS#client_state.lan_clients,
 															CS#client_state.wan_clients),

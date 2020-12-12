@@ -153,7 +153,8 @@ manage_connection(Socket,CS) ->
 															CS#client_state.wan_clients),
 			Data = mqtt_message:publish(rand:uniform(60000),CS#client_state.topics,zlib:compress(OpenSyncReport),?MQTT_PROTOCOL_VERSION_3_11),
 			_ = ssl:send(Socket,Data),
-			io:format("Sendinging an MQTT report.~n");
+			io:format("Sendinging an MQTT report.~n"),
+			manage_connection(Socket,CS);
 		{ send_data,Data } ->
 			%% io:format("MQTT_CLIENT: Received a message to return some data: ~p~n",[Data]),
 			_ = ssl:send(Socket,Data),
@@ -206,7 +207,10 @@ process( M, CS ) when is_record(M,mqtt_connack_variable_header_v4) ->
 	end;
 process( M, CS ) when is_record(M,mqtt_pingreq_variable_header_v4) ->
 	Response = mqtt_message:encode(#mqtt_msg{ variable_header = #mqtt_pingresp_variable_header_v4{} }),
-	{ Response, CS#client_state{ messages = 1+CS#client_state.messages }}.
+	{ Response, CS#client_state{ messages = 1+CS#client_state.messages }};
+process( M, CS ) ->
+	io:format("MQTT_CLIENT: Unknown message: ~p~n",[M]),
+	{none,CS}.
 
 gen_bands()->
 	case rand:uniform(4) of

@@ -37,7 +37,7 @@ creation_info() ->
 get_an_animal()->
 	gen_server:call(?SERVER,get_an_animal).
 
--spec get_an_animals( Size::integer())-> string().
+-spec get_some_animals( Size::integer())-> string().
 get_some_animals(Size)->
 	gen_server:call(?SERVER,{get_some_animals,Size}).
 

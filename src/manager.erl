@@ -142,10 +142,10 @@ handle_cast({log_error,NodeName,Message,Args}, State = #manager_state{}) ->
 handle_cast({event,NodeName,Event,EventData}, State = #manager_state{}) ->
 	try
 		JSON = jiffy:encode( #{ type => event, name => Event , node => NodeName , data => EventData} ),
-		web_socket_handler:send_frame( JSON ),
-		_ = file:write_file(filename:join([code:priv_dir(?OWLS_APP),"events.json"]),JSON,[append]),
-		_ = file:write_file(filename:join([code:priv_dir(?OWLS_APP),"events.json"]),<<"\n">>,[append]),
-		_ = file:write_file(filename:join([code:priv_dir(?OWLS_APP),"events.json"]),<<"\n">>,[append])
+		web_socket_handler:send_frame( JSON )
+%%		_ = file:write_file(filename:join([code:priv_dir(?OWLS_APP),"events.json"]),JSON,[append]),
+%%		_ = file:write_file(filename:join([code:priv_dir(?OWLS_APP),"events.json"]),<<"\n">>,[append]),
+%%		_ = file:write_file(filename:join([code:priv_dir(?OWLS_APP),"events.json"]),<<"\n">>,[append])
 	catch
 		_:_ ->
 			io:format("Bad event: ~p from node: ~p~nData:~p~n",[Event,NodeName,EventData])

@@ -185,7 +185,7 @@
 	dup_flag = 0 :: integer(),
 	qos_level_flag = 0 :: integer(),
 	retain_flag = 0 :: integer(),
-	topic_name = "" :: string(),
+	topic_name = <<>> :: binary(),
 	payload = <<>> :: binary()}).
 
 -record( mqtt_publish_variable_header_v5, {
@@ -193,7 +193,7 @@
 	dup_flag = 0 :: integer(),
 	qos_level_flag = 0 :: integer(),
 	retain_flag = 0 :: integer(),
-	topic_name = "" :: string(),
+	topic_name = <<>> :: binary(),
 	properties = [] :: list(),
 	payload = <<>> :: binary()}).
 

@@ -14,7 +14,7 @@
 -include("../include/mqtt_definitions.hrl").
 
 %% API
--export([decode/2,encode/1]).
+-export([decode/2,encode/1,publish/4]).
 
 -spec decode( Packet::binary() , Version::integer()) -> { error , atom() } | { ok , mqtt_msg()}.
 decode(<<PacketType:4,Flags:4,Rest/binary>>,Version)->
@@ -25,6 +25,18 @@ decode(<<PacketType:4,Flags:4,Rest/binary>>,Version)->
 		false ->
 			{ error , malformed_packet }
 	end.
+
+-spec publish(PacketIdentifier::integer(),Topic::binary(),TopicPayload::binary(),Version::integer())->binary().
+publish(PacketIdentifier,Topic,TopicPayload,?MQTT_PROTOCOL_VERSION_3_11)->
+	H = #mqtt_publish_variable_header_v4{
+		packet_identifier = PacketIdentifier,
+		payload = TopicPayload,
+		topic_name = Topic
+	},
+	M = #mqtt_msg{ variable_header = H, packet_type = ?MQTT_PUBLISH },
+	mqtt_message:encode(M);
+publish(_PacketIdentifier,_Topic,_TopicPayload,?MQTT_PROTOCOL_VERSION_5)->
+	<<>>.
 
 -spec inner_decode( Msg::mqtt_msg(),Blob::binary(),ProtocolVersion::integer())-> {ok,Decoded_Message::mqtt_msg()}.
 inner_decode(#mqtt_msg{ packet_type = ?MQTT_CONNECT } = Msg,
@@ -109,7 +121,7 @@ inner_decode(#mqtt_msg{ packet_type = ?MQTT_PUBLISH }=Msg,Data, ?MQTT_PROTOCOL_V
 		dup_flag = DUPFlag ,
 		qos_level_flag = QOSLevelFlag ,
 		retain_flag = RetainFlag,
-		topic_name = TopicName ,
+		topic_name = list_to_binary(TopicName) ,
 		packet_identifier = PacketIdentifier,
 		payload = Payload},
 	{ok,Msg#mqtt_msg{ variable_header = VariableHeader}};
@@ -129,7 +141,7 @@ inner_decode(#mqtt_msg{ packet_type = ?MQTT_PUBLISH }=Msg,Data, ?MQTT_PROTOCOL_V
 		dup_flag = DUPFlag ,
 		qos_level_flag = QOSLevelFlag ,
 		retain_flag = RetainFlag,
-		topic_name = TopicName ,
+		topic_name = list_to_binary(TopicName) ,
 		properties = Properties,
 		packet_identifier = PacketIdentifier,
 		payload = Payload},

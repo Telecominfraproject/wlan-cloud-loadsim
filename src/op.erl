@@ -1850,57 +1850,27 @@ dump_data(FileName,Data)->
 	_=file:close(IoDev).
 
 t2()->
-	test("SIM11000001000").
+	test("SIM11000001000",
+	      [ {'BAND5GU',animals:get_an_animal(),["00:01:00:00:20:00","00:01:00:00:21:00","00:01:00:00:22:00"]},
+					{'BAND2G',animals:get_an_animal(),["00:01:01:00:20:00","00:01:01:00:21:00","00:01:01:00:22:00"]}]).
 
-test(Serial)->
+test(Serial,MACSSIDList)->
 	TimeStamp = os:system_time(),
 	TR = #'Report'{ nodeID = Serial,
-	                device = [ #'Device'{ load = #'Device.LoadAvg'{ one = 5, five = 10, fifteen = 8 },
+	                device = [ #'Device'{
 		                timestamp_ms = TimeStamp,
 		                uptime = 12,
-                    mem_util = #'Device.MemUtil'{ mem_total = 16000000, mem_used = 8000000 },
-                    fs_util = [#'Device.FsUtil'{ fs_type = 'FS_TYPE_ROOTFS',
-                                                 fs_total = 2000000000, fs_used = 1000000000}],
-		                cpuUtil = #'Device.CpuUtil'{ cpu_util = 67 },
-		                thermal_stats = [ #'Device.Thermal'{
-			                fan_rpm = 1400,
-			                timestamp_ms = TimeStamp,
-			                txchainmask = [#'Device.Thermal.RadioTxChainMask'{
-				                'band' = 'BAND2G',
-				                value = 34},#'Device.Thermal.RadioTxChainMask'{
-				                'band' = 'BAND5G',
-				                value = 43}]}],
-                    ps_cpu_util = [#'Device.PerProcessUtil'{
-	                    pid = 2,
-	                    cmd = "nginx",
-	                    util = 5
-                    }],
-                    ps_mem_util = [#'Device.PerProcessUtil'{
-	                    pid = 2,
-	                    cmd = "nginx",
-	                    util = 5
-                    }]}],
-	                clients = [ #'ClientReport'{
-		                'band' = 'BAND2G',
-		                timestamp_ms = TimeStamp,
-		                channel = 12,
-		                client_list = [#'Client'{ mac_address = "10:01:10:00:11:1E",
-			                ssid = "my_network",
-			                connected = 1,
-			                connect_count = 23,
-			                disconnect_count = 22,
-			                duration_ms = TimeStamp-100000,
-			                rx_stats = [ #'Client.RxStats'{ mcs = 100,
-				                nss = 300,
-				                bw = 400,
-				                bytes = 1020920303,
-				                retries = 123,
-				                errors = 12,
-				                rssi  = 94,
-                        chain_rssi = [#'Client.RxStats.ChainRSSI'{ chain = 4,
-	                        ht = 34,
-	                        rssi = 91 }]}]}]
-	                }]
+		                load = mqtt_os_gen:gen('Device.LoadAvg'),
+                    mem_util = mqtt_os_gen:gen('Device.MemUtil'),
+                    fs_util = mqtt_os_gen:gen('Device.FsUtil'),
+		                cpuUtil = mqtt_os_gen:gen('Device.CpuUtil'),
+		                thermal_stats = mqtt_os_gen:gen('Device.Thermal'),
+		                radio_temp = mqtt_os_gen:gen('Device.RadioTemp'),
+                    ps_cpu_util = mqtt_os_gen:gen('Device.PerProcessUtil',ps_cpu_util),
+                    ps_mem_util = mqtt_os_gen:gen('Device.PerProcessUtil',ps_mem_util)
+	                }],
+	                neighbors = mqtt_os_gen:gen('Neighbor'),
+	                clients = mqtt_os_gen:gen('ClientReport',MACSSIDList)
 		},
 
 	opensync_stats:encode_msg(TR,'Report').

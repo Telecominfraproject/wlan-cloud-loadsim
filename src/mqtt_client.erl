@@ -14,7 +14,7 @@
 -include("../include/mqtt_definitions.hrl").
 
 %% API
--export([start/4,send_ping/1,c_cfg/0,s_cfg/0,t1/0,t2/0]).
+-export([start/4,send_ping/1,c_cfg/0,s_cfg/0,t1/0,t2/0,gen_lan_clients/0,gen_bands/0,gen_wan_clients/1]).
 
 -record(client_state,{id = <<>> :: binary(),
 											caname :: binary(),
@@ -33,7 +33,12 @@
 											connects = 0 :: integer(),
 											t1 = 0 :: integer(),
 											connect_time = 0 :: integer(),
-											messages=0::integer()}).
+											messages=0::integer(),
+											lan_clients = [] :: [string()],
+											start_time = 0 :: number(),
+											send_report_timer,
+											bands = [] :: ['BAND2G' | 'BAND5G' | 'BAND5GL' | 'BAND5GU'],
+											wan_clients = [] :: [{'BAND2G' | 'BAND5G' | 'BAND5GL' | 'BAND5GU',[MAC::string()]}]}).
 
 -spec start(CAName::binary(),Id::binary(),Configuration::gen_configuration_b(), ManagerPid::pid()) -> no_return().
 start(CAName,Id,Configuration,ManagerPid)->
@@ -42,6 +47,7 @@ start(CAName,Id,Configuration,ManagerPid)->
 	NewConfig = #{ broker => <<"opensync-mqtt-broker.wlan.local">>, compress => Compress,
 	            port => list_to_integer(binary_to_list(Port)), topics => Topics },
 	{ok,DeviceConfiguration} = inventory:get_client(CAName,Id),
+	Bands = gen_bands(),
 	full_start(#client_state{
 		id = Id,
 		caname = CAName,
@@ -51,6 +57,11 @@ start(CAName,Id,Configuration,ManagerPid)->
 		broker = Broker,
 		port = list_to_integer(binary_to_list(Port)),
 		topics = Topics,
+		bands = Bands,
+		lan_clients = gen_lan_clients(),
+		wan_clients = gen_wan_clients(Bands),
+		keep_alive_ref = undefined,
+		send_report_timer = undefined,
 		compress = Compress}).
 
 -spec full_start(State::#client_state{})->no_return().
@@ -71,8 +82,11 @@ full_start(State)->
 									io:format("MQTT_CLIENT: Connected~n"),
 									RS = run_client(SSLSocket,State#client_state{ connects = State#client_state.connects+1, t1 = T1 }),
 									utils:do(State#client_state.keep_alive_ref =/= undefined,{timer,cancel,[State#client_state.keep_alive_ref]}),
+									utils:do(State#client_state.send_report_timer =/= undefined,{timer,cancel,[State#client_state.send_report_timer]}),
 									ssl:close(SSLSocket),
-									RS#client_state{ disconnects = State#client_state.disconnects +1 };
+									RS#client_state{ disconnects = State#client_state.disconnects +1,
+										keep_alive_ref = undefined,
+										send_report_timer = undefined };
 								{error,_}=Error->
 									io:format("MQTT_CLIENT: Cannot connect: ~p~n",[Error]),
 									?L_IA("MQTT Client cannot connect: ~p.",[Error]),
@@ -98,7 +112,8 @@ run_client(Socket,CS)->
 		will_flag = 0 ,
 		clean_start_flag = 1,
 		client_identifier = CS#client_state.details#client_info.serial,
-		keep_alive = 180	},
+		keep_alive = 180
+		},
 	M = #mqtt_msg{ variable_header = C},
 	ConnectMessage = mqtt_message:encode(M),
 	%% io:format("MQTT_CLIENT: CONNECTMESSAGE: ~p~n",[ConnectMessage]),
@@ -130,6 +145,15 @@ manage_connection(Socket,CS) ->
 		{ssl_closed,Socket} ->
 			?L_I("MQTT socket closed by server"),
 			io:format("MQTT_CLIENT: Closing socket.~n");
+		send_report ->
+			io:format("Sending an MQTT report~n"),
+			OpenSyncReport = mqtt_os_gen:gen( CS#client_state.start_time,
+															CS#client_state.details,
+															CS#client_state.lan_clients,
+															CS#client_state.wan_clients),
+			Data = mqtt_message:publish(rand:uniform(60000),CS#client_state.topics,OpenSyncReport),
+			_ = ssl:send(Socket,Data),
+			io:format("Sendinging an MQTT report.~n");
 		{ send_data,Data } ->
 			%% io:format("MQTT_CLIENT: Received a message to return some data: ~p~n",[Data]),
 			_ = ssl:send(Socket,Data),
@@ -165,9 +189,16 @@ process( M, CS ) when is_record(M,mqtt_connack_variable_header_v4) ->
 	case M#mqtt_connack_variable_header_v4.connect_reason_code of
 		0 ->
 			{ok,TRef} = timer:apply_interval(60*1000,?MODULE,send_ping,[self()]),
+			{ok,TReportTimer} = timer:send_interval(20*1000,CS#client_state.manager_pid,send_report),
 			ConnectTime = os:system_time() - CS#client_state.t1,
 			CS#client_state.manager_pid ! { stats, connect_time , ConnectTime },
-			{none,CS#client_state{ messages = 1+CS#client_state.messages, current_state = connected , keep_alive_ref = TRef, connect_time = ConnectTime, t1 = 0 }};
+			{none,CS#client_state{ start_time = os:system_time(),
+			                       messages = 1+CS#client_state.messages,
+			                       current_state = connected ,
+			                       keep_alive_ref = TRef,
+			                       connect_time = ConnectTime,
+			                       send_report_timer = TReportTimer,
+			                       t1 = 0 }};
 		Error ->
 			io:format("Device ~p gets error ~p when trying to connect.",[CS#client_state.id,Error]),
 			?L_IA("Device ~p gets error ~p when trying to connect.",[CS#client_state.id,Error]),
@@ -176,6 +207,32 @@ process( M, CS ) when is_record(M,mqtt_connack_variable_header_v4) ->
 process( M, CS ) when is_record(M,mqtt_pingreq_variable_header_v4) ->
 	Response = mqtt_message:encode(#mqtt_msg{ variable_header = #mqtt_pingresp_variable_header_v4{} }),
 	{ Response, CS#client_state{ messages = 1+CS#client_state.messages }}.
+
+gen_bands()->
+	case rand:uniform(4) of
+		1 -> ['BAND2G'];
+		2 -> ['BAND2G','BAND5G'];
+		3 -> ['BAND2G','BAND5G','BAND5GL','BAND5GU'];
+		4 -> ['BAND2G','BAND5G','BAND5GL','BAND5GU']
+	end.
+
+gen_client(OUI)->
+	[A1,A2,A3,A4,A5,A6] = OUI,
+	[X1,X2,X3,X4,X5,X6] = lists:flatten(string:pad(integer_to_list(rand:uniform(1 bsl 24),16),6,leading,$0)),
+	[A1,A2,$:,A3,A4,$:,A5,A6,$:,X1,X2,$:,X3,X4,$:,X5,X6].
+gen_clients(0,Acc)->
+	Acc;
+gen_clients(Number,Acc)->
+	OUI=binary_to_list(oui_server:get_an_oui()),
+	gen_clients(Number-1,[gen_client(OUI)|Acc]).
+gen_lan_clients() ->
+	gen_clients(rand:uniform(8),[]).
+gen_wan_clients(Bands)->
+	gen_wlan_clients(Bands,[]).
+gen_wlan_clients([],Acc)->
+	Acc;
+gen_wlan_clients([Band|T],Acc)->
+	gen_wlan_clients(T,[{Band,animals:get_an_animal(),gen_lan_clients()}|Acc]).
 
 c_cfg()->
 	#{<<"broker">> => <<"opensync-mqtt-broker.debfarm1-node-a.arilia.com">>,

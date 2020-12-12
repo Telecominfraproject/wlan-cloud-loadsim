@@ -21,16 +21,20 @@
 -define(MAKER_LOOKUP_TABLE_FILENAME,"maker_lookup_table.ets").
 
 %% API
--export([start_link/0,creation_info/0,refresh/0,refresh/2,get_all/0,lookup_oui/1,lookup_vendor/1,get_ouis/0,get_vendors/0]).
+-export([start_link/0,creation_info/0,refresh/0,refresh/2,get_all/0,lookup_oui/1,lookup_vendor/1,get_an_oui/0,get_ouis/0,get_vendors/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
 	code_change/3]).
 
--define(SERVER, ?MODULE).
+-define(SERVER, {global,?MODULE}).
+-define(START_SERVER,{global,?MODULE}).
+
+%% -define(SERVER, ?MODULE).
+%% -define(START_SERVER,{local,?MODULE}).
 
 -record(oui_server_state, { service_pid, uri,transfer_process_pid, all_ouis, all_makers,
-	oui_tab_filename,
+	oui_tab_filename,oui_length,maker_length,
 	maker_tab_filename }).
 
 %%%===================================================================
@@ -45,34 +49,37 @@ creation_info() ->
 		modules => [?MODULE]} ].
 
 refresh() ->
-	gen_server:call(?MODULE,{refresh,self()}).
+	gen_server:call(?SERVER,{refresh,self()}).
+
+get_an_oui()->
+	gen_server:call(?SERVER,get_an_oui).
 
 get_all()->
-	gen_server:call(?MODULE,get_all).
+	gen_server:call(?SERVER,get_all).
 
 get_ouis()->
-	gen_server:call(?MODULE,get_ouis).
+	gen_server:call(?SERVER,get_ouis).
 
 get_vendors()->
-	gen_server:call(?MODULE,get_vendors).
+	gen_server:call(?SERVER,get_vendors).
 
 -spec lookup_oui(OUI:: string() | binary()) -> {ok,Vendor::binary()} | generic_error().
 lookup_oui(OUI) when is_list(OUI) ->
-	gen_server:call(?MODULE,{lookup_oui,list_to_binary(OUI)});
+	gen_server:call(?SERVER,{lookup_oui,list_to_binary(OUI)});
 lookup_oui(OUI) when is_binary(OUI) ->
-	gen_server:call(?MODULE,{lookup_oui,OUI}).
+	gen_server:call(?SERVER,{lookup_oui,OUI}).
 
 -spec lookup_vendor(Vendor::string() | binary() ) -> {ok,[ OUI::binary() ] } | generic_error().
 lookup_vendor(Vendor) when is_list(Vendor)->
-	gen_server:call(?MODULE,{lookup_vendor,list_to_binary(Vendor)});
+	gen_server:call(?SERVER,{lookup_vendor,list_to_binary(Vendor)});
 lookup_vendor(Vendor) when is_binary(Vendor)->
-	gen_server:call(?MODULE,{lookup_vendor,Vendor}).
+	gen_server:call(?SERVER,{lookup_vendor,Vendor}).
 
 %% @doc Spawns the server and registers the local name (unique)
 -spec(start_link() ->
 	{ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
 start_link() ->
-	gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+	gen_server:start_link(?START_SERVER, ?MODULE, [], []).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -101,7 +108,7 @@ init([]) ->
 															_:_ ->
 																_=ets:new(?OUI_LOOKUP_TABLE,[named_table,public,ordered_set]),
 																_=ets:new(?MAKER_LOOKUP_TABLE,[named_table,public,ordered_set]),
-																_=timer:apply_after(10000, ?MODULE, refresh, []),
+																_=timer:apply_after(5000, ?MODULE, refresh, []),
 																?L_I("No OUI tables on disk. Automatic refresh in 10 seconds."),
 																{ [], [] }
 														end,
@@ -111,6 +118,8 @@ init([]) ->
 		transfer_process_pid = undefined,
 		all_ouis =  AllOuis,
 		all_makers = AllMakers,
+    oui_length = length(AllOuis),
+    maker_length = length(AllMakers),
 		service_pid = self() }}.
 
 %% @private
@@ -127,6 +136,9 @@ handle_call(get_vendors, _From, State = #oui_server_state{}) ->
 	{reply, {ok,State#oui_server_state.all_makers}, State};
 handle_call(get_ouis, _From, State = #oui_server_state{}) ->
 	{reply, {ok,State#oui_server_state.all_ouis}, State};
+handle_call(get_an_oui, _From, State = #oui_server_state{}) ->
+	OUI = lists:nth(rand:uniform(State#oui_server_state.oui_length),State#oui_server_state.all_ouis),
+	{reply, OUI, State};
 handle_call(get_all, _From, State = #oui_server_state{}) ->
 	{reply, {ok,State#oui_server_state.all_ouis,State#oui_server_state.all_makers}, State};
 handle_call({lookup_oui,OUI}, _From, State = #oui_server_state{}) ->

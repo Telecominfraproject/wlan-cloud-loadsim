@@ -14,7 +14,7 @@
 %% API
 -export([ make_dir/1,uuid/0,get_addr/0,get_addr2/0,app_name/0,app_name/1,priv_dir/0,app_env/2,to_string_list/2,to_binary_list/2,print_nodes_info/1,
 					do/2,pem_to_cert/1,pem_to_key/1,safe_binary/1,uuid_b/0,pem_key_is_encrypted/1,remove_pem_key_password/3,
-					noop/0,noop_mfa/0,split_into/2,select/3,adjust/2,
+					noop/0,noop_mfa/0,split_into/2,select/3,adjust/2,apply_ntimes/4,
 					get_avg/1, new_avg/0,compute_avg/2,search_replace/3,json_node_info/1]).
 
 -type average() :: { CurrentValue::number(), HowManyValues::integer(), PastValues::[number()]}.
@@ -109,6 +109,16 @@ node_info(Node)->
 		_:_ ->
 			#{ node => list_to_binary(Node), total => 0, allocated => 0, worst => 0, processes => 0 }
 	end.
+
+-spec apply_ntimes(Times::integer(),M::atom(),F::atom(),A::term())->[any()].
+apply_ntimes(Times,M,F,A)->
+	apply_ntimes(Times,M,F,A,[]).
+
+apply_ntimes(0,_,_,_,Acc)->
+	lists:reverse(Acc);
+apply_ntimes(Times,M,F,A,Acc)->
+	R = apply(M,F,A),
+	apply_ntimes(Times-1,M,F,A,[R|Acc]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Local functions

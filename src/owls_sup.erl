@@ -31,6 +31,7 @@ init([]) ->
 			inventory:creation_info() ++
 			statistics:creation_info() ++
 			node_stats:creation_info() ++
+			animals:creation_info() ++
       simengine:creation_info();
 		node ->
 			?L_I("Simulation Node starting."),
@@ -40,6 +41,7 @@ init([]) ->
 			mqtt_server_handler:creation_info() ++
 			ovsdb_client_handler:creation_info() ++
 			node_stats:creation_info() ++
+			animals:creation_info() ++
 			node_rest_api:creation_info();
 		pseudo ->
 			?L_I("Pseudo Node starting."),

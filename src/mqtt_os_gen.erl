@@ -123,11 +123,9 @@ gen('Device.PerProcessUtil',ps_mem_util)->
 	{'Device.PerProcessUtil',2544,"sm",1592}];
 gen('ClientReport',MACSSIDList)->
 	TimeStamp = os:system_time(),
-	C = lists:foldl(fun({Band,SSID,MACs},A) ->
+	lists:foldl(fun({Band,SSID,MACs},A) ->
 		[gen_client_report_for_band(TimeStamp,Band,MACs,SSID)|A]
-	            end,[],MACSSIDList),
-	io:format(">>>>CLIENT_REPORT: ~p~n",[C]),
-	C.
+	            end,[],MACSSIDList).
 
 gen_client_report_for_band(TimeStamp,Band,MACs,SSID)->
  #'ClientReport'{

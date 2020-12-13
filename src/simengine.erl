@@ -520,24 +520,23 @@ push_assets(SimInfo,_Attributes,SimEnginePid,{M,F,A}=_Notification)->
 	%% devise how many batches
 	{ok,Clients} = inventory:list_clients(SimInfo#simulation.ca),
 	Splits = utils:split_into( SimInfo#simulation.nodes, Clients),
-	Results = lists:reverse(lists:foldl(fun({N,C},Acc) ->
+	_ = lists:reverse(lists:foldl(fun({N,C},Acc) ->
 													Config = #{ sim_name => SimInfo#simulation.name,
 													            sim_ca => SimInfo#simulation.ca,
 													            clients => C,
 																			ovsdb_server_name => SimInfo#simulation.servers#sim_entry.opensync_server_name,
 																			ovsdb_server_port => SimInfo#simulation.servers#sim_entry.opensync_server_port,
 																			callback => { SimEnginePid, {SimInfo#simulation.name, N,push_done,erlang:timestamp()} }},
-													io:format("Pushing to ~p...~n",[N]),
+													io:format("SIMENGINE: Pushing ~p entries to ~p.~n",[length(C),N]),
 													R = rpc:call(N,simnode,set_configuration,[Config]),
 													[R|Acc]
 												end,[],Splits)),
-	io:format("Results of push: ~p.~n",[Results]),
 	erlang:apply(M,F,A),
 	ok.
 
 -spec start_assets(SimInfo::simulation(), Attributes::#{atom()=>term()}, ManagerPis::pid(),Notification::notification_cb())->ok.
 start_assets(SimInfo,Attributes,SimEnginePid,{M,F,A}=_Notification)->
-	?L_IA("~s: Preparing all assets.",[binary_to_list(SimInfo#simulation.name)]),
+	?L_IA("~s: Starting all assets.",[binary_to_list(SimInfo#simulation.name)]),
 	_Results = lists:reverse(lists:foldl(fun(Node,Acc) ->
 		R = rpc:call(Node,simnode,start,[all,Attributes#{ callback => {SimEnginePid,{SimInfo#simulation.name, Node,start_done,erlang:timestamp()}} }]),
 		[R|Acc] end,[],SimInfo#simulation.nodes)),

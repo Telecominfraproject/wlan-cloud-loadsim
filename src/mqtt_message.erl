@@ -395,8 +395,9 @@ inner_encode( #mqtt_publish_variable_header_v4{}=Header )->
 								(Header#mqtt_publish_variable_header_v4.packet_identifier):16,
 								(Header#mqtt_publish_variable_header_v4.payload)/binary>>;
 					 false ->
-						  << (mqttlib:enc_string(Header#mqtt_publish_variable_header_v4.topic_name))/binary,
-							 (Header#mqtt_publish_variable_header_v4.payload)/binary>>
+						  <<
+						    (mqttlib:enc_string(Header#mqtt_publish_variable_header_v4.topic_name))/binary,
+							  (Header#mqtt_publish_variable_header_v4.payload)/binary>>
 	       end,
 	{?MQTT_PUBLISH, Flags, Blob};
 

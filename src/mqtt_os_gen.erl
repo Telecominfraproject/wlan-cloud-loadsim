@@ -16,11 +16,11 @@
 -export([gen_report/4]).
 
 gen_report(StartTime,ClientInfo,_MACs,MACSSIDList)->
-	TimeStamp = os:system_time(),
+	TimeStamp = os:system_time() div 1000000,
 	TR = #'Report'{ nodeID = ClientInfo#client_info.serial,
 	                device = [ #'Device'{
 		                timestamp_ms = TimeStamp,
-		                uptime = TimeStamp-StartTime,
+		                uptime = TimeStamp - (StartTime div 1000000),
 		                load = gen('Device.LoadAvg'),
 		                mem_util = gen('Device.MemUtil'),
 		                fs_util = gen('Device.FsUtil'),
@@ -33,12 +33,8 @@ gen_report(StartTime,ClientInfo,_MACs,MACSSIDList)->
 	                neighbors = gen('Neighbor',TimeStamp),
 	                clients = gen('ClientReport',MACSSIDList,TimeStamp),
 	                survey = gen('Survey',TimeStamp)
-
 	},
 	opensync_stats:encode_msg(TR,'Report').
-
-
-
 
 gen('Device.FsUtil')->
 	[{'Device.FsUtil','FS_TYPE_ROOTFS',62388,2064},
@@ -55,7 +51,7 @@ gen('Device.RadioTemp')->
 	{'Device.RadioTemp','BAND5GL',rand:uniform(20)+40}].
 
 -spec gen( atom(), Qualifier::atom()) ->any();
-         ( atom(), MACSSIDList::[{atom(),string(),[string()]}] ) ->any().
+         ( atom(), integer()) ->any().
 gen('Device.PerProcessUtil',ps_cpu_util)->
 	[{'Device.PerProcessUtil',2370,"ovsdb-server",2},
 	{'Device.PerProcessUtil',27,"kworker/0:1",2},
@@ -149,6 +145,7 @@ gen('Survey',TimeStamp)->
 		undefined,undefined,undefined,14007260,undefined,154}],
 		[],'RAW'}].
 
+-spec gen(atom(),[{atom(),[string()]}],integer())->any().
 gen('ClientReport',MACSSIDList,TimeStamp)->
 	lists:foldl(fun({Band,SSID,MACs},A) ->
 		[gen_client_report_for_band(TimeStamp,Band,MACs,SSID)|A]

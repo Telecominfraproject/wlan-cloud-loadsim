@@ -30,8 +30,8 @@ gen_report(StartTime,ClientInfo,_MACs,MACSSIDList)->
 		                ps_cpu_util = gen('Device.PerProcessUtil',ps_cpu_util),
 		                ps_mem_util = gen('Device.PerProcessUtil',ps_mem_util)
 	                }],
-	                neighbors = gen('Neighbor'),
-	                clients = gen('ClientReport',MACSSIDList),
+	                neighbors = gen('Neighbor',TimeStamp),
+	                clients = gen('ClientReport',MACSSIDList,TimeStamp),
 	                survey = gen('Survey',TimeStamp)
 
 	},
@@ -78,11 +78,6 @@ gen('Device.PerProcessUtil',ps_mem_util)->
 	{'Device.PerProcessUtil',1234,"wpa_supplicant",1884},
 	{'Device.PerProcessUtil',2539,"cmdm",1676},
 	{'Device.PerProcessUtil',2544,"sm",1592}];
-gen('ClientReport',MACSSIDList)->
-	TimeStamp = os:system_time(),
-	lists:foldl(fun({Band,SSID,MACs},A) ->
-		[gen_client_report_for_band(TimeStamp,Band,MACs,SSID)|A]
-	            end,[],MACSSIDList);
 gen('Device.Thermal',TimeStamp)->
 	[{'Device.Thermal',
 	  [{'Device.Thermal.RadioTxChainMask','BAND2G',3},
@@ -153,6 +148,11 @@ gen('Survey',TimeStamp)->
 		[{'Survey.SurveySample',36,4029,undefined,undefined,undefined,
 		undefined,undefined,undefined,14007260,undefined,154}],
 		[],'RAW'}].
+
+gen('ClientReport',MACSSIDList,TimeStamp)->
+	lists:foldl(fun({Band,SSID,MACs},A) ->
+		[gen_client_report_for_band(TimeStamp,Band,MACs,SSID)|A]
+	            end,[],MACSSIDList).
 
 gen_client_report_for_band(TimeStamp,Band,MACs,SSID)->
  #'ClientReport'{

@@ -79,7 +79,7 @@ full_start(State)->
 												{packet,raw},
 												{mode,binary}]) of
 								{ok,SSLSocket} ->
-									io:format("MQTT_CLIENT: Connected~n"),
+									io:format("MQTT(~p): Connecting.~n",[State#client_state.details#client_info.serial]),
 									RS = run_client(SSLSocket,State#client_state{ connects = State#client_state.connects+1, t1 = T1 }),
 									utils:do(State#client_state.keep_alive_ref =/= undefined,{timer,cancel,[State#client_state.keep_alive_ref]}),
 									utils:do(State#client_state.send_report_timer =/= undefined,{timer,cancel,[State#client_state.send_report_timer]}),
@@ -88,8 +88,8 @@ full_start(State)->
 										keep_alive_ref = undefined,
 										send_report_timer = undefined };
 								{error,_}=Error->
-									io:format("MQTT_CLIENT: Cannot connect: ~p~n",[Error]),
-									?L_IA("MQTT Client cannot connect: ~p.",[Error]),
+									io:format("MQTT(~p): Cannot connect: ~p.~n",[State#client_state.details#client_info.serial,Error]),
+									?L_IA("MQTT(~p): Cannot connect: ~p.~n",[State#client_state.details#client_info.serial,Error]),
 									State
 							end,
 	timer:sleep(5000),
@@ -116,7 +116,6 @@ run_client(Socket,CS)->
 		},
 	M = #mqtt_msg{ variable_header = C},
 	ConnectMessage = mqtt_message:encode(M),
-	%% io:format("MQTT_CLIENT: CONNECTMESSAGE: ~p~n",[ConnectMessage]),
 	_Res = ssl:setopts(Socket,[{active,true}]),
 	_=case ssl:send(Socket,ConnectMessage) of
 		ok ->
@@ -124,8 +123,8 @@ run_client(Socket,CS)->
 			CS#client_state.manager_pid ! { stats, connection , 1 },
 			manage_connection(Socket,CS#client_state{ current_state = waiting_for_hello });
 		Error ->
-			io:format("MQTT_CLIENT: Failed connection message: ~p...~n",[Error]),
-			?L_IA("MQTT_CONNECTION for ID=~p failed (~p)",[CS#client_state.id,Error])
+			io:format("MQTT(~p): SSL error ~p while connecting.~n",[CS#client_state.details#client_info.serial,Error]),
+			?L_IA("MQTT(~p): SSL error ~p while connecting.~n",[CS#client_state.details#client_info.serial,Error])
 	end,
 	CS#client_state.manager_pid ! { stats, connection , -1 },
 	CS.
@@ -143,24 +142,23 @@ manage_connection(Socket,CS) ->
 					manage_connection(Socket,NewState)
 			end;
 		{ssl_closed,Socket} ->
-			?L_I("MQTT socket closed by server"),
-			io:format("MQTT_CLIENT: Closing socket.~n");
+			?L_IA("MQTT(~p): Closing.~n",[CS#client_state.details#client_info.serial]),
+			io:format("MQTT(~p): Closing.~n",[CS#client_state.details#client_info.serial]);
 		send_report ->
-			io:format("Sending an MQTT report~n"),
 			OpenSyncReport = mqtt_os_gen:gen_report( CS#client_state.start_time,
 															CS#client_state.details,
 															CS#client_state.lan_clients,
 															CS#client_state.wan_clients),
 			Data = mqtt_message:publish(rand:uniform(60000),CS#client_state.topics,zlib:compress(OpenSyncReport),?MQTT_PROTOCOL_VERSION_3_11),
-			_ = ssl:send(Socket,Data),
-			io:format("Sendinging an MQTT report.~n"),
+			R = ssl:send(Socket,Data),
+			io:format("MQTT(~p): Sent an MQTT report (~p).~n",[CS#client_state.details#client_info.serial,R]),
 			manage_connection(Socket,CS);
 		{ send_data,Data } ->
 			%% io:format("MQTT_CLIENT: Received a message to return some data: ~p~n",[Data]),
 			_ = ssl:send(Socket,Data),
 			manage_connection(Socket,CS#client_state{ internal_messages = 1+CS#client_state.internal_messages });
 		Anything ->
-			io:format("MQTT_CLIENT: Unknown message: ~p.~n",[Anything]),
+			io:format("MQTT(~p): Unprocessed message (~p).~n",[CS#client_state.details#client_info.serial,Anything]),
 			manage_connection(Socket,CS#client_state{ errors = CS#client_state.errors+1 })
 	end.
 
@@ -182,7 +180,6 @@ manage_state(Data,CS)->
 
 %% this is responsible for sending the ping at 1 minutes interval.
 send_ping(Pid)->
-	io:format("MQTT_CLIENT: SENDING PING...~n"),
 	Blob = mqtt_message:encode(#mqtt_msg{ variable_header = #mqtt_pingreq_variable_header_v4{} }),
 	Pid ! { send_data, Blob }.
 
@@ -201,11 +198,11 @@ process( M, CS ) when is_record(M,mqtt_connack_variable_header_v4) ->
 			                       send_report_timer = TReportTimer,
 			                       t1 = 0 }};
 		Error ->
-			io:format("Device ~p gets error ~p when trying to connect.",[CS#client_state.id,Error]),
-			?L_IA("Device ~p gets error ~p when trying to connect.",[CS#client_state.id,Error]),
+			io:format("MQTT(~p): Cannot connect. Rejected by server:~p .~n",[CS#client_state.details#client_info.serial,Error]),
+			?L_IA("MQTT(~p): Cannot connect. Rejected by server:~p .~n",[CS#client_state.details#client_info.serial,Error]),
 			{none,CS#client_state{ messages = 1+CS#client_state.messages, errors = 1+CS#client_state.errors }}
 	end;
-process( M, CS ) when is_record(M,mqtt_pingreq_variable_header_v4) ->
+process( M, CS ) when is_record(M,mqtt_pingresp_variable_header_v4) ->
 	Response = mqtt_message:encode(#mqtt_msg{ variable_header = #mqtt_pingresp_variable_header_v4{} }),
 	{ Response, CS#client_state{ messages = 1+CS#client_state.messages }};
 process( M, CS ) ->

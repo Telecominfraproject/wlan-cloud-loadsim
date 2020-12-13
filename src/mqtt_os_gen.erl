@@ -15,7 +15,7 @@
 %% API
 -export([gen_report/4]).
 
-gen_report(StartTime,ClientInfo,_MACs,MACSSIDList)->
+gen_report(StartTime,ClientInfo,MACs,MACSSIDList)->
 	TimeStamp = os:system_time() div 1000000,
 	TR = #'Report'{ nodeID = ClientInfo#client_info.serial,
 	                device = [ #'Device'{
@@ -31,7 +31,7 @@ gen_report(StartTime,ClientInfo,_MACs,MACSSIDList)->
 		                ps_mem_util = gen('Device.PerProcessUtil',ps_mem_util)
 	                }],
 	                neighbors = gen('Neighbor',TimeStamp),
-	                clients = gen('ClientReport',MACSSIDList,TimeStamp),
+	                clients = gen('ClientReport',ClientInfo#client_info.wan_mac0,MACs,MACSSIDList,TimeStamp,StartTime div 1000000),
 	                survey = gen('Survey',TimeStamp)
 	},
 	opensync_stats:encode_msg(TR,'Report').
@@ -145,26 +145,42 @@ gen('Survey',TimeStamp)->
 		undefined,undefined,undefined,14007260,undefined,154}],
 		[],'RAW'}].
 
--spec gen(atom(),[{atom(),[string()]}],integer())->any().
-gen('ClientReport',MACSSIDList,TimeStamp)->
-	lists:foldl(fun({Band,SSID,MACs},A) ->
-		[gen_client_report_for_band(TimeStamp,Band,MACs,SSID)|A]
-	            end,[],MACSSIDList).
+-spec gen(atom(),string(),[string()],[{atom(),[string()]}],integer(),integer())->any().
+gen('ClientReport',_MAC,_MACs,MACSSIDList,TimeStamp,StartTime)->
+	WanClients = lists:foldl(fun({Band,SSID,WiFiMACs},A) ->
+		[gen_client_report_for_band(TimeStamp,Band,WiFiMACs,SSID,StartTime)|A]
+	            end,[],MACSSIDList),
+	WanClients.
 
-gen_client_report_for_band(TimeStamp,Band,MACs,SSID)->
+gen_client_report_for_band(TimeStamp,Band,MACs,SSID,StartTime)->
  #'ClientReport'{
 	'band' = Band,
 	timestamp_ms = TimeStamp,
 	channel = rand:uniform(16),
 	client_list = lists:foldl(fun(E,A) ->
-			[gen_client_report_unique_client(E,SSID)|A]
+			[gen_client_report_unique_client(E,SSID,TimeStamp,StartTime)|A]
 		end,[],MACs)}.
 
-gen_client_report_unique_client(Mac,SSID)->
-	{'Client',Mac,SSID,false,1,1,40001,
-	20001,0,
-	{'Client.Stats',700,590,6,5,undefined,undefined,1,undefined,
-	6.0e3,6.0e3,4294967239},
-	[],[],[],undefined}.
+gen_client_report_unique_client(Mac,SSID,TimeStamp,StartTime)->
+	#'Client'{
+		mac_address = Mac,
+		ssid = SSID,
+		connected = true,
+		connect_count = rand:uniform(5),
+		disconnect_count = rand:uniform(10),
+		stats = get_stats(TimeStamp,StartTime)
+	}.
 
+get_stats(TimeStamp,StartTime)->
+	#'Client.Stats'{
+		rx_bytes = (TimeStamp-StartTime) * (rand:uniform(5)+2),
+		tx_bytes = (TimeStamp-StartTime) * (rand:uniform(2)+1),
+		rx_frames = ((TimeStamp-StartTime) * (rand:uniform(5)+2)) div 1024,
+		tx_frames = ((TimeStamp-StartTime) * (rand:uniform(2)+1)) div 1024,
+		tx_retries = rand:uniform(5000),
+		rx_retries = rand:uniform(100),
+		rx_rate = 1000000,
+		tx_rate = 2000000,
+		rssi = rand:uniform(20)+75
+	}.
 

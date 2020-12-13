@@ -1871,6 +1871,7 @@ test(Serial,MACSSIDList)->
 	                }],
 	                neighbors = mqtt_os_gen:gen('Neighbor'),
 	                clients = mqtt_os_gen:gen('ClientReport',MACSSIDList)
+
 		},
 
 	opensync_stats:encode_msg(TR,'Report').

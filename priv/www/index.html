@@ -70,7 +70,11 @@
           <div class="mb-3" v-if="socketOpen">
             <input type="text" class="form-control w-auto" name="msg" v-model="msg" />
             <button class="btn btn-sm btn-secondary" v-on:click="send()">Send Message</button>
-          </div> 
+          </div>
+
+          <div class="mt-3 bg-warning p-2">
+            <button class="btn btn-sm btn-light" v-on:click="fakeStream()">{{ fakeStreamLabel }}</button>
+          </div>
 
         </div>
 
@@ -78,15 +82,23 @@
 
       <div class="p-3">
 
-          <h2 class="h3">Output</h2>
-          <div class="output">
-            <code v-for="(msg, index) in output" :key="index">{{ msg }}</code>
-          </div>
+        <div id="charts"></div>
+
+        <h2 class="h3">Output</h2>
+        <div class="output">
+          <code v-for="(msg, index) in output" :key="index">{{ msg }}</code>
         </div>
+      </div>
 
     </div>
 
+    <!--  
+      start of scripts
+    -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.4/dist/Chart.min.js" integrity="sha256-t9UJPrESBeG2ojKTIcFLPGF7nHi2vEc7f5A2KpH/UBU=" crossorigin="anonymous"></script>
     <script src="https://unpkg.com/vue@3.0.4/dist/vue.global.js"></script>
+    <!-- temporary stats for stream testing -->
+    <script src="_tmp-stats.js"></script>
     <script>
       const App = {
         data() {
@@ -95,8 +107,16 @@
             output: [],
             socket: null,
             socketOpen: false,
-            wss: '',
+            wss: 'ws://localhost:9090/ws',
             msg: 'Hello World',
+            nodesDict: {},
+            nodes: [],
+            charts: [],
+            streamInterval: null,
+            streamIntervalTime: 250,
+            streamTimeSince: 0,
+            streamOn: false,
+            streamIndex: 0,
           }
         },
         created: function() {
@@ -116,7 +136,12 @@
             this.socket.onmessage = (event) => {
               console.log(event);
               this.output = [];
-              this.output.push(JSON.parse(event.data));
+              // try to pull data into a basic chart
+              if( event.data && event.data.value ) {
+                this.testLogKernel( event.data );
+              } else {
+                this.output.push(JSON.parse(event.data));
+              }
             }
 
             this.socket.onopen = (event) => {
@@ -154,8 +179,70 @@
                 this.output = [];
                 this.output.push(data);
               });
-          }
+          },
 
+          fakeStream: function() {
+            if( this.streamInterval ) {
+              console.log('Stopping fake stream...');
+              clearInterval( this.streamInterval );
+              this.streamOn = false;
+            } else {
+              console.log('Starting fake stream...');
+              this.streamInterval = setInterval(() => {
+                if( this.streamIndex + 1 >= window.tmpStats.length ) {
+                  this.streamIndex = 0;
+                }
+                this.testLogKernel(window.tmpStats[ this.streamIndex ]);
+                this.streamIndex++;
+                this.streamTimeSince = this.streamIntervalTime * this.streamIndex;
+              }, this.streamIntervalTime);
+              this.streamOn = true;
+            }
+          },
+
+          testLogKernel: function( data ) {
+            let idx = null;
+            if( !data.node ) {
+              return;
+            }
+            if( data.node in this.nodesDict ) {
+              idx = this.nodesDict[data.node];
+            } else {
+              idx = this.nodes.length;
+              this.nodes.push([]);
+              this.nodesDict[data.node] = idx;
+              // canvas for chart
+              const el = document.createElement('canvas');
+              el.setAttribute('id', `chart-${idx}`);
+              const charts = document.getElementById('charts');
+              charts.appendChild(el);
+              const chart = new Chart(el, {
+                type: 'line',
+                data: {
+                  labels: [],
+                  datasets: [{
+                    label: data.node,
+                    data: this.nodes[idx],
+                  }]
+                },
+              });
+              this.charts.push( chart );
+            }
+            if( data.value && data.value.kernel_utilization ) {
+              console.log(data.value.kernel_utilization);
+              this.charts[idx].data.datasets[0].data.push(data.value.kernel_utilization);
+              this.charts[idx].data.labels.push( this.streamTimeSince );
+              this.charts[idx].update();
+            } else {
+              console.log('No kernel utilization');
+            }
+          },
+
+        },
+        computed: {
+          fakeStreamLabel: function() {
+            return this.streamOn ? 'Stop Fake Stream' : 'Start Fake Stream'
+          }
         },
       };
 

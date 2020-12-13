@@ -79,7 +79,7 @@ full_start(State)->
 												{packet,raw},
 												{mode,binary}]) of
 								{ok,SSLSocket} ->
-									io:format("MQTT(~p): Connecting.~n",[State#client_state.details#client_info.serial]),
+									?L_IA("MQTT(~p): Connecting.~n",[State#client_state.details#client_info.serial]),
 									RS = run_client(SSLSocket,State#client_state{ connects = State#client_state.connects+1, t1 = T1 }),
 									utils:do(State#client_state.keep_alive_ref =/= undefined,{timer,cancel,[State#client_state.keep_alive_ref]}),
 									utils:do(State#client_state.send_report_timer =/= undefined,{timer,cancel,[State#client_state.send_report_timer]}),
@@ -152,7 +152,7 @@ manage_connection(Socket,CS) ->
 			Data = mqtt_message:publish(rand:uniform(60000),CS#client_state.topics,zlib:compress(OpenSyncReport),?MQTT_PROTOCOL_VERSION_3_11),
 			_ = ssl:send(Socket,Data),
 			%% Data2 = mqtt_message:decode(Data,?MQTT_PROTOCOL_VERSION_3_11),
-			io:format("MQTT(~p): Sent an MQTT report.~n",[CS#client_state.details#client_info.serial]),
+			?L_IA("MQTT(~p): Sent an MQTT report.~n",[CS#client_state.details#client_info.serial]),
 			manage_connection(Socket,CS);
 		{ send_data,Data } ->
 			%% io:format("MQTT_CLIENT: Received a message to return some data: ~p~n",[Data]),

@@ -168,15 +168,17 @@ gen_client_report_unique_client(Mac,SSID,TimeStamp,StartTime)->
 		connected = true,
 		connect_count = rand:uniform(5),
 		disconnect_count = rand:uniform(10),
+		duration_ms = (TimeStamp-StartTime) div 1000000,
 		stats = get_stats(TimeStamp,StartTime)
 	}.
 
 get_stats(TimeStamp,StartTime)->
+	Factor = ((TimeStamp-StartTime) div 20),
 	#'Client.Stats'{
-		rx_bytes = (TimeStamp-StartTime) * (rand:uniform(5)+2),
-		tx_bytes = (TimeStamp-StartTime) * (rand:uniform(2)+1),
-		rx_frames = ((TimeStamp-StartTime) * (rand:uniform(5)+2)) div 1024,
-		tx_frames = ((TimeStamp-StartTime) * (rand:uniform(2)+1)) div 1024,
+		rx_bytes = Factor * (rand:uniform(5)+2),
+		tx_bytes = Factor * (rand:uniform(2)+1),
+		rx_frames = (Factor * (rand:uniform(5)+2)) div 792,
+		tx_frames = (Factor * (rand:uniform(2)+1)) div 792,
 		tx_retries = rand:uniform(5000),
 		rx_retries = rand:uniform(100),
 		rx_rate = 1000000,

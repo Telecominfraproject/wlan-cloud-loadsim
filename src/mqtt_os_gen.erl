@@ -20,7 +20,7 @@ gen_report(StartTime,ClientInfo,_MACs,MACSSIDList)->
 	TR = #'Report'{ nodeID = ClientInfo#client_info.serial,
 	                device = [ #'Device'{
 		                timestamp_ms = TimeStamp,
-		                uptime = TimeStamp - (StartTime div 1000000),
+		                uptime = (TimeStamp - (StartTime div 1000000)) div 1000,
 		                load = gen('Device.LoadAvg'),
 		                mem_util = gen('Device.MemUtil'),
 		                fs_util = gen('Device.FsUtil'),

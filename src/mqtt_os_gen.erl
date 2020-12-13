@@ -13,9 +13,9 @@
 -include("../include/inventory.hrl").
 
 %% API
--export([gen_report/4]).
+-export([gen_report/2]).
 
-gen_report(StartTime,ClientInfo,MACs,MACSSIDList)->
+gen_report(StartTime,ClientInfo)->
 	TimeStamp = os:system_time() div 1000000,
 	TR = #'Report'{ nodeID = ClientInfo#client_info.serial,
 	                device = [ #'Device'{
@@ -31,7 +31,9 @@ gen_report(StartTime,ClientInfo,MACs,MACSSIDList)->
 		                ps_mem_util = gen('Device.PerProcessUtil',ps_mem_util)
 	                }],
 	                neighbors = gen('Neighbor',TimeStamp),
-	                clients = gen('ClientReport',ClientInfo#client_info.wan_mac0,MACs,MACSSIDList,TimeStamp,StartTime div 1000000),
+	                clients = gen('ClientReport',ClientInfo#client_info.wan_mac0,
+	                              ClientInfo#client_info.lan_clients,
+	                              ClientInfo#client_info.wifi_clients,TimeStamp,StartTime div 1000000),
 	                survey = gen('Survey',TimeStamp)
 	},
 	opensync_stats:encode_msg(TR,'Report').
@@ -146,7 +148,7 @@ gen('Survey',TimeStamp)->
 		[],'RAW'}].
 
 -spec gen(atom(),string(),[string()],[{atom(),[string()]}],integer(),integer())->any().
-gen('ClientReport',_MAC,_MACs,MACSSIDList,TimeStamp,StartTime)->
+gen('ClientReport',_MAC,_LANClients,MACSSIDList,TimeStamp,StartTime)->
 	WanClients = lists:foldl(fun({Band,SSID,WiFiMACs},A) ->
 		[gen_client_report_for_band(TimeStamp,Band,WiFiMACs,SSID,StartTime)|A]
 	            end,[],MACSSIDList),

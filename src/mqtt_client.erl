@@ -14,7 +14,7 @@
 -include("../include/mqtt_definitions.hrl").
 
 %% API
--export([start/4,send_ping/1,c_cfg/0,s_cfg/0,t1/0,t2/0,gen_lan_clients/0,gen_bands/0,gen_wan_clients/1]).
+-export([start/4,send_ping/1,c_cfg/0,s_cfg/0,t1/0,t2/0]).
 
 -record(client_state,{id = <<>> :: binary(),
 											caname :: binary(),
@@ -34,11 +34,8 @@
 											t1 = 0 :: integer(),
 											connect_time = 0 :: integer(),
 											messages=0::integer(),
-											lan_clients = [] :: [string()],
 											start_time = 0 :: number(),
-											send_report_timer,
-											bands = [] :: ['BAND2G' | 'BAND5G' | 'BAND5GL' | 'BAND5GU'],
-											wan_clients = [] :: [{'BAND2G' | 'BAND5G' | 'BAND5GL' | 'BAND5GU',[MAC::string()]}]}).
+											send_report_timer}).
 
 -spec start(CAName::binary(),Id::binary(),Configuration::gen_configuration_b(), ManagerPid::pid()) -> no_return().
 start(CAName,Id,Configuration,ManagerPid)->
@@ -47,7 +44,6 @@ start(CAName,Id,Configuration,ManagerPid)->
 	NewConfig = #{ broker => <<"opensync-mqtt-broker.wlan.local">>, compress => Compress,
 	            port => list_to_integer(binary_to_list(Port)), topics => Topics },
 	{ok,DeviceConfiguration} = inventory:get_client(CAName,Id),
-	Bands = gen_bands(),
 	full_start(#client_state{
 		id = Id,
 		caname = CAName,
@@ -57,9 +53,6 @@ start(CAName,Id,Configuration,ManagerPid)->
 		broker = Broker,
 		port = list_to_integer(binary_to_list(Port)),
 		topics = Topics,
-		bands = Bands,
-		lan_clients = gen_lan_clients(),
-		wan_clients = gen_wan_clients(Bands),
 		keep_alive_ref = undefined,
 		send_report_timer = undefined,
 		compress = Compress}).
@@ -146,9 +139,7 @@ manage_connection(Socket,CS) ->
 			io:format("MQTT(~p): Closing.~n",[CS#client_state.details#client_info.serial]);
 		send_report ->
 			OpenSyncReport = mqtt_os_gen:gen_report( CS#client_state.start_time,
-															CS#client_state.details,
-															CS#client_state.lan_clients,
-															CS#client_state.wan_clients),
+															CS#client_state.details),
 			Data = mqtt_message:publish(rand:uniform(60000),CS#client_state.topics,zlib:compress(OpenSyncReport),?MQTT_PROTOCOL_VERSION_3_11),
 			_ = ssl:send(Socket,Data),
 			%% Data2 = mqtt_message:decode(Data,?MQTT_PROTOCOL_VERSION_3_11),
@@ -209,32 +200,6 @@ process( M, CS ) when is_record(M,mqtt_pingresp_variable_header_v4) ->
 process( M, CS ) ->
 	io:format("MQTT_CLIENT: Unknown message: ~p~n",[M]),
 	{none,CS}.
-
-gen_bands()->
-	case rand:uniform(4) of
-		1 -> ['BAND2G'];
-		2 -> ['BAND2G','BAND5G'];
-		3 -> ['BAND2G','BAND5G','BAND5GL','BAND5GU'];
-		4 -> ['BAND2G','BAND5G','BAND5GL','BAND5GU']
-	end.
-
-gen_client(OUI)->
-	[A1,A2,A3,A4,A5,A6] = OUI,
-	[X1,X2,X3,X4,X5,X6] = lists:flatten(string:pad(integer_to_list(rand:uniform(1 bsl 24),16),6,leading,$0)),
-	[A1,A2,$:,A3,A4,$:,A5,A6,$:,X1,X2,$:,X3,X4,$:,X5,X6].
-gen_clients(0,Acc)->
-	Acc;
-gen_clients(Number,Acc)->
-	OUI=binary_to_list(oui_server:get_an_oui()),
-	gen_clients(Number-1,[gen_client(OUI)|Acc]).
-gen_lan_clients() ->
-	gen_clients(rand:uniform(8),[]).
-gen_wan_clients(Bands)->
-	gen_wlan_clients(Bands,[]).
-gen_wlan_clients([],Acc)->
-	Acc;
-gen_wlan_clients([Band|T],Acc)->
-	gen_wlan_clients(T,[{Band,animals:get_an_animal(),gen_lan_clients()}|Acc]).
 
 c_cfg()->
 	#{<<"broker">> => <<"opensync-mqtt-broker.debfarm1-node-a.arilia.com">>,

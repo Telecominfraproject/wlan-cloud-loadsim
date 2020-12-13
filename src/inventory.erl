@@ -24,7 +24,7 @@
 	make_client/2,make_clients/5,generate_client_batch/6,get_client/2,
 	all_files_exist/1,valid_ca_name/1,valid_password/1,
 	delete_server/2,import_ca/2,create_tables/0,
-	list_clients/1]).
+	list_clients/1,gen_lan_clients/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -664,21 +664,20 @@ create_client(CAInfo,Attributes,State)->
 	{ok,ClientKeyPemData} = utils:pem_to_key(ClientKeyPem),
 	{ok,ClientCertPemData} = utils:pem_to_cert(ClientCertPem),
 
-	[X1a,X1b,$:,X2a,X2b,$:,X3a,X3b,$:,X4a,X4b,$:,X5a,X5b,$:,X6a,_X6b] = binary_to_list(Mac),
+	Bands = gen_bands(),
+
+	[X1a,X1b,$:,X2a,X2b,$:,X3a,X3b,$:,X4a,X4b,$:,X5a,X5b,$:,X6a,_X6b] = string:to_lower(binary_to_list(Mac)),
 	Client = #client_info{
 		name = Serial,
 		ca = CAInfo#ca_info.name,
 		cap = [ mqtt_client , ovsdb_client ],
 		wan_mac0 = list_to_binary([X1a,X1b,$:,X2a,X2b,$:,X3a,X3b,$:,X4a,X4b,$:,X5a,X5b,$:,X6a,$0]),
-		wan_mac1 = list_to_binary([X1a,X1b,$:,X2a,X2b,$:,X3a,X3b,$:,X4a,X4b,$:,X5a,X5b,$:,X6a,$1]),
-		wan_mac2 = list_to_binary([X1a,X1b,$:,X2a,X2b,$:,X3a,X3b,$:,X4a,X4b,$:,X5a,X5b,$:,X6a,$2]),
-		wan_mac3 = list_to_binary([X1a,X1b,$:,X2a,X2b,$:,X3a,X3b,$:,X4a,X4b,$:,X5a,X5b,$:,X6a,$3]),
-		lan_mac0 = list_to_binary([X1a,X1b,$:,X2a,X2b,$:,X3a,X3b,$:,X4a,X4b,$:,X5a,X5b,$:,X6a,$4]),
-		lan_mac1 = list_to_binary([X1a,X1b,$:,X2a,X2b,$:,X3a,X3b,$:,X4a,X4b,$:,X5a,X5b,$:,X6a,$5]),
-		lan_mac2 = list_to_binary([X1a,X1b,$:,X2a,X2b,$:,X3a,X3b,$:,X4a,X4b,$:,X5a,X5b,$:,X6a,$6]),
-		lan_mac3 = list_to_binary([X1a,X1b,$:,X2a,X2b,$:,X3a,X3b,$:,X4a,X4b,$:,X5a,X5b,$:,X6a,$7]),
+		lan_mac0 = list_to_binary([X1a,X1b,$:,X2a,X2b,$:,X3a,X3b,$:,X4a,X4b,$:,X5a,X5b,$:,X6a,$8]),
 		id = HardwareId,
 		serial = Serial,
+		bands = Bands,
+		wifi_clients = gen_wan_clients(Bands),
+		lan_clients = [{<<"lan0">>,gen_lan_clients()}],
 		key = ClientKeyPemData,
 		cert = ClientCertPemData,
 		decrypt = ClientKeyDecData,
@@ -689,6 +688,32 @@ create_client(CAInfo,Attributes,State)->
 	_R = add_record(Client),
 	%% io:format("RESULT>>>=~p~n",[R]),
 	{ ok, State }.
+
+gen_bands()->
+	case rand:uniform(4) of
+		1 -> ['BAND2G'];
+		2 -> ['BAND2G','BAND5G'];
+		3 -> ['BAND2G','BAND5G','BAND5GL','BAND5GU'];
+		4 -> ['BAND2G','BAND5G','BAND5GL','BAND5GU']
+	end.
+
+gen_client(OUI)->
+	[A1,A2,A3,A4,A5,A6] = OUI,
+	[X1,X2,X3,X4,X5,X6] = lists:flatten(string:pad(integer_to_list(rand:uniform(1 bsl 24),16),6,leading,$0)),
+	list_to_binary(string:to_lower([A1,A2,$:,A3,A4,$:,A5,A6,$:,X1,X2,$:,X3,X4,$:,X5,X6])).
+gen_clients(0,Acc)->
+	Acc;
+gen_clients(Number,Acc)->
+	OUI=binary_to_list(oui_server:get_an_oui()),
+	gen_clients(Number-1,[gen_client(OUI)|Acc]).
+gen_lan_clients() ->
+	gen_clients(rand:uniform(8),[]).
+gen_wan_clients(Bands)->
+	gen_wlan_clients(Bands,[]).
+gen_wlan_clients([],Acc)->
+	Acc;
+gen_wlan_clients([Band|T],Acc)->
+	gen_wlan_clients(T,[{Band,list_to_binary(animals:get_an_animal()),gen_lan_clients()}|Acc]).
 
 generate_client_batch(CAInfo,Start,HowMany,Attributes,Notification,State)->
 	#{ id := HardwareId } = Attributes,

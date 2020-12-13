@@ -1,20 +1,28 @@
 Version: 1.0
 
 Devices:
-  - Id : tp_link_ea8300_a
+  - Id : tp_link_ea8300
     Description: TP Link Home Gateway
-    Vendor: Google Inc.
+    Vendor: TP-Link Technologies Ltd
     Model: ea8300
     Capabilities:
       - mqtt_client
       - ovsdb_client
-    Firmware: 1.0.2.3.4
-  - Id : tp_link_ea8300_b
-    Description: TP Link Home Gateway
-    Vendor: Google Inc.
-    Model: ea8301
+    Firmware: ea8300-2020-12-07-staging-opensync-mesh
+  - Id : edge_core_ecw5211_l
+    Description: EdgeCore 5211
+    Vendor: Edgecore Networks Corporation
+    Model: ecw5211
     Capabilities:
       - mqtt_client
       - ovsdb_client
-    Firmware: 1.0.2.3.5
+    Firmware: ecw5211-2020-12-07-staging-opensync-mesh
+  - Id : edge_core_ecw5410_l
+    Description: EdgeCore 5410
+    Vendor: Edgecore Networks Corporation
+    Model: ecw5410
+    Capabilities:
+      - mqtt_client
+      - ovsdb_client
+    Firmware: ecw5410-2020-12-07-pending-de8e562
 

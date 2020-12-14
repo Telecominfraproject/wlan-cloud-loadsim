@@ -109,7 +109,13 @@ paths:
           required: false
         - in: query
           description: Detailed version
-          name: filter
+          name: details
+          schema:
+            type: integer
+          required: false
+        - in: query
+          description: Detailed version
+          name: types
           schema:
             type: integer
           required: false
@@ -542,7 +548,7 @@ components:
       properties:
         OUIs:
           type: array
-          Data:
+          items:
             type: string
           
     MakerList:
@@ -550,7 +556,7 @@ components:
       properties:
         Manufacturers:
           type: array
-          Data: 
+          items: 
             type: string
             
     MakerOUIList:
@@ -561,7 +567,7 @@ components:
             string
         OUIs:
           type: array
-          Data:
+          items:
             type: string
           
     OUIMaker:
@@ -579,7 +585,7 @@ components:
       properties:
         CAs:
           type: array
-          Data:
+          items:
             type: string
             
     CADetails:

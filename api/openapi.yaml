@@ -493,7 +493,151 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         404:
           $ref: '#/components/responses/NotFound'
-          
+  
+  /simulations:
+    get:
+      tags: [simulations]
+      summary: List all existing simulations
+      operationId: listSimulations
+      parameters:
+        - in: query
+          description: Pagination start (starts at 1. If not specified, 1 is assumed)
+          name: offset
+          schema:
+            type: integer
+          required: false
+        - in: query
+          description: Maximum number of entries to return (if absent, no limit is assumed) 
+          name: limit
+          schema:
+            type: integer
+          required: false
+        - in: query
+          description: Filter the results
+          name: filter
+          schema:
+            type: string
+          required: false
+
+      responses:
+        200:
+          description: Return the list of simulations.This can be an empty list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimulationsPagination'
+        403:
+          $ref: '#/components/responses/Unauthorized'
+
+  /simulations/{id}:
+    get:
+      tags: [Simulations]
+      summary: Get the details about a single simulation
+      operationId: getASingleSimulation
+      parameters: 
+        - in: path
+          description: The name of the simulation we are interested in.
+          name: id
+          schema:
+            type: string
+          required: true
+      responses:
+        200:
+          description: Details of the requested simulation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimulationDetails'
+        403:
+          $ref: '#/components/responses/Unauthorized'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      tags: [Simulations]
+      summary: Update the details about a single CA
+      operationId: createASingleSimulation
+      parameters: 
+        - in: path
+          description: The name of the simulation we are creating.
+          name: id
+          schema:
+            type: string
+          required: true
+      requestBody:
+        description: The information about the device
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SimulationDetails'
+      responses:
+        201:
+          description: Return on success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimulationDetails'
+        403:
+          $ref: '#/components/responses/Unauthorized'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Simulations]
+      summary: Update the details about a single CA
+      operationId: updateASingleSimulation
+      parameters: 
+        - in: path
+          description: The name of the simulation we are creating.
+          name: id
+          schema:
+            type: string
+          required: true
+      requestBody:
+        description: The information about the device
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SimulationDetails'
+      responses:
+        201:
+          description: Return on success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimulationDetails'
+        403:
+          $ref: '#/components/responses/Unauthorized'
+        404:
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Simulations]
+      summary: Remove all information about a given simulation
+      operationId: removeSimulation
+      parameters:
+        - in: path
+          description: The name of the simulation to remove
+          name: id
+          schema:
+            type: string
+          required: true
+      responses:
+        200:
+          description: Succesful removal of CA
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericGoodAnswer'
+        404:
+          description: CA does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericErrorResponse'
+  
                 
 components:
   responses:
@@ -732,6 +876,15 @@ components:
           $ref: '#/components/schemas/CAList'
         Meta:
           $ref: '#/components/schemas/PaginationInfo'
+
+    SimulationsPagination:
+      description: Returning a list of Simulations
+      readOnly: true
+      properties:
+        Value:
+          $ref: '#/components/schemas/CAList'
+        Meta:
+          $ref: '#/components/schemas/PaginationInfo'
           
     OUIsPagination:
       description: Returning a list of OUIs
@@ -761,8 +914,34 @@ components:
                 type: number
               allocated:
                 type: number
+              type:
+                type: string
         Meta:
           $ref: '#/components/schemas/PaginationInfo'
+
+    SimulationDetails:
+      description: Details of the simulation
+      properties:
+        caname:
+          description: CA Associated with the simulation (must exist)
+          type: string
+        num_devices:
+          description: Number of devices for this simulation
+          type: integer
+        nodes:
+          type: array
+          items:
+            type: string
+        server:
+          type: string
+        port:
+          type: integer
+        creation_date:
+          type: string
+          readOnly: true
+        assets_created:
+          type: boolean
+          readOnly: true
 
     NodeList:
       description: List of nodes.

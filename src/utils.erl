@@ -58,7 +58,9 @@ get_addr2()->
 -spec app_name( AppName::atom() )->ok.
 app_name(AppName)->
 	persistent_term:put(running_app,AppName),
-	persistent_term:put(priv_dir,code:priv_dir(AppName)).
+	{ ok, RootDir } = file:get_cwd(),
+	PrivDir = filename:join([RootDir,"priv/"]),
+	persistent_term:put(priv_dir,PrivDir).
 
 -spec app_name()->AppName::atom().
 app_name()->

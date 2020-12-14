@@ -19,7 +19,7 @@
 %% gen_server callbacks
 -export([ init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
           code_change/3,creation_info/0,start_client/3,stop_client/2,is_running/2,
-					get_stats/0,update_stats/0,set_ssid/3]).
+					get_stats/0,update_stats/0,set_ssid/3,dump_client/2]).
 
 -define(SERVER, ?MODULE).
 
@@ -63,6 +63,10 @@ get_stats()->
 -spec set_ssid(CAName::string()|binary(),Serial::string()|binary(),SSID::binary())->ok.
 set_ssid(CAName,Serial,SSID)->
 	gen_server:cast(?SERVER,{set_ssid,utils:safe_binary(CAName),utils:safe_binary(Serial),utils:safe_binary(SSID)}).
+
+-spec dump_client(CAName::string()|binary(),Serial::string()|binary())->ok.
+dump_client(CAName,Serial)->
+	gen_server:cast(?SERVER,{dump_client,utils:safe_binary(CAName),utils:safe_binary(Serial)}).
 
 update_stats()->
 	{ok,Stats} = get_stats(),
@@ -140,9 +144,17 @@ extract_stats(State)->
 handle_cast({set_ssid,_CAName,Serial,SSID}, State = #mqtt_client_manager_state{}) ->
 	case maps:get(Serial,State#mqtt_client_manager_state.client_configurations,unknown) of
 		unknown ->
-			?L_IA("MQTT_CLIENT_MANAGER: attempt to set SSID ~p to device ~p.",[SSID,Serial]);
+			?L_IA("MQTT_CLIENT_MANAGER: attempt to set SSID ~p to device ~p failed.",[SSID,Serial]);
 		Pid ->
 			Pid ! {set_ssid,SSID}
+	end,
+	{noreply, State};
+handle_cast({dump_client,_CAName,Serial}, State = #mqtt_client_manager_state{}) ->
+	case maps:get(Serial,State#mqtt_client_manager_state.client_configurations,unknown) of
+		unknown ->
+			?L_IA("MQTT_CLIENT_MANAGER: attempt to show config for device ~p failed.",[Serial]);
+		Pid ->
+			Pid ! {dump_client,all}
 	end,
 	{noreply, State};
 handle_cast(_Request, State = #mqtt_client_manager_state{}) ->

@@ -150,6 +150,9 @@ manage_connection(Socket,CS) ->
 			WifiClients = CS#client_state.details#client_info.wifi_clients,
 			NewWifiClients = [{Band,SSID,Clients} || {Band,_,Clients} <- WifiClients],
 			manage_connection(Socket,CS#client_state.details#client_info{ wifi_clients = NewWifiClients});
+		{dump_client,all}->
+			io:format("MQTT-CLIENT: ~p~n~p~n",[CS#client_state.details#client_info.serial,CS]),
+			manage_connection(Socket,CS);
 		{ send_data,Data } ->
 			%% io:format("MQTT_CLIENT: Received a message to return some data: ~p~n",[Data]),
 			_ = ssl:send(Socket,Data),

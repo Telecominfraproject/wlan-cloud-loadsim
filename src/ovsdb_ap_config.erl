@@ -70,7 +70,7 @@ configure (#cfg{ca_name=CAName, id=ID, redirector=R}=Config) ->
 
 -spec validate_config(APC :: [{atom(),term()}]) -> CorrAPC :: [{atom(),term()}].
 validate_config (APC) ->
-	File = filename:join([code:priv_dir(?OWLS_APP),"templates","default_ap.cfg"]),
+	File = filename:join([utils:priv_dir(),"templates","default_ap.cfg"]),
 	{ok, [Defaults]} = file:consult(File),
 	F = fun({K,V}) ->
 		case V of 

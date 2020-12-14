@@ -396,7 +396,7 @@ apply_config (Cfg, #hdl_state{clients=Clients}=State) when is_map_key(file,Cfg) 
 	#{file := CfgFile} = Cfg,
 	Path = case filelib:is_regular(CfgFile) of
 		true -> CfgFile;
-		_ -> filename:join([code:priv_dir(?OWLS_APP),CfgFile])
+		_ -> filename:join([utils:priv_dir(),CfgFile])
 	end,
 	_ = case file:consult(Path) of
 		{ok, [Refs]} ->

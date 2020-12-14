@@ -179,7 +179,7 @@ update_records (T,V,[R|Rest],Acc)  ->
 -spec read_schema(Store :: ets:tid()) -> binary().
 read_schema (Store) ->
 	[#'AWLAN_Node'{model=Model}|_] = ets:match_object(Store,#'AWLAN_Node'{_='_'}),
-	FName = filename:join([code:priv_dir(?OWLS_APP),"templates",iolist_to_binary([string:uppercase(Model),"_schema.json"])]),
+	FName = filename:join([utils:priv_dir(),"templates",iolist_to_binary([string:uppercase(Model),"_schema.json"])]),
 	case filelib:is_regular(FName) of
 		true ->
 			{ok, Schema} = file:read_file(FName),

@@ -133,9 +133,9 @@ add_new_report(Node,Type,Report)->
 	try
 	  JSON = jiffy:encode( #{ type => report, name => Type , node => Node, data => Report } ),
 		web_socket_handler:send_frame( JSON )
-%%	  _ = file:write_file(filename:join([code:priv_dir(?OWLS_APP),"stats.json"]),JSON,[append]),
-%%	  _ = file:write_file(filename:join([code:priv_dir(?OWLS_APP),"stats.json"]),<<"\n">>,[append]),
-%%	  _ = file:write_file(filename:join([code:priv_dir(?OWLS_APP),"stats.json"]),<<"\n">>,[append])
+%%	  _ = file:write_file(filename:join([utils:priv_dir(),"stats.json"]),JSON,[append]),
+%%	  _ = file:write_file(filename:join([utils:priv_dir(),"stats.json"]),<<"\n">>,[append]),
+%%	  _ = file:write_file(filename:join([utils:priv_dir(),"stats.json"]),<<"\n">>,[append])
 	catch
 		_:_ ->
 			io:format("FAILED REPORT: ~p~n ~p~n",[Type,Report])

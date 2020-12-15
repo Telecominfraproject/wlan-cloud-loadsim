@@ -249,9 +249,7 @@ handle_cast ({exec_rpc, RPC}, State) when is_map(RPC) andalso
 								maps:get(<<"id">>,RPC),
 								RPC,
 								State#ap_state.store) of
-		{ok, ignore} ->
-			{noreply, State};
-
+		
 		{ok, Result} when is_map(Result) andalso is_map_key(<<"result">>,Result) ->
 			R= io_lib:format("~p",[Result]),
 			Bytes = length(lists:flatten(R)),

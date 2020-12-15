@@ -18,18 +18,24 @@
 %%------------------------------------------------------------------------------
 %% request handling
 
--spec eval_req (Method :: binary(), Id :: binary(), Data :: map(), Store :: ets:tid()) -> {ok, ignore} | {ok, Result :: map()} | generic_error().
+-spec eval_req (Method :: binary(), Id :: binary(), Data :: map(), Store :: ets:tid()) -> {ok, ignore} | {ok, Result :: map() | binary()} | generic_error().
 eval_req(<<"echo">>, Id, _Data, _Store) ->
 	?L_I(?DBGSTR("RPC request: ~s (~s)",[<<"echo">>,Id])),
 	{ok, make_result(Id,[])};
 
-eval_req(<<"transact">>,Id,#{<<"params">>:=P},Store) ->
-	Res = run_transactions(Id,P,Store,[]),
+eval_req(<<"transact">>,Id,#{<<"params">>:=[<<"Open_vSwitch">>|Trans]},Store) ->
+	Res = run_transactions(Id,Trans,Store,[]),
 	{ok, make_result(Id,Res)};
+eval_req(<<"transact">>,Id,#{<<"params">>:=_P},_Store) ->
+	{ok, make_result(Id,<<>>)};
 
-eval_req(<<"monitor">>,Id,#{<<"params">>:=P},Store) ->
-	Res = run_monitor(Id,P,Store,#{}),
+eval_req(<<"monitor">>,Id,#{<<"params">>:=[<<"Open_vSwitch">>,NSpace|Tables]},Store) when length(Tables)==1 ->	
+	Res = req_monitor(NSpace,maps:to_list(hd(Tables)),Store),
 	{ok, make_result(Id,Res)};
+eval_req(<<"monitor">>,Id,P,_) ->
+	?L_EA("unrecognized monitor request: ~p",[P]),
+	{ok, make_result(Id,#{})};
+
 
 eval_req(<<"get_schema">>, Id,_,Store) ->
 	?L_I(?DBGSTR("RPC request: ~s (~s)",[<<"get_schema">>,Id])),
@@ -40,7 +46,7 @@ eval_req (Method, Id, _Data, _Store) ->
 	?L_I(?DBGSTR("RPC request: ~s (~s)",[Method,Id])),
 	{error,io_lib:format("~s not recognized",[Method])}.
 
--spec make_result (Id :: binary(), Result :: [#{binary()=>any()}] | binary()) -> map().
+-spec make_result (Id :: binary(), Result :: map() | list() | binary() | null) -> map() | binary().
 make_result (Id, <<>>) ->
 	iolist_to_binary(io_lib:format("{\"result\":null,\"id\":\"~s\",\"error\":\"internal error\"}",[Id]));
 make_result (Id, Res) when is_binary(Res) ->
@@ -71,33 +77,76 @@ eval_resp (Id, _Data, Queue, _Store) ->
 %%------------------------------------------------------------------------------
 %% transaction and monitor handling
 
--spec run_transactions (Id :: binary(), Transactions :: binary() | #{binary() => term()}, Store :: ets:tid(), Acc :: [#{binary()=>any()}]) -> [#{binary()=>any()}].
+-spec run_transactions (Id :: binary(), Transactions :: [#{binary() => term()}], Store :: ets:tid(), Acc :: [#{binary()=>any()}]) -> [#{binary()=>any()}].
 run_transactions (_,[],_,Acc) ->
 	lists:reverse(Acc);
 run_transactions (Id,[Trans|More],Store,Acc) when is_map(Trans) ->
 	#{<<"table">>:=T, <<"op">>:=OP} = Trans,
 	?L_I(?DBGSTR("=> table: ~s, operation: ~s",[T,OP])),
 	Qr = table_query(Trans,Store),
-	run_transactions (Id,More,Store,[Qr|Acc]);
-run_transactions (Id,[DB|More],Store,Acc) ->
-	?L_I(?DBGSTR("RPC request ID: ~s / transaction for: ~s",[Id,DB])),
-	run_transactions (Id,More,Store,Acc).
+	run_transactions (Id,More,Store,[Qr|Acc]).
 
--spec run_monitor (Id :: binary(), Transactions :: binary() | #{binary() => term()}, Store :: ets:tid(), Acc :: #{binary()=>any()}) -> #{binary()=>any()}.
-run_monitor (_,[],_,Acc) ->
-	Acc;
-run_monitor (Id,[DB|More],Store,Acc) when is_binary(DB) ->
-	?L_IA("RPC request ID: ~s / monitor for: ~s",[Id,DB]),
-	run_monitor (Id,More,Store,Acc);
-run_monitor (Id,[_|More],Store,Acc) ->
-	run_monitor (Id,More,Store,Acc).
+-spec req_monitor (NameSpace :: binary(), ToMonitor :: [#{binary()=>term()}], Store :: ets:tid()) -> Result :: #{binary()=>term()}.
+req_monitor (NameSpace,[{Table,M}|_],Store) when map_size(M) == 0 ->
+	demonitor (NameSpace,Table,Store);
+req_monitor (NameSpace,[{Table,Operations}|_],Store) ->
+	monitor (NameSpace,Table,Operations,Store);
+req_monitor (NameSpace,OPS,_) ->
+	?L_EA("Monitor request for namespace '~s' with unsupported operatiosn format ~p",[NameSpace,OPS]),
+	#{}.
 
+-spec demonitor (NameSpace :: binary(), Table :: binary(), Store :: ets:tid()) -> Result :: #{}.
+demonitor (NameSpace, Table, Store) ->
+	case ets:match_object(Store, #monitors{namespace=NameSpace, table=Table, _='_'}) of
+		[Entry|_] ->
+			ets:delete_object(Store,Entry),
+			#{};
+		[] ->
+			#{}
+	end.
 
+-spec monitor (NameSpace :: binary(), Table :: binary(), Operations :: #{binary()=>term()}, Store :: ets:tid()) -> Result :: #{binary()=>term()}.
+monitor (NameSpace, Table, Operations, Store) ->
+	Sel = maps:get(<<"select">>,Operations,#{}),
+	M = #monitors{
+		namespace = NameSpace,
+		table = Table,
+		initial = maps:get(<<"initial">>,Sel,false),
+		insert = maps:get(<<"insert">>,Sel,false),
+		delete = maps:get(<<"delete">>,Sel,false),
+		modify = maps:get(<<"modify">>,Sel,false)
+	},
+	ets:insert(Store, M),
+	R = monitor_result(initial,M,Store),
+	io:format("MONITOR RESULT:~n~p~n",[R]),
+	#{}.
+
+-spec monitor_result (State :: initial | insert | delete | modify, Monitor :: #monitors{}, Store :: ets:tid()) -> Result :: #{binary()=>term()}.
+monitor_result (initial,#monitors{table=T, initial=true}, Store) ->
+	monitor_table_query(T,Store);
+monitor_result (insert,#monitors{table=T, insert=true}, Store) ->
+	monitor_table_query(T,Store);
+monitor_result (delete,#monitors{table=T, delete=true}, Store) ->
+	monitor_table_query(T,Store);
+monitor_result (modify,#monitors{table=T, modify=true}, Store) ->
+	monitor_table_query(T,Store);
+monitor_result (_,_,_) ->
+	#{}.
+
+-spec monitor_table_query (Table :: binary(), Store :: ets:tid()) -> Result :: #{binary()=>term()}.
+monitor_table_query (Table, Store) ->
+	case ets:select(Store,create_match_spec(Table,[])) of
+		[] ->
+			#{};
+		[Res|_] ->
+			[{_,KeyId}|KV] = lists:zip(rec_fields(Table),Res),
+			#{Table=>#{KeyId=>#{<<"new">>=>maps:from_list(KV)}}}
+	end.
 
 %%------------------------------------------------------------------------------
 %% handling OVSDB tables
 
--spec table_query (P :: list(), Store :: ets:tid()) -> map().
+-spec table_query (P :: map(), Store :: ets:tid()) -> map().
 
 table_query (#{<<"table">>:=T, <<"op">>:= <<"select">>, <<"columns">>:=C, <<"where">>:=W},S) ->
 	Res = ets:select(S,create_match_spec(T,W)),
@@ -114,9 +163,7 @@ table_query (#{<<"table">>:=T, <<"op">>:= <<"delete">>, <<"where">>:=W},S) ->
 
 table_query (#{<<"table">>:=T, <<"op">>:= <<"insert">>, <<"row">>:=R},S) ->
 	Fields = rec_fields(T),
-	Sel = list_to_tuple([binary_to_atom(T)|['_'||_<-Fields]]),
-	Idx = length(ets:match_object(S,Sel)),
-	Rwi = R#{<<"row_idx">>=>Idx},
+	Rwi = R#{<<"key_id">>=>utils:uuid_b()},
 	Rec = list_to_tuple([binary_to_atom(T)|[maps:get(X,Rwi,<<>>) || X<-Fields]]),
 	ets:insert(S,Rec),
 	#{uuid=>[uuid,utils:uuid_b()]};
@@ -165,7 +212,6 @@ field_idx (F,[F|_],N) -> binary_to_atom(list_to_binary([$$,integer_to_list(N)]))
 field_idx (F,[_|T],N) -> field_idx(F,T,N+1).
 
 %--------update_records/4-----------------create an updated record to eb inserted into ETS from RCP call
-
 -spec update_records (TableName :: binary(), NewValues :: #{binary():=any()}, Records :: [[any()]], Acc :: [[any()]]) -> [tuple()].
 update_records (T,_,[],Acc) ->
 	[list_to_tuple([binary_to_atom(T)|X]) || X <- Acc];
@@ -190,7 +236,6 @@ read_schema (Store) ->
 	end.
 
 
-
 %%------------------------------------------------------------------------------
 %% record convertion helpers
 -spec rec_fields (RecordName :: binary()) -> Fieldnames :: [binary()].
@@ -200,6 +245,12 @@ rec_fields (<<"Wifi_Radio_Config">>) ->
 	[atom_to_binary(X)||X<-record_info(fields,'Wifi_Radio_Config')];
 rec_fields (<<"Wifi_VIF_Config">>) ->
 	[atom_to_binary(X)||X<-record_info(fields,'Wifi_VIF_Config')];
+rec_fields (<<"Wifi_VIF_State">>) ->
+	[atom_to_binary(X)||X<-record_info(fields,'Wifi_VIF_State')];
+rec_fields (<<"Wifi_Associated_Clients">>) ->
+	[atom_to_binary(X)||X<-record_info(fields,'Wifi_Associated_Clients')];
+rec_fields (<<"DHCP_leased_IP">>) ->
+	[atom_to_binary(X)||X<-record_info(fields,'DHCP_leased_IP')];
 rec_fields (<<"Wifi_RRM_Config">>) ->
 	[atom_to_binary(X)||X<-record_info(fields,'Wifi_RRM_Config')];
 rec_fields (<<"Hotspot20_Icon_Config">>) ->

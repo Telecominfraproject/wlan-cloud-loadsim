@@ -38,7 +38,7 @@
 
 
 -record ('AWLAN_Node',{
-	row_idx = 0 :: integer() | ets_dont_care(),
+	key_id :: binary() | ets_dont_care(),
 	mqtt_settings = [<<"map">>,[]] :: term() | ets_dont_care(),
 	redirector_addr = <<>> :: term() | ets_dont_care(),
 	manager_addr = <<>> :: term() | ets_dont_care(),
@@ -53,7 +53,7 @@
 
 
 -record ('Wifi_Inet_State',{
-	row_idx = 0 :: integer(),
+	key_id :: binary() | ets_dont_care(),
 	inet_addr = <<>> :: term(),
     hwaddr = <<>> :: term(),
     if_name = <<>> :: term(),
@@ -62,14 +62,14 @@
 
 
 -record ('Wifi_Radio_State',{
-	row_idx = 0 :: integer() | ets_dont_care(),
+	key_id :: binary() | ets_dont_care(),
 	freq_band = <<>> :: term(),
 	if_name = <<>> :: term(),
 	allowed_channels = <<>>  :: term()
 }).
 
 -record ('Wifi_Stats_Config', {
-	row_idx = 0 :: integer() | ets_dont_care(),
+	key_id :: binary() | ets_dont_care(),
 	channel_list = <<"">> :: term() | ets_dont_care(),
 	radio_type = <<"">> :: term() | ets_dont_care(),
 	reporting_interval = <<"">> :: term() | ets_dont_care(),
@@ -82,23 +82,23 @@
 }).
 
 -record ('Hotspot20_Config', {
-	row_idx = 0 :: integer() | ets_dont_care()
+	key_id :: binary() | ets_dont_care()
 }).
 
 -record ('Hotspot20_OSU_Providers', {
-	row_idx = 0 :: integer() | ets_dont_care()
+	key_id :: binary() | ets_dont_care()
 }).
 
 -record ('Hotspot20_Icon_Config', {
-	row_idx = 0 :: integer() | ets_dont_care()
+	key_id :: binary() | ets_dont_care()
 }).
 
 -record ('Wifi_RRM_Config', {
-	row_idx = 0 :: integer() | ets_dont_care()
+	key_id :: binary() | ets_dont_care()
 }).
 
 -record ('Wifi_VIF_Config', {
-	row_idx = 0 :: integer() | ets_dont_care(),
+	key_id :: binary() | ets_dont_care(),
 	bridge = <<"">> :: term() | ets_dont_care(),
     ap_bridge = <<"">> :: term() | ets_dont_care(),
 	'_uuid' = <<"">> :: term() | ets_dont_care(),
@@ -122,8 +122,26 @@
 }).
 
 
+-record ('Wifi_VIF_State', {
+	key_id :: binary() | ets_dont_care(),
+	vif_radio_idx = [<<"set">>,[]]:: term()
+}).
+
+-record ('Wifi_Associated_Clients', {
+	key_id :: binary() | ets_dont_care()
+}).
+
+
+-record ('DHCP_leased_IP', {
+	key_id :: binary() | ets_dont_care()
+}).
+
+
+
+
+
 -record ('Wifi_Radio_Config', {
-	row_idx = 0 :: integer() | ets_dont_care(),
+	key_id :: binary() | ets_dont_care(),
 	'_uuid' = <<"">> :: term() | ets_dont_care(),
 	if_name = <<"">> :: term() | ets_dont_care(),
 	bcn_int = <<"">> :: term() | ets_dont_care(),
@@ -140,7 +158,7 @@
 }).
 
 -record ('Wifi_Inet_Config', {
-	row_idx = 0 :: integer() | ets_dont_care(),
+	key_id :: binary() | ets_dont_care(),
 	'NAT' = <<"">> :: term() | ets_dont_care(),
 	'_uuid' = <<"">> :: term() | ets_dont_care(),
 	broadcast = <<"">> :: term() | ets_dont_care(),
@@ -157,5 +175,18 @@
 	dns = <<"">> :: term() | ets_dont_care(),
 	dhcpd = <<"">> :: term() | ets_dont_care(),
 	parent_ifname = <<"">>  :: term() | ets_dont_care()
+}).
+
+
+%%------------------------------------------------------------------------------
+%% monitor table
+
+-record (monitors, {
+	namespace :: binary() | ets_dont_care(),
+	table :: binary() | ets_dont_care(),
+	initial :: boolean() | ets_dont_care(),
+	insert :: boolean() | ets_dont_care(),
+	delete :: boolean() | ets_dont_care(),
+	modify :: boolean() | ets_dont_care()
 }).
 

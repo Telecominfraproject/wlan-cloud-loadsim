@@ -154,19 +154,19 @@ get_host_or_port (Part, Addr) when is_binary(Addr) ->
 -spec create_table (Table :: atom(), AP_Config :: [{atom(),term()}], Store :: ets:tid()) -> true.
 create_table ('Wifi_Radio_State',_APC,Store) ->
 	ets:insert(Store, #'Wifi_Radio_State'{
-		row_idx = 0,
+		key_id = utils:uuid_b(),
 		freq_band = <<"5GU">>,
 		if_name = <<"radio0">>,
 		allowed_channels = [<<"set">>,[100,104,108,112,116,120,124,128,132,136,140,144,149,153,157,161,165]]
 	}),
 	ets:insert(Store, #'Wifi_Radio_State'{
-		row_idx = 1,
+		key_id = utils:uuid_b(),
 		freq_band = <<"2.4G">>,
 		if_name = <<"radio1">>,
 		allowed_channels = [<<"set">>,[1,2,3,4,5,6,7,8,9,10,11]]
 	}),
 	ets:insert(Store, #'Wifi_Radio_State'{
-		row_idx = 2,
+		key_id = utils:uuid_b(),
 		freq_band = <<"5GL">>,
 		if_name = <<"radio2">>,
 		allowed_channels = [<<"set">>,[36,40,44,48,52,56,60,64]]
@@ -174,14 +174,14 @@ create_table ('Wifi_Radio_State',_APC,Store) ->
 
 create_table ('Wifi_Inet_State',APC,Store) -> 
 	ets:insert(Store, #'Wifi_Inet_State'{
-		row_idx = 0,
+		key_id = utils:uuid_b(),
 		inet_addr = proplists:get_value(wan_addr,APC),
 		hwaddr = proplists:get_value(wan_mac,APC),
 		if_name = <<"wan">>,
 		if_type = <<"bridge">>
 	}),
 	ets:insert(Store, #'Wifi_Inet_State'{
-		row_idx = 1,
+		key_id = utils:uuid_b(),
 		inet_addr = proplists:get_value(lan_addr,APC),
 		hwaddr = proplists:get_value(lan_mac,APC),
 		if_name = <<"lan">>,
@@ -190,7 +190,7 @@ create_table ('Wifi_Inet_State',APC,Store) ->
 
 create_table ('AWLAN_Node',APC,Store) -> 
 	ets:insert(Store, #'AWLAN_Node'{
-		row_idx = 0,
+		key_id = utils:uuid_b(),
 		redirector_addr = proplists:get_value(tip_redirector,APC),									
 		serial_number = proplists:get_value(serial,APC),
 		model = proplists:get_value(type,APC),

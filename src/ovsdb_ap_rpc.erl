@@ -30,8 +30,9 @@ eval_req(<<"transact">>,Id,#{<<"params">>:=_P},_Store) ->
 	{ok, make_result(Id,<<>>)};
 
 eval_req(<<"monitor">>,Id,#{<<"params">>:=[<<"Open_vSwitch">>,NSpace|Tables]},Store) when length(Tables)==1 ->	
-	Res = req_monitor(NSpace,maps:to_list(hd(Tables)),Store),
-	{ok, make_result(Id,Res)};
+	Res = make_result(Id,req_monitor(NSpace,maps:to_list(hd(Tables)),Store)),
+	%io:format("MONITOR RESULT:~n~p~n",[Res]),
+	{ok, Res};
 eval_req(<<"monitor">>,Id,P,_) ->
 	?L_EA("unrecognized monitor request: ~p",[P]),
 	{ok, make_result(Id,#{})};
@@ -117,9 +118,7 @@ monitor (NameSpace, Table, Operations, Store) ->
 		modify = maps:get(<<"modify">>,Sel,false)
 	},
 	ets:insert(Store, M),
-	R = monitor_result(initial,M,Store),
-	io:format("MONITOR RESULT:~n~p~n",[R]),
-	#{}.
+	monitor_result(initial,M,Store).
 
 -spec monitor_result (State :: initial | insert | delete | modify, Monitor :: #monitors{}, Store :: ets:tid()) -> Result :: #{binary()=>term()}.
 monitor_result (initial,#monitors{table=T, initial=true}, Store) ->

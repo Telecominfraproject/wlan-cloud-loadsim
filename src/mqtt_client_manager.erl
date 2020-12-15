@@ -144,18 +144,18 @@ extract_stats(State)->
 handle_cast({set_ssid,_CAName,Serial,SSID}, State = #mqtt_client_manager_state{}) ->
 	case maps:get(Serial,State#mqtt_client_manager_state.client_configurations,unknown) of
 		unknown ->
-			io:format("MQTT_CLIENT_MANAGER: attempt to set SSID ~p to device ~p failed.",[SSID,Serial]);
+			?L_IA("MQTT_CLIENT_MANAGER: attempt to set SSID ~p to device ~p failed.",[SSID,Serial]);
 		{Pid,_} ->
-			io:format("MQTT_CLIENT_MANAGER: sending set SSID ~p to device ~p to pid ~p.",[SSID,Serial,Pid]),
+			?L_IA("MQTT_CLIENT_MANAGER: sending set SSID ~p to device ~p to pid ~p.",[SSID,Serial,Pid]),
 			Pid ! {set_ssid,SSID}
 	end,
 	{noreply, State};
 handle_cast({dump_client,_CAName,Serial}, State = #mqtt_client_manager_state{}) ->
 	case maps:get(Serial,State#mqtt_client_manager_state.client_configurations,unknown) of
 		unknown ->
-			io:format("MQTT_CLIENT_MANAGER: attempt to show config for device ~p failed.",[Serial]);
+			?L_IA("MQTT_CLIENT_MANAGER: attempt to show config for device ~p failed.",[Serial]);
 		{Pid,_} ->
-			io:format("MQTT_CLIENT_MANAGER: sending show config for device ~p failed to ~p.",[Serial,Pid]),
+			?L_IA("MQTT_CLIENT_MANAGER: sending show config for device ~p failed to ~p.",[Serial,Pid]),
 			Pid ! {dump_client,all}
 	end,
 	{noreply, State};
@@ -194,7 +194,7 @@ handle_info({stats,Type,Value}=_Info, State = #mqtt_client_manager_state{}) ->
 		  io:format(">>>>MQTTCLIENTMANAGER: unknow stats type = ~p~n",[Type]),
 		  State
 	end,
-	io:format("MQTT Clients: ~p Concurrent: ~p~n",[maps:size(State#mqtt_client_manager_state.client_pids),State1#mqtt_client_manager_state.current_connections]),
+%%	io:format("MQTT Clients: ~p Concurrent: ~p~n",[maps:size(State#mqtt_client_manager_state.client_pids),State1#mqtt_client_manager_state.current_connections]),
 	{noreply, State1};
 
 handle_info(Info, State = #mqtt_client_manager_state{}) ->

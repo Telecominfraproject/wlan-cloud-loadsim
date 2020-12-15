@@ -308,12 +308,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GenericGoodAnswer'
+        403:
+          $ref: '#/components/responses/Unauthorized'
         404:
-          description: CA does not exist
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GenericErrorResponse'
+          $ref: '#/components/responses/NotFound'
 
   /cas/{id}/devices:
     get:
@@ -572,36 +570,8 @@ paths:
             schema:
               $ref: '#/components/schemas/SimulationDetails'
       responses:
-        201:
-          description: Return on success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SimulationDetails'
-        403:
-          $ref: '#/components/responses/Unauthorized'
-        404:
-          $ref: '#/components/responses/NotFound'
-
-    put:
-      tags: [Simulations]
-      summary: Update the details about a single CA
-      operationId: updateASingleSimulation
-      parameters: 
-        - in: path
-          description: The name of the simulation we are creating.
-          name: id
-          schema:
-            type: string
-          required: true
-      requestBody:
-        description: The information about the device
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SimulationDetails'
-      responses:
+        200:
+          description: Success
         201:
           description: Return on success
           content:
@@ -626,19 +596,12 @@ paths:
           required: true
       responses:
         200:
-          description: Succesful removal of CA
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GenericGoodAnswer'
+          $ref: '#/components/responses/Success'
+        403:
+          $ref: '#/components/responses/Unauthorized'
         404:
-          description: CA does not exist
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GenericErrorResponse'
-  
-                
+          $ref: '#/components/responses/NotFound'
+
 components:
   responses:
     NotFound:
@@ -749,17 +712,14 @@ components:
           description: The certificate for the CA
           type: string
           format: byte
-        Decrypt:
-          description: The certificate decryption key
-          type: string
-          format: byte
         Password:
           description: The password for the CA information
           type: string
           format: byte
         Configuration:
-          description: The config file for the CA (dangerous-do not modify)
+          description: Configuration of the CA
           type: string
+          readOnly: true
         Info:
           $ref: '#/components/schemas/GenericProperties'
 
@@ -881,8 +841,8 @@ components:
       description: Returning a list of Simulations
       readOnly: true
       properties:
-        Value:
-          $ref: '#/components/schemas/CAList'
+        Data:
+          $ref: '#/components/schemas/SimulationList'
         Meta:
           $ref: '#/components/schemas/PaginationInfo'
           
@@ -899,26 +859,40 @@ components:
       description: Detailed list of nodes.
       readOnly: true
       properties:
-        Nodes:
+        data:
           description: Node list
           type: array
           items:
-            properties:
-              name:
-                type: string
-              processes:
-                type: integer
-              worst:
-                type: number
-              total:
-                type: number
-              allocated:
-                type: number
-              type:
-                type: string
+            $ref: '#/components/schemas/NodeDetails'
         Meta:
           $ref: '#/components/schemas/PaginationInfo'
 
+    SimulationList:
+      description: List of simulations
+      readOnly: true
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/SimulationDetails'
+                
+    NodeDetails:
+      description: Detaails of a node
+      readOnly: true
+      properties:
+        node:
+          type: string
+        processes:
+          type: integer
+        worst:
+          type: number
+        total:
+          type: number
+        allocated:
+          type: number
+        type:
+          type: string
+        
     SimulationDetails:
       description: Details of the simulation
       properties:

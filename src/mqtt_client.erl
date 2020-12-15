@@ -146,10 +146,12 @@ manage_connection(Socket,CS) ->
 			?L_IA("MQTT(~p): Sent an MQTT report.~n",[CS#client_state.details#client_info.serial]),
 			manage_connection(Socket,CS);
 		{set_ssid,SSID}->
-			io:format("MQTT(~p): Setting SSID to ~p.",[CS#client_state.details#client_info.serial,SSID]),
-			WifiClients = CS#client_state.details#client_info.wifi_clients,
+			CI = CS#client_state.details,
+			io:format("MQTT(~p): Setting SSID to ~p.",[CI#client_info.serial,SSID]),
+			WifiClients = CI#client_info.wifi_clients,
 			NewWifiClients = [{Band,SSID,Clients} || {Band,_,Clients} <- WifiClients],
-			manage_connection(Socket,CS#client_state.details#client_info{ wifi_clients = NewWifiClients});
+			NewCI = CI#client_info{ wifi_clients = NewWifiClients},
+			manage_connection(Socket,CS#client_state{ details = NewCI });
 		{dump_client,all}->
 			io:format("MQTT(~p)): ~p~n",[CS#client_state.details#client_info.serial,CS]),
 			manage_connection(Socket,CS);

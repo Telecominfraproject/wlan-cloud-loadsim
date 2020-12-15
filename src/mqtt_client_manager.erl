@@ -19,13 +19,13 @@
 %% gen_server callbacks
 -export([ init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
           code_change/3,creation_info/0,start_client/3,stop_client/2,is_running/2,
-					get_stats/0,update_stats/0]).
+					get_stats/0,update_stats/0,set_ssid/3,dump_client/2]).
 
 -define(SERVER, ?MODULE).
 
 -record(mqtt_client_manager_state, {
-	client_configurations = #{} :: #{ binary() => { pid(),#{} }},
-	client_pids = #{} :: #{ pid() => binary()} ,
+	client_configurations = #{} :: #{ Serial::binary() => { ClientPid::pid(),Configuration::#{} }},
+	client_pids = #{} :: #{ ClientPid::pid() => Serial::binary()} ,
 	connect_avg_time,
 	connect_avg_time_hwm = 0.0 :: number(),
 	current_connections = 0 :: integer(),
@@ -44,21 +44,29 @@ creation_info() ->
 	       type => worker,
 	       modules => [?MODULE]} ].
 
--spec start_client(CAName::string()|binary(),Id::string()|binary(),Configuration::gen_configuration()) -> ok | generic_error().
-start_client(CAName,Id,Configuration)->
-	gen_server:call(?SERVER,{start_client,utils:safe_binary(CAName),utils:safe_binary(Id),Configuration}).
+-spec start_client(CAName::string()|binary(),Serial::string()|binary(),Configuration::gen_configuration()) -> ok | generic_error().
+start_client(CAName,Serial,Configuration)->
+	gen_server:call(?SERVER,{start_client,utils:safe_binary(CAName),utils:safe_binary(Serial),Configuration}).
 
--spec stop_client(CAName::string()|binary(),Id::string()|binary()) -> ok | generic_error().
-stop_client(CAName,Id)->
-	gen_server:call(?SERVER,{stop_client,utils:safe_binary(CAName),utils:safe_binary(Id)}).
+-spec stop_client(CAName::string()|binary(),Serial::string()|binary()) -> ok | generic_error().
+stop_client(CAName,Serial)->
+	gen_server:call(?SERVER,{stop_client,utils:safe_binary(CAName),utils:safe_binary(Serial)}).
 
--spec is_running(CAName::string()|binary(),Id::string()|binary()) -> { ok , { Pid::pid, Configuration::gen_configuration()}} | generic_error().
-is_running(CAName,Id)->
-	gen_server:call(?SERVER,{is_running,utils:safe_binary(CAName),utils:safe_binary(Id)}).
+-spec is_running(CAName::string()|binary(),Serial::string()|binary()) -> { ok , { Pid::pid, Configuration::gen_configuration()}} | generic_error().
+is_running(CAName,Serial)->
+	gen_server:call(?SERVER,{is_running,utils:safe_binary(CAName),utils:safe_binary(Serial)}).
 
 -spec get_stats()-> {ok,#{ atom() => term() }}.
 get_stats()->
 	gen_server:call(?SERVER,get_stats).
+
+-spec set_ssid(CAName::string()|binary(),Serial::string()|binary(),SSID::binary())->ok.
+set_ssid(CAName,Serial,SSID)->
+	gen_server:cast(?SERVER,{set_ssid,utils:safe_binary(CAName),utils:safe_binary(Serial),utils:safe_binary(SSID)}).
+
+-spec dump_client(CAName::string()|binary(),Serial::string()|binary())->ok.
+dump_client(CAName,Serial)->
+	gen_server:cast(?SERVER,{dump_client,utils:safe_binary(CAName),utils:safe_binary(Serial)}).
 
 update_stats()->
 	{ok,Stats} = get_stats(),
@@ -98,16 +106,16 @@ init([]) ->
 handle_call({start_client,CAName,Id,Configuration}, _From, State = #mqtt_client_manager_state{}) ->
 	NewState = start_client_process(CAName,Id,Configuration,State),
 	{reply, ok, NewState};
-handle_call({stop_client,_CAName,Id}, _From, State = #mqtt_client_manager_state{}) ->
-	case maps:get(Id,State#mqtt_client_manager_state.client_configurations,none) of
+handle_call({stop_client,_CAName,Serial}, _From, State = #mqtt_client_manager_state{}) ->
+	case maps:get(Serial,State#mqtt_client_manager_state.client_configurations,none) of
 		none ->
 			{reply, ok, State};
 		{Pid,_} ->
 			exit(Pid,kill),
 			{reply, ok, State}
 	end;
-handle_call({is_running,_CAName,Id}, _From, State = #mqtt_client_manager_state{}) ->
-	case maps:get(Id,State#mqtt_client_manager_state.client_configurations,none) of
+handle_call({is_running,_CAName,Serial}, _From, State = #mqtt_client_manager_state{}) ->
+	case maps:get(Serial,State#mqtt_client_manager_state.client_configurations,none) of
 		none ->
 			{reply, { error, not_running }, State};
 		{_Pid,_Configuration}=Client ->
@@ -133,6 +141,24 @@ extract_stats(State)->
 	{noreply, NewState :: #mqtt_client_manager_state{}} |
 	{noreply, NewState :: #mqtt_client_manager_state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), NewState :: #mqtt_client_manager_state{}}).
+handle_cast({set_ssid,_CAName,Serial,SSID}, State = #mqtt_client_manager_state{}) ->
+	case maps:get(Serial,State#mqtt_client_manager_state.client_configurations,unknown) of
+		unknown ->
+			?L_IA("MQTT_CLIENT_MANAGER: attempt to set SSID ~p to device ~p failed.",[SSID,Serial]);
+		{Pid,_} ->
+			?L_IA("MQTT_CLIENT_MANAGER: sending set SSID ~p to device ~p to pid ~p.",[SSID,Serial,Pid]),
+			Pid ! {set_ssid,SSID}
+	end,
+	{noreply, State};
+handle_cast({dump_client,_CAName,Serial}, State = #mqtt_client_manager_state{}) ->
+	case maps:get(Serial,State#mqtt_client_manager_state.client_configurations,unknown) of
+		unknown ->
+			?L_IA("MQTT_CLIENT_MANAGER: attempt to show config for device ~p failed.",[Serial]);
+		{Pid,_} ->
+			?L_IA("MQTT_CLIENT_MANAGER: sending show config for device ~p failed to ~p.",[Serial,Pid]),
+			Pid ! {dump_client,all}
+	end,
+	{noreply, State};
 handle_cast(_Request, State = #mqtt_client_manager_state{}) ->
 	{noreply, State}.
 
@@ -168,7 +194,7 @@ handle_info({stats,Type,Value}=_Info, State = #mqtt_client_manager_state{}) ->
 		  io:format(">>>>MQTTCLIENTMANAGER: unknow stats type = ~p~n",[Type]),
 		  State
 	end,
-	io:format("MQTT Clients: ~p Concurrent: ~p~n",[maps:size(State#mqtt_client_manager_state.client_pids),State1#mqtt_client_manager_state.current_connections]),
+%%	io:format("MQTT Clients: ~p Concurrent: ~p~n",[maps:size(State#mqtt_client_manager_state.client_pids),State1#mqtt_client_manager_state.current_connections]),
 	{noreply, State1};
 
 handle_info(Info, State = #mqtt_client_manager_state{}) ->
@@ -198,15 +224,15 @@ code_change(_OldVsn, State = #mqtt_client_manager_state{}, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
--spec start_client_process(CAName::binary(),Id::binary(),Configuration::map(),State::#mqtt_client_manager_state{}) -> NewState::#mqtt_client_manager_state{}.
-start_client_process(CAName,Id,Configuration,State)->
-	?L_IA("MQTT-Client ~p starting.",[Id]),
-	Pid = spawn_link(mqtt_client,start,[CAName,Id,Configuration,self()]),
+-spec start_client_process(CAName::binary(),Serial::binary(),Configuration::map(),State::#mqtt_client_manager_state{}) -> NewState::#mqtt_client_manager_state{}.
+start_client_process(CAName,Serial,Configuration,State)->
+	?L_IA("MQTT-Client ~p starting.",[Serial]),
+	Pid = spawn_link(mqtt_client,start,[CAName,Serial,Configuration,self()]),
 	NewState = State#mqtt_client_manager_state{
-		client_configurations = maps:put(Id,{ Pid,Configuration} ,State#mqtt_client_manager_state.client_configurations),
-		client_pids = maps:put(Pid,Id,State#mqtt_client_manager_state.client_pids )
+		client_configurations = maps:put(Serial,{ Pid,Configuration} ,State#mqtt_client_manager_state.client_configurations),
+		client_pids = maps:put(Pid,Serial,State#mqtt_client_manager_state.client_pids )
 	},
-	io:format("MQTT-Client ~p starting. Already ~p running.~n",[Id,maps:size(NewState#mqtt_client_manager_state.client_pids)]),
+	io:format("MQTT-Client ~p starting at pid ~p. Already ~p running.~n",[Serial,Pid,maps:size(NewState#mqtt_client_manager_state.client_pids)]),
 	NewState.
 
 

@@ -146,6 +146,7 @@ handle_cast({set_ssid,_CAName,Serial,SSID}, State = #mqtt_client_manager_state{}
 		unknown ->
 			io:format("MQTT_CLIENT_MANAGER: attempt to set SSID ~p to device ~p failed.",[SSID,Serial]);
 		{Pid,_} ->
+			io:format("MQTT_CLIENT_MANAGER: sending set SSID ~p to device ~p to pid ~p.",[SSID,Serial,Pid]),
 			Pid ! {set_ssid,SSID}
 	end,
 	{noreply, State};
@@ -154,6 +155,7 @@ handle_cast({dump_client,_CAName,Serial}, State = #mqtt_client_manager_state{}) 
 		unknown ->
 			io:format("MQTT_CLIENT_MANAGER: attempt to show config for device ~p failed.",[Serial]);
 		{Pid,_} ->
+			io:format("MQTT_CLIENT_MANAGER: sending show config for device ~p failed to ~p.",[Serial,Pid]),
 			Pid ! {dump_client,all}
 	end,
 	{noreply, State};
@@ -230,7 +232,7 @@ start_client_process(CAName,Serial,Configuration,State)->
 		client_configurations = maps:put(Serial,{ Pid,Configuration} ,State#mqtt_client_manager_state.client_configurations),
 		client_pids = maps:put(Pid,Serial,State#mqtt_client_manager_state.client_pids )
 	},
-	io:format("MQTT-Client ~p starting. Already ~p running.~n",[Serial,maps:size(NewState#mqtt_client_manager_state.client_pids)]),
+	io:format("MQTT-Client ~p starting at pid ~p. Already ~p running.~n",[Serial,Pid,maps:size(NewState#mqtt_client_manager_state.client_pids)]),
 	NewState.
 
 

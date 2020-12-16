@@ -148,8 +148,7 @@ list_simulations() ->
 -spec analyze_nodes()-> ok.
 analyze_nodes()->
 	{ok,Nodes}=show_nodes(),
-	NodeList = [ X || {X,_} <- Nodes ],
-	utils:print_nodes_info([node()|NodeList]).
+	utils:print_nodes_info([{node(),manager}|Nodes]).
 
 -spec show_plan(SimName::string()) -> {ok,Attributes::attribute_list()} | generic_error().
 show_plan(_SimName)->
@@ -229,7 +228,7 @@ get_node_configuration(Node) ->
 	simnode:get_configuration(Node).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%  Node Management functions
+%%  Server Management functions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -spec create_server(SimName::string(),Type::service_role()) -> generic_result().
 create_server(SimName,"mqtt_server") when is_list(SimName)->
@@ -269,6 +268,22 @@ ap_stop_clients() ->
 ap_client_stats(N) ->
 	ovsdb_client_stats:show_statistics(N).
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%  Hardware Simulations Management functions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+show_hardware_definitions()->
+	{ok,Definitions} = hardware:get_definitions(),
+	Definitions.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%  Server Management functions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+jobs()->
+	simengine:list_actions().
+
+job(JobID)->
+	simengine:get_action(JobID).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%  Misc management functions

@@ -313,188 +313,10 @@ paths:
         404:
           $ref: '#/components/responses/NotFound'
 
-  /cas/{id}/devices:
-    get:
-      tags: [Devices]
-      summary: List devices for a given CA
-      operationId: GetCADevices
-      parameters: 
-        - in: query
-          description: Pagination start (starts at 1. If not specified, 1 is assumed)
-          name: offset
-          schema:
-            type: integer
-          required: false
-        - in: query
-          description: Maximum number of entries to return (if absent, no limit is assumed) 
-          name: limit
-          schema:
-            type: integer
-          required: false
-        - in: query
-          description: Filter the results
-          name: filter
-          schema:
-            type: string
-          required: false
-        - in: path
-          description: The name of the CA we are querying for
-          name: id
-          schema:
-            type: string
-          required: true
-      responses:
-        200:
-          description: Return a list of devices
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DeviceList'
-        403:
-          $ref: '#/components/responses/Unauthorized'
-        404:
-          $ref: '#/components/responses/NotFound'
-    
-    post:
-      tags: [Devices]
-      summary: Create a specific device
-      operationId: CreateADevice
-      parameters: 
-        - in: path
-          description: The name of the CA we are adding a device for
-          name: id
-          schema:
-            type: string
-          required: true
-      requestBody:
-        description: The information about the device
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DeviceInfo'
-      responses:
-        201:
-          description: Return on success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DeviceInfo'
-        403:
-          $ref: '#/components/responses/Unauthorized'
-        404:
-          $ref: '#/components/responses/NotFound'
 
-    delete:
-      tags: [Devices]
-      summary: Delete all the devices associated with a given CA
-      operationId: DeleteCADevices
-      parameters:
-        - in: path
-          description: The name of the CA
-          name: id
-          schema:
-            type: string
-          required: true
-      responses:
-        200:
-          description: Succesfule removal of all devices
-          content: 
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GenericGoodAnswer'
-        403:
-          $ref: '#/components/responses/Unauthorized'
-        404:
-          $ref: '#/components/responses/NotFound'
-
-  /cas/{id}/devices/{name}:
-    get:
-      tags: [Devices]
-      summary: Get specific device information
-      operationId: GetCADeviceInfo
-      parameters: 
-        - in: path
-          description: The name of the CA
-          name: id
-          schema:
-            type: string
-          required: true
-        - in: path
-          description: The name of the device
-          name: name
-          schema:
-            type: string
-          required: true
-      responses:
-        200:
-          description: Return the information for a single device
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DeviceInfo'
-        403:
-          $ref: '#/components/responses/Unauthorized'
-        404:
-          $ref: '#/components/responses/NotFound'
-
-    post:
-      tags: [Devices]
-      summary: Update a specific device
-      operationId: UpdateADevice
-      parameters: 
-        - in: path
-          description: The name of the CA
-          name: id
-          schema:
-            type: string
-          required: true
-        - in: path
-          description: The identifier for teh device
-          name: name
-          schema:
-            type: string
-          required: true
-      responses:
-        200:
-          description: Return for success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GenericGoodAnswer'
-        403:
-          $ref: '#/components/responses/Unauthorized'
-        404:
-          $ref: '#/components/responses/NotFound'
-                
-    delete:
-      tags: [Devices]
-      summary: Delete a specific device
-      operationId: DeleteDevice
-      parameters: 
-        - in: path
-          name: id
-          description: Name of the CA where devcie exists
-          schema:
-            type: string
-          required: true
-        - in: path
-          name: name
-          description: Identifier for the device
-          schema:
-            type: string
-          required: true
-      responses:
-        200:
-          $ref: '#/components/responses/Success'
-        403:
-          $ref: '#/components/responses/Unauthorized'
-        404:
-          $ref: '#/components/responses/NotFound'
-  
   /simulations:
     get:
-      tags: [simulations]
+      tags: [Simulations]
       summary: List all existing simulations
       operationId: listSimulations
       parameters:
@@ -602,6 +424,119 @@ paths:
         404:
           $ref: '#/components/responses/NotFound'
 
+  /hardware_definitions:
+    get:
+      tags: [ Hardware ]
+      summary: Get the list of all available hardware as known by the system.
+      operationId: getHardwares
+      description: Hardware definitions
+      parameters:
+        - in: query
+          description: Pagination start (starts at 1. If not specified, 1 is assumed)
+          name: offset
+          schema:
+            type: integer
+          required: false
+        - in: query
+          description: Maximum number of entries to return (if absent, no limit is assumed) 
+          name: limit
+          schema:
+            type: integer
+          required: false
+        - in: query
+          description: Filter the results
+          name: filter
+          schema:
+            type: string
+          required: false
+      responses:
+        200:
+          description: Successful retrieval of Hardware Defintions array.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HardwareDefinitionsList'
+        403:
+          $ref: '#/components/responses/Unauthorized'
+          
+  /actions:
+    get:
+      description: List simulation actions
+      tags: [ Actions ]
+      summary: List all outstdnaing or completed actions
+      operationId: getActions
+      parameters:
+        - in: query
+          description: Pagination start (starts at 1. If not specified, 1 is assumed)
+          name: offset
+          schema:
+            type: integer
+          required: false
+        - in: query
+          description: Maximum number of entries to return (if absent, no limit is assumed) 
+          name: limit
+          schema:
+            type: integer
+          required: false
+      responses:
+        200:
+          description: Contains the list of currently outstanding actions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionList'
+        403:
+          $ref: '#/components/responses/Unauthorized'
+    
+    post:
+      description: Launch an action
+      tags: [ Actions ]
+      summary: Create an action for the simulation
+      operationId: createAction
+      requestBody:
+        description: The information about the device
+        required: true
+        content:
+          application/json:
+            schema:
+              properties:
+                action:
+                  type: string
+                simulation:
+                  type: string
+                parameters:
+                # Only supported parameter is stagger
+                # Only supported value is X/Y
+                # where X and Y are integers
+                # X is the number of devices
+                # Y is over which interval in ms
+                # 2/2000 means 2 devices per 2000ms (2s)
+                  type: array
+                  items:
+                    properties:
+                      name:
+                        type: string
+                      value:
+                        type: string
+      
+      responses:
+        200:
+          description: Success after posting an action
+          content:
+            application/json:
+              schema:
+                properties:
+                  action:
+                    type: string
+                  simulation:
+                    description: Simulation name associated with the action.
+                    type: string
+                  id:
+                    description: ID givent to the action.
+                    type: string
+        403:
+          $ref: '#/components/responses/Unauthorized'
+
 components:
   responses:
     NotFound:
@@ -701,9 +636,6 @@ components:
         Name: 
           description: Name of the CA (may not contains special characters)
           type: string
-        Description:
-          description: A brief description
-          type: string
         Key:
           description: The key for the CA
           type: string
@@ -712,10 +644,8 @@ components:
           description: The certificate for the CA
           type: string
           format: byte
-        Password:
-          description: The password for the CA information
+        location:
           type: string
-          format: byte
         Configuration:
           description: Configuration of the CA
           type: string
@@ -723,64 +653,6 @@ components:
         Info:
           $ref: '#/components/schemas/GenericProperties'
 
-    DeviceList:
-      description: List of devices for a given CA
-      properties:
-        CA: 
-          description: Name of the CA 
-          type: string
-        Devices:
-          description: Device list
-          type: array
-          items:
-            type: string
-            
-    DeviceInfo:
-      description: Information about a single device
-      properties:
-        Name:
-          description: Device identifier
-          type: string
-        MAC:
-          description: MAC Address
-          type: string
-        Serial:
-          description: Device serial identifier
-          type: string
-        Description:
-          description: Device description if available
-          type: string
-        Type:
-          description: Device type
-          type: string
-        Firmware:
-          description: Firmware name
-          type: string
-        Vendor:
-          description: Vendor 
-          type: string
-        DeviceModel:
-          description: hardware model
-          type: string
-        Key:
-          description: Key for the device
-          type: string
-          format: byte
-        Cert:
-          description: Certificate for the device
-          type: string
-          format: byte
-        Decrypt:
-          description: Decrypt key
-          type: string
-          format: byte
-        CSR:
-          description: Decrypt key
-          type: string
-          format: byte
-        Info:
-          $ref: '#/components/schemas/GenericProperties'
-          
     GenericProperties:
       description: Read-only fields for all entries
       readOnly: true
@@ -802,6 +674,34 @@ components:
           type: string
           format: date-time
           
+    HardwareDefinitionsList:
+      description: List of hardware definitions
+      readOnly: true
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/HardwareDefinitions'
+            
+    HardwareDefinitions:
+      description: Hardware details
+      readOnly: true
+      properties:
+        id: 
+          type: string
+        description:
+          type: string
+        vendor:
+          type: string
+        model:
+          type: string
+        firmware:
+          type: string
+        capabilities:
+          type: array
+          items:
+            type: string
+        
     PaginationInfo:
       description: Optional information about pagination during bulk operations
       readOnly: true
@@ -896,6 +796,9 @@ components:
     SimulationDetails:
       description: Details of the simulation
       properties:
+        name:
+          description: Name of the simulation
+          type: string
         caname:
           description: CA Associated with the simulation (must exist)
           type: string
@@ -931,5 +834,36 @@ components:
             type: string
         Meta:
           $ref: '#/components/schemas/PaginationInfo'        
-              
+          
+    ActionList:
+      description: List of actions
+      readOnly: true
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActionDetails'
+            
+    ActionDetails:
+      description: Action details
+      readOnly: true
+      properties:
+        id: 
+          type: string
+        operation:
+          type: string
+        parameters:
+          type: string
+        status:
+          type: string
+        created:
+          type: string
+          format: date
+        completed:
+          type: string
+          format: date
+        done_count:
+          type: integer
+        target_count:
+          type: integer
 

@@ -19,10 +19,11 @@
 -compile([{parse_transform, rec2json}]).
 
 %% API
--export([start_link/0,creation_info/0,create/1,create_tables/0,get/1,list/0,run_batch/4,
+-export([start_link/0,creation_info/0,create/1,create_tables/0,get/1,list_simulations/0,run_batch/5,
          prepare/3,start/3,stop/3,cancel/3,pause/3,restart/3,push/3,
-         sim_exists/1,prepare_assets/4,push_assets/4,start_assets/4,stop_assets/4,cancel_assets/4,
-				 pause_assets/4,restarts_assets/4]).
+         sim_exists/1,prepare_assets/5,push_assets/5,start_assets/5,stop_assets/5,cancel_assets/5,
+				 pause_assets/5,restarts_assets/5,update/1,list_actions/0,get_action/1,
+				 sim_action_to_json/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -46,8 +47,11 @@
 	}).
 
 -record(simengine_state, {
-	sim_states = #{} :: #{ SimName::binary() => #sim_state{} }
+			sim_states = #{} :: #{ SimName::binary() => #sim_state{}},
+			sim_actions = #{} :: #{ ID::binary() => #sim_action{}}
 }).
+
+-type sim_operation_res() :: { ok , JobId:: binary() }.
 
 %%%===================================================================
 %%% API
@@ -64,40 +68,52 @@ creation_info() ->
 create(SimInfo) when is_record(SimInfo,simulation) ->
 	gen_server:call(?SERVER,{create_simulation,SimInfo}).
 
+-spec update(SimInfo::simulation())-> ok | generic_error().
+update(SimInfo) when is_record(SimInfo,simulation) ->
+	gen_server:call(?SERVER,{update_simulation,SimInfo}).
+
 -spec get(SimName::string()|binary()) -> {ok,simulation()} | generic_error().
 get(SimName)->
 	gen_server:call(?SERVER,{get,utils:safe_binary(SimName)}).
 
--spec prepare(SimName::string()|binary(), Attributes::attribute_list(), Notification::notification_cb() )-> ok | generic_error().
-prepare(SimName,Attributes,{M,F,A}=Notification) when is_list(SimName), is_atom(M), is_atom(F), is_list(A) ->
-	gen_server:call(?SERVER,{prepare,list_to_binary(SimName),Attributes,Notification}).
+-spec prepare(SimName::string()|binary(), Attributes::attribute_list(), Notification::notification_cb() )-> sim_operation_res() | generic_error().
+prepare(SimName,Attributes,Notification) ->
+	gen_server:call(?SERVER,{prepare,utils:safe_binary(SimName),Attributes,Notification}).
 
--spec push(SimName::string()|binary(), Attributes::attribute_list(), Notification::notification_cb() )-> ok | generic_error().
+-spec push(SimName::string()|binary(), Attributes::attribute_list(), Notification::notification_cb() )-> sim_operation_res() | generic_error().
 push(SimName,Attributes,Notification)->
 	gen_server:call(?SERVER,{push,utils:safe_binary(SimName),Attributes,Notification}).
 
--spec start(SimName::string()|binary(), Attributes::attribute_list(), Notification::notification_cb() )-> ok | generic_error().
+-spec start(SimName::string()|binary(), Attributes::attribute_list(), Notification::notification_cb() )-> sim_operation_res() | generic_error().
 start(SimName,Attributes,{_M,_F,_A}=Notification)->
 	gen_server:call(?SERVER,{start,utils:safe_binary(SimName),Attributes,Notification}).
 
--spec stop(SimName::string()|binary(), Attributes::attribute_list(), Notification::notification_cb() )-> ok | generic_error().
+-spec stop(SimName::string()|binary(), Attributes::attribute_list(), Notification::notification_cb() )-> sim_operation_res() | generic_error().
 stop(SimName,Attributes,{_M,_F,_A}=Notification)->
 	gen_server:call(?SERVER,{stop,utils:safe_binary(SimName),Attributes,Notification}).
 
--spec pause(SimName::string()|binary(), Attributes::attribute_list(), Notification::notification_cb() )-> ok | generic_error().
+-spec pause(SimName::string()|binary(), Attributes::attribute_list(), Notification::notification_cb() )-> sim_operation_res() | generic_error().
 pause(SimName,Attributes,{_M,_F,_A}=Notification)->
 	gen_server:call(?SERVER,{pause,utils:safe_binary(SimName),Attributes,Notification}).
 
--spec cancel(SimName::string()|binary(), Attributes::attribute_list(), Notification::notification_cb() )-> ok | generic_error().
+-spec cancel(SimName::string()|binary(), Attributes::attribute_list(), Notification::notification_cb() )-> sim_operation_res() | generic_error().
 cancel(SimName,Attributes,{_M,_F,_A}=Notification)->
 	gen_server:call(?SERVER,{cancel,utils:safe_binary(SimName),Attributes,Notification}).
 
--spec restart(SimName::string()|binary(), Attributes::attribute_list(), Notification::notification_cb() )-> ok | generic_error().
+-spec restart(SimName::string()|binary(), Attributes::attribute_list(), Notification::notification_cb() )-> sim_operation_res() | generic_error().
 restart(SimName,Attributes,{_M,_F,_A}=Notification)->
 	gen_server:call(?SERVER,{restart,utils:safe_binary(SimName),Attributes,Notification}).
 
--spec list() -> {ok,[string()]} | generic_error().
-list() ->
+-spec list_actions() -> {ok,[sim_action()]}.
+list_actions()->
+	gen_server:call(?SERVER,list_actions).
+
+-spec get_action(JobID::binary()|string()) -> {ok,sim_action()}| generic_error().
+get_action(JobID)->
+	gen_server:call(?SERVER,{get_action,utils:safe_binary(JobID)}).
+
+-spec list_simulations() -> {ok,[string()]} | generic_error().
+list_simulations() ->
 	gen_server:call(?SERVER,list_simulations).
 
 %% @doc Spawns the server and registers the local name (unique)
@@ -137,6 +153,16 @@ init([]) ->
 	                 {stop, Reason :: term(), Reply :: term(), NewState :: #simengine_state{}} |
 	                 {stop, Reason :: term(), NewState :: #simengine_state{}}).
 
+handle_call({get_action,JobID}, _From, State = #simengine_state{}) ->
+	case maps:get(JobID,State#simengine_state.sim_actions,undefined) of
+		undefined ->
+			{reply,?ERROR_SIM_ACTION_UNKNOWN,State};
+		Job->
+			{reply,{ok,Job},State}
+	end;
+handle_call(list_actions, _From, State = #simengine_state{}) ->
+	ListOfActions = maps:fold(fun(_,V,A) -> [V|A] end,[],State#simengine_state.sim_actions),
+	{reply,{ok,ListOfActions},State};
 handle_call({create_simulation,SimInfo}, _From, State = #simengine_state{}) ->
 	case sim_exists(SimInfo#simulation.name) of
 		true ->
@@ -150,6 +176,20 @@ handle_call({create_simulation,SimInfo}, _From, State = #simengine_state{}) ->
 				Error -> { reply, {error,Error} , State}
 			end
 	end;
+handle_call({update_simulation,SimInfo}, _From, State = #simengine_state{}) ->
+	case sim_exists(SimInfo#simulation.name) of
+		false ->
+			{reply,?ERROR_SIM_UNKNOWN,State};
+		true->
+			?L_IA("Updating simulation ~s.",[binary_to_list(SimInfo#simulation.name)]),
+			case update_sim(SimInfo) of
+				ok ->
+					SimState = #sim_state{ sim_info = SimInfo },
+					{reply, ok, State#simengine_state{ sim_states = maps:put(SimInfo#simulation.name,SimState,State#simengine_state.sim_states )}};
+				Error ->
+					{ reply, {error,Error} , State}
+			end
+	end;
 handle_call({prepare,SimName,Attributes,Notification},_From,State = #simengine_state{}) ->
 	case get_sim(SimName) of
 		[]->
@@ -157,22 +197,36 @@ handle_call({prepare,SimName,Attributes,Notification},_From,State = #simengine_s
 		[SimInfo] ->
 			case SimInfo#simulation.assets_created of
 				true ->
-					{ok,?ERROR_SIM_ASSETS_ALREADY_CREATED,State};
+					{reply,?ERROR_SIM_ASSETS_ALREADY_CREATED,State};
 				false->
 					S = maps:get(SimName,State#simengine_state.sim_states),
 					case length(S#sim_state.outstanding_nodes)>0 of
 						true->
 							{reply,?ERROR_SIM_OPERATION_IN_PROGRESS,State};
 						false->
-							OpPid=spawn_link(?MODULE,prepare_assets,[SimInfo,Attributes,self(),Notification]),
-							{reply,ok,State#simengine_state{ sim_states = maps:put(SimName,
+							JobId = utils:uuid_b(),
+							OpPid=spawn_link(?MODULE,prepare_assets,[SimInfo,Attributes,self(),Notification,JobId]),
+							SimAction = #sim_action{
+								id = JobId,
+								action = <<"prepare">>,
+								created = list_to_binary(calendar:system_time_to_rfc3339(erlang:system_time(second))),
+								simulation = SimName,
+								parameters = Attributes,
+								status = <<"started">>,
+								completed = <<>>,
+								target_count = 1,
+								done_count = 0
+								},
+							NewActions = maps:put(JobId,SimAction,State#simengine_state.sim_actions),
+							{reply,{ok,JobId},State#simengine_state{ sim_states = maps:put(SimName,
 							                                                       S#sim_state{current_op_pid = OpPid, current_op = preparing , outstanding_nodes = [node()] },
-							                                                       State#simengine_state.sim_states) }}
+							                                                       State#simengine_state.sim_states),
+								sim_actions = NewActions }}
 					end
 			end
 	end;
 
-handle_call({push,SimName,Attributes,Callback}, _From, State = #simengine_state{}) ->
+handle_call({push,SimName,Attributes,Notification}, _From, State = #simengine_state{}) ->
 	case get_sim(SimName) of
 		[] ->
 			{ reply, ?ERROR_SIM_UNKNOWN, State };
@@ -190,14 +244,30 @@ handle_call({push,SimName,Attributes,Callback}, _From, State = #simengine_state{
 								true->
 									{reply,?ERROR_SIM_OPERATION_IN_PROGRESS,State};
 								false->
-									OpPid=spawn_link(?MODULE,push_assets,[SimInfo,Attributes,self(),Callback]),
-									{reply,ok,State#simengine_state{ sim_states = maps:put(SimName,S#sim_state{current_op_pid = OpPid, current_op = pushing , outstanding_nodes = SimInfo#simulation.nodes },State#simengine_state.sim_states) }}
+									JobId = utils:uuid_b(),
+									OpPid=spawn_link(?MODULE,push_assets,[SimInfo,Attributes,self(),Notification,JobId]),
+									SimAction = #sim_action{
+										id = JobId,
+										action = <<"push">>,
+										created = calendar:system_time_to_rfc3339(erlang:system_time(second)),
+										simulation = SimName,
+										parameters = Attributes,
+										status = <<"started">>,
+										completed = <<>>,
+										target_count = length(SimInfo#simulation.nodes),
+										done_count = 0
+									},
+									NewActions = maps:put(JobId,SimAction,State#simengine_state.sim_actions),
+									{reply,{ok,JobId},State#simengine_state{ sim_states = maps:put(SimName,
+									                                                               S#sim_state{current_op_pid = OpPid, current_op = pushing , outstanding_nodes = [node()] },
+									                                                               State#simengine_state.sim_states),
+									                                         sim_actions = NewActions }}
 							end
 					end
 			end
 	end;
 
-handle_call({start,SimName,Attributes,Callback}, _From, State = #simengine_state{}) ->
+handle_call({start,SimName,Attributes,Notification}, _From, State = #simengine_state{}) ->
 	case get_sim(SimName) of
 		[] ->
 			{ reply, ?ERROR_SIM_UNKNOWN, State };
@@ -219,15 +289,31 @@ handle_call({start,SimName,Attributes,Callback}, _From, State = #simengine_state
 										started->
 											{ reply, ?ERROR_SIM_ALREADY_STARTED };
 										_ ->
-											OpPid=spawn_link(?MODULE,start_assets,[SimInfo,Attributes,self(),Callback]),
-											{reply,ok,State#simengine_state{ sim_states = maps:put(SimName,S#sim_state{current_op_pid = OpPid, current_op = starting , outstanding_nodes = SimInfo#simulation.nodes },State#simengine_state.sim_states) }}
+											JobId = utils:uuid_b(),
+											OpPid=spawn_link(?MODULE,start_assets,[SimInfo,Attributes,self(),Notification,JobId]),
+											SimAction = #sim_action{
+												action = <<"start">>,
+												id = JobId,
+												created = calendar:system_time_to_rfc3339(erlang:system_time(second)),
+												simulation = SimName,
+												parameters = Attributes,
+												status = <<"started">>,
+												completed = <<>>,
+												target_count = length(SimInfo#simulation.nodes),
+												done_count = 0
+											},
+											NewActions = maps:put(JobId,SimAction,State#simengine_state.sim_actions),
+											{reply,{ok,JobId},State#simengine_state{ sim_states = maps:put(SimName,
+											                                                               S#sim_state{current_op_pid = OpPid, current_op = starting , outstanding_nodes = [node()] },
+											                                                               State#simengine_state.sim_states),
+											                                         sim_actions = NewActions }}
 									end
 							end
 					end
 			end
 	end;
 
-handle_call({stop,SimName,Attributes,Callback}, _From, State = #simengine_state{}) ->
+handle_call({stop,SimName,Attributes,Notification}, _From, State = #simengine_state{}) ->
 	case get_sim(SimName) of
 		[] ->
 			{ reply, ?ERROR_SIM_UNKNOWN, State };
@@ -247,8 +333,24 @@ handle_call({stop,SimName,Attributes,Callback}, _From, State = #simengine_state{
 								false->
 									case ((S#sim_state.state==started) or (S#sim_state.state==paused))  of
 										true->
-											OpPid=spawn_link(?MODULE,stop_assets,[SimInfo,Attributes,self(),Callback]),
-											{reply,ok,State#simengine_state{ sim_states = maps:put(SimName,S#sim_state{current_op_pid = OpPid, current_op = stopping , outstanding_nodes = SimInfo#simulation.nodes },State#simengine_state.sim_states) }};
+											JobId = utils:uuid_b(),
+											OpPid=spawn_link(?MODULE,stop_assets,[SimInfo,Attributes,self(),Notification,JobId]),
+											SimAction = #sim_action{
+												id = JobId,
+												action = <<"stop">>,
+												created = calendar:system_time_to_rfc3339(erlang:system_time(second)),
+												simulation = SimName,
+												parameters = Attributes,
+												status = <<"started">>,
+												completed = <<>>,
+												target_count = length(SimInfo#simulation.nodes),
+												done_count = 0
+											},
+											NewActions = maps:put(JobId,SimAction,State#simengine_state.sim_actions),
+											{reply,{ok,JobId},State#simengine_state{ sim_states = maps:put(SimName,
+											                                                               S#sim_state{current_op_pid = OpPid, current_op = stopping , outstanding_nodes = [node()] },
+											                                                               State#simengine_state.sim_states),
+											                                         sim_actions = NewActions }};
 										false->
 											{ reply, ?ERROR_SIM_MUST_BE_STARTED_OR_PAUSED }
 									end
@@ -257,7 +359,7 @@ handle_call({stop,SimName,Attributes,Callback}, _From, State = #simengine_state{
 			end
 	end;
 
-handle_call({pause,SimName,Attributes,Callback}, _From, State = #simengine_state{}) ->
+handle_call({pause,SimName,Attributes,Notification}, _From, State = #simengine_state{}) ->
 	case get_sim(SimName) of
 		[] ->
 			{ reply, ?ERROR_SIM_UNKNOWN, State };
@@ -277,8 +379,24 @@ handle_call({pause,SimName,Attributes,Callback}, _From, State = #simengine_state
 								false->
 									case (S#sim_state.state==started) of
 										true->
-											OpPid=spawn_link(?MODULE,pause_assets,[SimInfo,Attributes,self(),Callback]),
-											{reply,ok,State#simengine_state{ sim_states = maps:put(SimName,S#sim_state{current_op_pid = OpPid, current_op = pausing , outstanding_nodes = SimInfo#simulation.nodes },State#simengine_state.sim_states) }};
+											JobId = utils:uuid_b(),
+											OpPid=spawn_link(?MODULE,pause_assets,[SimInfo,Attributes,self(),Notification,JobId]),
+											SimAction = #sim_action{
+												id = JobId,
+												action = <<"pause">>,
+												created = calendar:system_time_to_rfc3339(erlang:system_time(second)),
+												simulation = SimName,
+												parameters = Attributes,
+												status = <<"started">>,
+												completed = <<>>,
+												target_count = length(SimInfo#simulation.nodes),
+												done_count = 0
+											},
+											NewActions = maps:put(JobId,SimAction,State#simengine_state.sim_actions),
+											{reply,{ok,JobId},State#simengine_state{ sim_states = maps:put(SimName,
+											                                                               S#sim_state{current_op_pid = OpPid, current_op = pausing , outstanding_nodes = [node()] },
+											                                                               State#simengine_state.sim_states),
+											                                         sim_actions = NewActions }};
 										false->
 											{ reply, ?ERROR_SIM_MUST_BE_STARTED }
 									end
@@ -287,7 +405,7 @@ handle_call({pause,SimName,Attributes,Callback}, _From, State = #simengine_state
 			end
 	end;
 
-handle_call({cancel,SimName,Attributes,Callback}, _From, State = #simengine_state{}) ->
+handle_call({cancel,SimName,Attributes,Notification}, _From, State = #simengine_state{}) ->
 	case get_sim(SimName) of
 		[] ->
 			{ reply, ?ERROR_SIM_UNKNOWN, State };
@@ -307,8 +425,24 @@ handle_call({cancel,SimName,Attributes,Callback}, _From, State = #simengine_stat
 								false->
 									case ((S#sim_state.state==started) or (S#sim_state.state==paused) or (S#sim_state.state==stopped)) of
 										true->
-											OpPid=spawn_link(?MODULE,cancel_assets,[SimInfo,Attributes,self(),Callback]),
-											{reply,ok,State#simengine_state{ sim_states = maps:put(SimName,S#sim_state{current_op_pid = OpPid, current_op = cancelling , outstanding_nodes = SimInfo#simulation.nodes },State#simengine_state.sim_states) }};
+											JobId = utils:uuid_b(),
+											OpPid=spawn_link(?MODULE,cancel_assets,[SimInfo,Attributes,self(),Notification,JobId]),
+											SimAction = #sim_action{
+												id = JobId,
+												action = <<"cancel">>,
+												created = calendar:system_time_to_rfc3339(erlang:system_time(second)),
+												simulation = SimName,
+												parameters = Attributes,
+												status = <<"started">>,
+												completed = <<>>,
+												target_count = length(SimInfo#simulation.nodes),
+												done_count = 0
+											},
+											NewActions = maps:put(JobId,SimAction,State#simengine_state.sim_actions),
+											{reply,{ok,JobId},State#simengine_state{ sim_states = maps:put(SimName,
+											                                                               S#sim_state{current_op_pid = OpPid, current_op = cancelling , outstanding_nodes = [node()] },
+											                                                               State#simengine_state.sim_states),
+											                                         sim_actions = NewActions }};
 										false->
 											{ reply, ?ERROR_SIM_MUST_BE_STARTED_OR_PAUSED_OR_STOPPED }
 									end
@@ -317,7 +451,7 @@ handle_call({cancel,SimName,Attributes,Callback}, _From, State = #simengine_stat
 			end
 	end;
 
-handle_call({restart,SimName,Attributes,Callback}, _From, State = #simengine_state{}) ->
+handle_call({restart,SimName,Attributes,Notification}, _From, State = #simengine_state{}) ->
 	case get_sim(SimName) of
 		[] ->
 			{ reply, ?ERROR_SIM_UNKNOWN, State };
@@ -337,8 +471,24 @@ handle_call({restart,SimName,Attributes,Callback}, _From, State = #simengine_sta
 								false->
 									case ((S#sim_state.state==paused) or (S#sim_state.state==stopped)) of
 										true->
-											OpPid=spawn_link(?MODULE,restart_assets,[SimInfo,Attributes,self(),Callback]),
-											{reply,ok,State#simengine_state{ sim_states = maps:put(SimName,S#sim_state{current_op_pid = OpPid, current_op = restarting , outstanding_nodes = SimInfo#simulation.nodes },State#simengine_state.sim_states) }};
+											JobId = utils:uuid_b(),
+											OpPid=spawn_link(?MODULE,restarting_assets,[SimInfo,Attributes,self(),Notification,JobId]),
+											SimAction = #sim_action{
+												id = JobId,
+												action = <<"restart">>,
+												created = calendar:system_time_to_rfc3339(erlang:system_time(second)),
+												simulation = SimName,
+												parameters = Attributes,
+												status = <<"started">>,
+												completed = <<>>,
+												target_count = length(SimInfo#simulation.nodes),
+												done_count = 0
+											},
+											NewActions = maps:put(JobId,SimAction,State#simengine_state.sim_actions),
+											{reply,{ok,JobId},State#simengine_state{ sim_states = maps:put(SimName,
+											                                                               S#sim_state{current_op_pid = OpPid, current_op = restarting , outstanding_nodes = [node()] },
+											                                                               State#simengine_state.sim_states),
+											                                         sim_actions = NewActions }};
 										false->
 											{ reply, ?ERROR_SIM_MUST_BE_PAUSED_OR_STOPPED }
 									end
@@ -375,44 +525,50 @@ handle_cast(_Request, State = #simengine_state{}) ->
 	{noreply, NewState :: #simengine_state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), NewState :: #simengine_state{}}).
 
-handle_info({ SimName,Node,MsgType,TimeStamp}=_Msg, State = #simengine_state{}) ->
-	NS = try
-		%% io:format("INFO MESSAGE RECEIVED: ~p~n",[Msg]),
+handle_info({ SimName,Node,MsgType,TimeStamp,JobId}=_Msg, State = #simengine_state{}) ->
+	try
 		SimState = maps:get(SimName,State#simengine_state.sim_states,undefined),
 		NewNodes = lists:delete(Node,SimState#sim_state.outstanding_nodes),
 		Now = erlang:timestamp(),
 		Elapsed = timer:now_diff(Now,TimeStamp) / 1000000,
-		%% io:format("NewNodes: ~p SimState: ~p Elapsed: ~p~n",[NewNodes,SimState,Elapsed]),
 		NewSimState = case MsgType of
-			prepare_done->
-				io:format("Node ~p prepared. Took ~p seconds.~n",[Node,Elapsed]),
-				SimState#sim_state{ outstanding_nodes = NewNodes, state = prepared };
-			push_done ->
-				io:format("Node ~p push done. Took ~p seconds.~n",[Node,Elapsed]),
-				SimState#sim_state{ outstanding_nodes = NewNodes , pushed = true , state = pushed };
-			start_done ->
-				io:format("Node ~p start done. Took ~p seconds.~n",[Node,Elapsed]),
-				SimState#sim_state{ outstanding_nodes = NewNodes, state = started };
-			stop_done ->
-				io:format("Node ~p stop done. Took ~p seconds.~n",[Node,Elapsed]),
-				SimState#sim_state{ outstanding_nodes = NewNodes , state = stopped };
-			pause_done ->
-				io:format("Node ~p pause done. Took ~p seconds.~n",[Node,Elapsed]),
-				SimState#sim_state{ outstanding_nodes = NewNodes, state = paused };
-			cancel_done ->
-				io:format("Node ~p cancel done. Took ~p seconds.~n",[Node,Elapsed]),
-				SimState#sim_state{ outstanding_nodes = NewNodes, state = cancelled };
-			restart_done ->
-				io:format("Node ~p restart done. Took ~p seconds.~n",[Node,Elapsed]),
-				SimState#sim_state{ outstanding_nodes = NewNodes, state = started }
-		end,
-		State#simengine_state{ sim_states = maps:put(SimName,NewSimState,State#simengine_state.sim_states)}
+				prepare_done->
+					?L_IA("Node ~p prepared. Took ~p seconds.~n",[Node,Elapsed]),
+					SimState#sim_state{ outstanding_nodes = NewNodes, state = prepared };
+				push_done ->
+					?L_IA("Node ~p push done. Took ~p seconds.~n",[Node,Elapsed]),
+					SimState#sim_state{ outstanding_nodes = NewNodes , pushed = true , state = pushed };
+				start_done ->
+					?L_IA("Node ~p start done. Took ~p seconds.~n",[Node,Elapsed]),
+					SimState#sim_state{ outstanding_nodes = NewNodes, state = started };
+				stop_done ->
+					?L_IA("Node ~p stop done. Took ~p seconds.~n",[Node,Elapsed]),
+					SimState#sim_state{ outstanding_nodes = NewNodes , state = stopped };
+				pause_done ->
+					?L_IA("Node ~p pause done. Took ~p seconds.~n",[Node,Elapsed]),
+					SimState#sim_state{ outstanding_nodes = NewNodes, state = paused };
+				cancel_done ->
+					?L_IA("Node ~p cancel done. Took ~p seconds.~n",[Node,Elapsed]),
+					SimState#sim_state{ outstanding_nodes = NewNodes, state = cancelled };
+				restart_done ->
+					?L_IA("Node ~p restart done. Took ~p seconds.~n",[Node,Elapsed]),
+					SimState#sim_state{ outstanding_nodes = NewNodes, state = started }
+			end,
+			SimAction = maps:get(JobId,State#simengine_state.sim_actions,undefined),
+			NewCount = SimAction#sim_action.done_count+1,
+			NewAction = case NewCount == SimAction#sim_action.target_count of
+				true ->
+					SimAction#sim_action{ target_count = NewCount, done_count = NewCount, completed = list_to_binary(calendar:system_time_to_rfc3339(erlang:system_time(second))) , status = <<"completed">> };
+				false ->
+					SimAction#sim_action{ done_count = NewCount}
+			end,
+			{noreply,State#simengine_state{ sim_states = maps:put(SimName,NewSimState,State#simengine_state.sim_states),
+				sim_actions = maps:put(JobId,NewAction,State#simengine_state.sim_actions)}}
 	catch
 		_:_ = Error ->
 			io:format("Failed ~p processing INFO MESSAGE~n",[Error]),
-			State
-	end,
-	{noreply,NS};
+			{ noreply, State }
+	end;
 
 handle_info({'DOWN', _Ref, process, Pid, _Why}, State = #simengine_state{}) ->
 	N1 = maps:fold(fun(K,E,A)->
@@ -473,6 +629,12 @@ create_sim(SimInfo) when is_record(SimInfo,simulation) ->
 		end),
 	Result.
 
+update_sim(SimInfo) when is_record(SimInfo,simulation) ->
+	{atomic,Result}=mnesia:transaction(fun() ->
+		mnesia:dirty_write( simulations, SimInfo )
+	                                   end),
+	Result.
+
 get_sim(SimName) ->
 	{atomic,Result} = mnesia:transaction( fun() ->
 		mnesia:read(simulations,SimName)
@@ -503,19 +665,19 @@ set_assets_created(SimInfo,Value)->
 											end),
 	ok.
 
--spec prepare_assets(SimInfo::simulation(), Attributes::#{atom()=>term()}, ManagerPis::pid(),Notification::notification_cb())->ok.
-prepare_assets(SimInfo,_Attributes,SimEnginePid,{M,F,A}=_Notification)->
+-spec prepare_assets(SimInfo::simulation(), Attributes::#{atom()=>term()}, ManagerPis::pid(),Notification::notification_cb(),JobId::binary())->ok.
+prepare_assets(SimInfo,_Attributes,SimEnginePid,{M,F,A}=_Notification,JobId)->
 	StartedAt = erlang:timestamp(),
 	?L_IA("~s: Preparing all assets.",[binary_to_list(SimInfo#simulation.name)]),
 	split_build_clients(SimInfo,utils:noop_mfa()),
 	split_build_servers(SimInfo,utils:noop_mfa()),
 	set_assets_created(SimInfo,true),
-	SimEnginePid ! {SimInfo#simulation.name,node(),prepare_done,StartedAt},
+	SimEnginePid ! {SimInfo#simulation.name,node(),prepare_done,StartedAt,JobId},
 	erlang:apply(M,F,A),
 	ok.
 
--spec push_assets(SimInfo::simulation(), Attributes::#{atom()=>term()}, ManagerPis::pid(),Notification::notification_cb())->ok.
-push_assets(SimInfo,_Attributes,SimEnginePid,{M,F,A}=_Notification)->
+-spec push_assets(SimInfo::simulation(), Attributes::#{atom()=>term()}, ManagerPis::pid(),Notification::notification_cb(),JobId::binary())->ok.
+push_assets(SimInfo,_Attributes,SimEnginePid,{M,F,A}=_Notification,JobId)->
 	?L_IA("~s: Preparing all assets.",[binary_to_list(SimInfo#simulation.name)]),
 	%% devise how many batches
 	{ok,Clients} = inventory:list_clients(SimInfo#simulation.ca),
@@ -526,7 +688,7 @@ push_assets(SimInfo,_Attributes,SimEnginePid,{M,F,A}=_Notification)->
 													            clients => C,
 																			ovsdb_server_name => SimInfo#simulation.servers#sim_entry.opensync_server_name,
 																			ovsdb_server_port => SimInfo#simulation.servers#sim_entry.opensync_server_port,
-																			callback => { SimEnginePid, {SimInfo#simulation.name, N,push_done,erlang:timestamp()} }},
+																			callback => { SimEnginePid, {SimInfo#simulation.name, N,push_done,erlang:timestamp(),JobId} }},
 													io:format("SIMENGINE: Pushing ~p entries to ~p.~n",[length(C),N]),
 													R = rpc:call(N,simnode,set_configuration,[Config]),
 													[R|Acc]
@@ -534,74 +696,69 @@ push_assets(SimInfo,_Attributes,SimEnginePid,{M,F,A}=_Notification)->
 	erlang:apply(M,F,A),
 	ok.
 
--spec start_assets(SimInfo::simulation(), Attributes::#{atom()=>term()}, ManagerPis::pid(),Notification::notification_cb())->ok.
-start_assets(SimInfo,Attributes,SimEnginePid,{M,F,A}=_Notification)->
+-spec start_assets(SimInfo::simulation(), Attributes::#{atom()=>term()}, ManagerPis::pid(),Notification::notification_cb(),JobId::binary())->ok.
+start_assets(SimInfo,Attributes,SimEnginePid,{M,F,A}=_Notification,JobId)->
 	?L_IA("~s: Starting all assets.",[binary_to_list(SimInfo#simulation.name)]),
 	_Results = lists:reverse(lists:foldl(fun(Node,Acc) ->
-		R = rpc:call(Node,simnode,start,[all,Attributes#{ callback => {SimEnginePid,{SimInfo#simulation.name, Node,start_done,erlang:timestamp()}} }]),
+		R = rpc:call(Node,simnode,start,[all,Attributes#{ callback => {SimEnginePid,{SimInfo#simulation.name, Node,start_done,erlang:timestamp(),JobId}} }]),
 		[R|Acc] end,[],SimInfo#simulation.nodes)),
 	apply(M,F,A),
 	ok.
 
--spec stop_assets(SimInfo::simulation(), Attributes::#{atom()=>term()}, ManagerPis::pid(),Notification::notification_cb())->ok.
-stop_assets(SimInfo,Attributes,SimEnginePid,{M,F,A}=_Notification)->
+-spec stop_assets(SimInfo::simulation(), Attributes::#{atom()=>term()}, ManagerPis::pid(),Notification::notification_cb(),JobId::binary())->ok.
+stop_assets(SimInfo,Attributes,SimEnginePid,{M,F,A}=_Notification,JobId)->
 	?L_IA("~s: Stopping all assets.",[binary_to_list(SimInfo#simulation.name)]),
 	_Results = lists:reverse(lists:foldl(fun(Node,Acc) ->
-		R = rpc:call(Node,simnode,stop,[all,Attributes#{ callback => {SimEnginePid,{SimInfo#simulation.name, Node,start_done,erlang:timestamp()}} }]),
+		R = rpc:call(Node,simnode,stop,[all,Attributes#{ callback => {SimEnginePid,{SimInfo#simulation.name, Node,start_done,erlang:timestamp(),JobId}} }]),
 		[R|Acc] end,[],SimInfo#simulation.nodes)),
 	apply(M,F,A),
 	ok.
 
--spec pause_assets(SimInfo::simulation(), Attributes::#{atom()=>term()}, ManagerPis::pid(),Notification::notification_cb())->ok.
-pause_assets(SimInfo,Attributes,SimEnginePid,{M,F,A}=_Notification)->
+-spec pause_assets(SimInfo::simulation(), Attributes::#{atom()=>term()}, ManagerPis::pid(),Notification::notification_cb(),JobId::binary())->ok.
+pause_assets(SimInfo,Attributes,SimEnginePid,{M,F,A}=_Notification,JobId)->
 	?L_IA("~s: Pausing all assets.",[binary_to_list(SimInfo#simulation.name)]),
 	_Results = lists:reverse(lists:foldl(fun(Node,Acc) ->
-		R = rpc:call(Node,simnode,pause,[all,Attributes#{ callback => {SimEnginePid,{SimInfo#simulation.name, Node,pause_done,erlang:timestamp()}} }]),
+		R = rpc:call(Node,simnode,pause,[all,Attributes#{ callback => {SimEnginePid,{SimInfo#simulation.name, Node,pause_done,erlang:timestamp(),JobId}} }]),
 		[R|Acc] end,[],SimInfo#simulation.nodes)),
 	apply(M,F,A),
 	ok.
 
--spec cancel_assets(SimInfo::simulation(), Attributes::#{atom()=>term()}, ManagerPis::pid(),Notification::notification_cb())->ok.
-cancel_assets(SimInfo,Attributes,SimEnginePid,{M,F,A}=_Notification)->
+-spec cancel_assets(SimInfo::simulation(), Attributes::#{atom()=>term()}, ManagerPis::pid(),Notification::notification_cb(),JobId::binary())->ok.
+cancel_assets(SimInfo,Attributes,SimEnginePid,{M,F,A}=_Notification,JobId)->
 	?L_IA("~s: Cancelling all assets.",[binary_to_list(SimInfo#simulation.name)]),
 	_Results = lists:reverse(lists:foldl(fun(Node,Acc) ->
-		R = rpc:call(Node,simnode,cancel,[all,Attributes#{ callback => {SimEnginePid,{SimInfo#simulation.name, Node,cancel_done,erlang:timestamp()}} }]),
+		R = rpc:call(Node,simnode,cancel,[all,Attributes#{ callback => {SimEnginePid,{SimInfo#simulation.name, Node,cancel_done,erlang:timestamp(),JobId}} }]),
 		[R|Acc] end,[],SimInfo#simulation.nodes)),
 	apply(M,F,A),
 	ok.
 
--spec restarts_assets(SimInfo::simulation(), Attributes::#{atom()=>term()}, ManagerPis::pid(),Notification::notification_cb())->ok.
-restarts_assets(SimInfo,Attributes,SimEnginePid,{M,F,A}=_Notification)->
+-spec restarts_assets(SimInfo::simulation(), Attributes::#{atom()=>term()}, ManagerPis::pid(),Notification::notification_cb(),JobId::binary())->ok.
+restarts_assets(SimInfo,Attributes,SimEnginePid,{M,F,A}=_Notification,JobId)->
 	?L_IA("~s: Restarting all assets.",[binary_to_list(SimInfo#simulation.name)]),
 	_Results = lists:reverse(lists:foldl(fun(Node,Acc) ->
-		R = rpc:call(Node,simnode,restart,[all,Attributes#{ callback => {SimEnginePid,{SimInfo#simulation.name, Node,restart_done,erlang:timestamp()}} }]),
+		R = rpc:call(Node,simnode,restart,[all,Attributes#{ callback => {SimEnginePid,{SimInfo#simulation.name, Node,restart_done,erlang:timestamp(),JobId}} }]),
 		[R|Acc] end,[],SimInfo#simulation.nodes)),
 	apply(M,F,A),
 	ok.
 
 -spec split_build_clients( SimInfo::simulation(), NotificationCB::notification_cb())->ok.
-split_build_clients(SimInfo,_Notification)->
+split_build_clients(SimInfo,Notification)->
 	{ok,HardwareDefinitions} = hardware:get_definitions(),
 	Ids = [ X#hardware_info.id || X <- HardwareDefinitions ],
-	BatchSize = SimInfo#simulation.num_devices div length(Ids),
-	_=run_batch(Ids,BatchSize,SimInfo),
+	{ok,CAInfo} = inventory:get_ca(SimInfo#simulation.ca),
+	_ = run_batch(Ids,SimInfo,CAInfo,0,Notification),
 	ok.
 
-run_batch(Ids,BatchSize,SimInfo)->
-	run_batch(Ids,BatchSize,SimInfo,1).
+random_list_item(L)->
+	lists:nth(rand:uniform(length(L)),L).
 
-run_batch([],_,SimInfo,_)->
-	io:format("~n~s: done creating ~p clients.~n",[binary_to_list(SimInfo#simulation.name),SimInfo#simulation.num_devices]),
-	ok;
-run_batch([H|T],BatchSize,SimInfo,BatchNumber)->
-	io:format("~n~s: creating ~p of ~p clients.~n",[binary_to_list(SimInfo#simulation.name),BatchSize,SimInfo#simulation.num_devices]),
-	BatchName = binary:list_to_bin([SimInfo#simulation.name,<<"-">>,integer_to_binary(BatchNumber)]),
-	Attributes = #{ id => H, name => BatchName, serial => list_to_binary("SIM" ++ integer_to_list(BatchNumber)), mac => <<>> },
-	_ = inventory:make_clients(SimInfo#simulation.ca,
-	                       1,
-	                       min(BatchSize,SimInfo#simulation.num_devices - (BatchSize * (BatchNumber-1))),
-													Attributes,
-                         {?MODULE,run_batch,[T,BatchSize,SimInfo,BatchNumber+1]}).
+run_batch(_Ids,SimInfo,_CAInfo,Index,{M,F,A}=_Notification) when SimInfo#simulation.num_devices == Index->
+	apply(M,F,A);
+run_batch(Ids,SimInfo,CAInfo,Total,Notification)->
+	Id = random_list_item(Ids),
+	Attributes = #{ id => Id, name => <<"SIM">>, serial => <<"SIM">>, mac => <<>> },
+	inventory:generate_single_client(Id,CAInfo,Total,Attributes),
+	run_batch(Ids,SimInfo,CAInfo,Total+1,Notification).
 
 %% Create the servers - only if they are pon automatic mode
 split_build_servers(SimInfo,_Notification)->
@@ -616,6 +773,16 @@ generate_server(SimInfo,ovsdb_server,auto)->
 generate_server(_,_,_)->
 	ok.
 
-
+sim_action_to_json(SimAction)->
+	jiffy:encode(#{
+			id => SimAction#sim_action.id,
+			operation => SimAction#sim_action.action,
+			status => SimAction#sim_action.status,
+			created => SimAction#sim_action.created,
+			completed => SimAction#sim_action.completed,
+			parameters => SimAction#sim_action.parameters,
+			done_count => SimAction#sim_action.done_count,
+			target_count => SimAction#sim_action.target_count
+	}).
 
 

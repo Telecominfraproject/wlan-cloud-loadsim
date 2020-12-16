@@ -31,7 +31,19 @@
 	servers = auto :: auto | sim_entry()
 }).
 
+-record(sim_action,{
+	id = <<>> :: binary(),
+	action = <<>> :: binary(),
+	simulation = <<>> :: binary(),
+	parameters = <<>> :: binary(),
+	status = <<>> :: binary(),
+	created,
+	done_count = 0 :: integer(),
+	target_count :: integer(),
+	completed = <<>>}).
+
 -type simulation() :: #simulation{}.
 -type sim_entry()::#sim_entry{}.
+-type sim_action()::#sim_action{}.
 
--export_type([simulation/0,sim_entry/0]).
+-export_type([simulation/0,sim_entry/0,sim_action/0]).

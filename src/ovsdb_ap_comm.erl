@@ -206,7 +206,9 @@ connect_to_server (Host, Port, CAs, Cert, Key) ->
 					{mode,binary},
 					{keepalive, true},
 					{packet,raw},
-					{active,once}],
+					{active,once},
+					{recbuf, 250000},
+    				{sndbuf, 250000}],
 	?L_I(?DBGSTR("AP connecting to ~s:~B",[Host,Port])),
 	case ssl:connect(Host, Port, Opts) of
 		{ok, Socket} -> Socket;

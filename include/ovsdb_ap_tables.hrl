@@ -52,22 +52,20 @@
 }).
 
 
-
-
-
-
-
 -record ('Wifi_Stats_Config', {
 	key_id :: binary() | ets_dont_care(),
-	channel_list = <<"">> :: term() | ets_dont_care(),
-	radio_type = <<"">> :: term() | ets_dont_care(),
-	reporting_interval = <<"">> :: term() | ets_dont_care(),
-	sampling_interval = <<"">> :: term() | ets_dont_care(),
-	stats_type = <<"">> :: term() | ets_dont_care(),
-	survey_interval_ms = <<"">> :: term() | ets_dont_care(),
-	survey_type = <<"">> :: term() | ets_dont_care(),
-	threshold = <<"">> :: term() | ets_dont_care(),
-	'_uuid' = <<"">> :: term() | ets_dont_care()
+	'_version' = [<<"uuid">>,<<"4ad2c67d-99d6-4431-a6a7-09a0fa95b8e2">>] :: term(),
+	radio_type = <<"2.4G">> :: term() | ets_dont_care(),
+	sampling_interval = 10 :: term() | ets_dont_care(),
+	report_type = <<"raw">> :: term(),
+	threshold = [<<"map">>,[]] :: term(),
+	survey_type = [<<"set">>,[]] :: term(),
+	'_uuid' = [<<"uuid">>,<<"f84b6834-80d6-4fd6-af73-98e3f4f96033">>] :: term() | ets_dont_care(),
+	channel_list = [<<"set">>,[]] :: term(),
+	reporting_interval = 60 :: term() | ets_dont_care(),
+	survey_interval_ms = 65 :: term() | ets_dont_care(),
+	reporting_count = 0 :: term(),
+	stats_type = <<"video_voice">> :: term() | ets_dont_care()
 }).
 
 -record ('Hotspot20_Config', {
@@ -154,7 +152,7 @@
 	uapsd= [<<"set">>,[]] :: term(),
 	capabilities= [<<"set">>,[]] :: term(),
 	kick = [<<"map">>,[]] :: term(),
-	oftag= [<<"set">>,[]] :: term()
+	oftag = [<<"set">>,[]] :: term()
 }).
 
 

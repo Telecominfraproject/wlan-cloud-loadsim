@@ -99,6 +99,8 @@ initialize_ap_tables (Store, APC) ->
 	create_table('Wifi_Radio_State',APC,Store),
 	create_table('Wifi_Inet_Config',APC,Store),
 	create_table('Wifi_Inet_State',APC,Store),
+	create_table('Wifi_RRM_Config',APC,Store),
+	create_table('Wifi_Stats_Config',APC,Store),
 	create_table('Wifi_Associated_Clients',APC,Store).
 	
 %%------------------------------------------------------------------------------
@@ -171,7 +173,7 @@ create_table ('Wifi_Radio_State',APC,Store) ->
 		bcn_int = 100,
 		allowed_channels = [<<"set">>,[100,104,108,112,116,120,124,128,132,136,140,144,149,153,157,161,165]],
 		radio_config = [<<"uuid">>,<<"830bd195-7114-4e99-9b51-5622e47ce221">>],
-		vif_states = [<<"uuid">>,<<"87f75538-67d0-408a-9c8b-018665754d48">>],
+		vif_states = [<<"set">>,[]], % [<<"uuid">>,<<"87f75538-67d0-408a-9c8b-018665754d48">>],
 		country = <<"US">>,
 		radar = [<<"map">>,[]],
 		tx_chainmask = 3,
@@ -210,7 +212,7 @@ create_table ('Wifi_Radio_State',APC,Store) ->
 		bcn_int = 100,
 		allowed_channels = [<<"set">>,[36,40,44,48,52,56,60,64]],
 		radio_config = [<<"uuid">>,<<"94f9b810-8c71-4961-a9c0-7f3a96869368">>],
-		vif_states = ["set",[]],
+		vif_states = [<<"set">>,[]],
 		country = <<"US">>,
 		radar = [<<"map">>,[]],
 		tx_chainmask = 3,
@@ -375,26 +377,45 @@ create_table ('Wifi_RRM_Config',_APC,Store) ->
 		snr_percentage_drop = 30
 	});
 
-create_table ('Wifi_Associated_Clients',_APC,Store) -> 
-	%io:format("CONFIGURED WIFI CLIENTS:~n~p~n",[proplists:get_value(wifi_clients,APC)]),
-	% F = fun({_,_,[MAC|_]}) ->
-	% 	ets:insert(Store, #'Wifi_Associated_Clients'{
-	% 		key_id = utils:uuid_b(),
-	% 		'_version' = [<<"uuid">>, utils:uuid_b()],
-	% 		mac = MAC,
-	% 		state = <<"active">>
-	% 	})
-	% end,
-	% [F(X) || X <- proplists:get_value(wifi_clients,APC)];
-	ets:insert(Store, #'Wifi_Associated_Clients'{
-		key_id = <<"ee49ed4e-5a04-4100-bf6a-ebfbbc54250e">>,
-		'_version' = [<<"uuid">>,<<"5bc3eb0f-1cc3-4dae-aae5-af02c8d2f1c7">>],
-		mac = <<"52:b6:76:03:6d:f2">>,
-		state = <<"active">>,
-		uapsd = [<<"set">>,[]],
-		capabilities = [<<"set">>,[]],
-		kick = [<<"map">>,[]],
-		oftag = ["set",[]]
+create_table ('Wifi_Associated_Clients',APC,Store) -> 
+	io:format("CONFIGURED WIFI CLIENTS:~n~p~n",[proplists:get_value(wifi_clients,APC)]),
+	F = fun({_,_,[MAC|_]}) ->
+		ets:insert(Store, #'Wifi_Associated_Clients'{
+			key_id = utils:uuid_b(),
+			'_version' = [<<"uuid">>, utils:uuid_b()],
+			mac = MAC,
+			state = <<"active">>
+		})
+	end,
+	[F(X) || X <- proplists:get_value(wifi_clients,APC)];
+	% ets:insert(Store, #'Wifi_Associated_Clients'{
+	% 	key_id = <<"ee49ed4e-5a04-4100-bf6a-ebfbbc54250e">>,
+	% 	'_version' = [<<"uuid">>,<<"5bc3eb0f-1cc3-4dae-aae5-af02c8d2f1c7">>],
+	% 	mac = <<"52:b6:76:03:6d:f2">>,
+	% 	state = <<"active">>,
+	% 	uapsd = [<<"set">>,[]],
+	% 	capabilities = [<<"set">>,[]],
+	% 	kick = [<<"map">>,[]],
+	% 	oftag = [<<"set">>,[]]
+	% });
+
+create_table ('Wifi_Stats_Config',_APC,Store) ->
+	ets:insert(Store, #'Wifi_Stats_Config'{
+		key_id = <<"f84b6834-80d6-4fd6-af73-98e3f4f96033">>,
+		'_uuid' = [<<"uuid">>,<<"f84b6834-80d6-4fd6-af73-98e3f4f96033">>],
+		radio_type = <<"2.4G">>
+
+	}),
+	ets:insert(Store, #'Wifi_Stats_Config'{
+		key_id = <<"682166f4-8d40-47b9-8ddc-827940cae8ef">>,
+		'_uuid' = [<<"uuid">>,<<"682166f4-8d40-47b9-8ddc-827940cae8ef">>],
+		radio_type = <<"5GL">>
+
+	}),
+	ets:insert(Store, #'Wifi_Stats_Config'{
+		key_id = <<"21b32c56-5011-455c-9c7c-c58b9d43d583">>,
+		'_uuid' = [<<"uuid">>,<<"21b32c56-5011-455c-9c7c-c58b9d43d583">>],
+		radio_type = <<"5GU">>
 	});
 
 create_table ('AWLAN_Node',APC,Store) -> 

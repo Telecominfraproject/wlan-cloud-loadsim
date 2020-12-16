@@ -188,7 +188,8 @@ do( ?HTTP_GET , Req , #request_state{ resource = <<"nodes">> , id = nothing } = 
 	{ok,AllNodes}=manager:connected_nodes(),
 	{ SubList, PaginationInfo }  = restutils:paginate(PaginationParameters,[{node(),manager}|AllNodes]),
 	JSON = case restutils:get_parameter(details,0,Req) of
-		0 -> restutils:create_paginated_return( "Nodes" , SubList, PaginationInfo);
+		0 -> NamesOnly = [ atom_to_list(X) || {X,Role} <- SubList, Role == node  ],
+				 restutils:create_paginated_return( "Nodes" , NamesOnly, PaginationInfo);
 		1 -> restutils:create_paginated_return( "Nodes" , SubList, PaginationInfo,nodes)
 	end,
 	{JSON,restutils:add_CORS(Req),State};

@@ -15,7 +15,8 @@
 -export([ make_dir/1,uuid/0,get_addr/0,get_addr2/0,app_name/0,app_name/1,priv_dir/0,app_env/2,to_string_list/2,to_binary_list/2,print_nodes_info/1,
 					do/2,pem_to_cert/1,pem_to_key/1,safe_binary/1,uuid_b/0,pem_key_is_encrypted/1,remove_pem_key_password/3,
 					noop/0,noop_mfa/0,split_into/2,select/3,adjust/2,apply_ntimes/4,
-					get_avg/1, new_avg/0,compute_avg/2,search_replace/3,json_node_info/1]).
+					get_avg/1, new_avg/0,compute_avg/2,search_replace/3,json_node_info/1,
+					to_atom_list/2,to_atom_list/1,to_string_list/1,to_binary_list/1]).
 
 -type average() :: { CurrentValue::number(), HowManyValues::integer(), PastValues::[number()]}.
 -export_type([average/0]).
@@ -76,40 +77,40 @@ app_env(Key,Default)->
 
 
 print_nodes_info(Nodes)->
-	io:format("---------------------------------------------------------------------------------------------~n"),
-	io:format("|Node name                             | Total       | Allocated   | Biggest      |  Procs  |~n"),
-	io:format("|--------------------------------------|-------------|-------------|-------------------------~n"),
+	io:format("---------------------------------------------------------------------------------------------------------~n"),
+	io:format("|Node name                             | Total       | Allocated   | Biggest      |  Procs  | Type      |~n"),
+	io:format("---------------------------------------------------------------------------------------------------------~n"),
 	print_line(Nodes),
-	io:format("---------------------------------------------------------------------------------------------~n").
+	io:format("---------------------------------------------------------------------------------------------------------~n").
 
+-spec json_node_info([{node(),atom()}])->binary().
 json_node_info(Nodes)->
 	json_node_info(Nodes,[]).
 
 json_node_info([],Acc)->
 	jiffy:encode(Acc);
-json_node_info([H|T],Acc)->
+json_node_info([{H,Type}|T],Acc)->
 	NodeInfo = node_info(H),
 	%% #{ total := Total , allocated := Allocated , worst := Worst , processes := Processes } = NodeInfo,
-	json_node_info(T,[NodeInfo|Acc]).
+	json_node_info(T,[NodeInfo#{ type => Type} |Acc]).
 
 print_line([])->
 	ok;
-print_line([H|T])->
-	NodeInfo = node_info(H),
+print_line([{Node,Type}|T])->
+	NodeInfo = node_info(Node),
 	#{ total := Total , allocated := Allocated , worst := Worst , processes := Processes } = NodeInfo,
-	io:format("|~37s |~9.2f MB |~9.2f MB | ~9.2f MB | ~7b |~n",[atom_to_list(H),Total,Allocated,Worst,Processes]),
+	io:format("|~37s |~9.2f MB |~9.2f MB | ~9.2f MB | ~7b | ~10s|~n",[atom_to_list(Node),Total,Allocated,Worst,Processes,atom_to_list(Type)]),
 	print_line(T).
 
 -spec node_info(Node::node())->#{ atom() => term()}.
 node_info(Node)->
 	try
-		N = list_to_atom(Node),
-		{Total,Allocated,{ _Pid, Worst}}=rpc:call(N,memsup,get_memory_data,[]),
-		Processes = rpc:call(N,cpu_sup,nprocs,[]),
-		#{ node => list_to_binary(Node), total => Total/(1 bsl 20), allocated => Allocated/(1 bsl 20), worst => Worst/(1 bsl 20), processes => Processes }
+		{Total,Allocated,{ _Pid, Worst}}=rpc:call(Node,memsup,get_memory_data,[]),
+		Processes = rpc:call(Node,cpu_sup,nprocs,[]),
+		#{ node => atom_to_binary(Node), total => Total/(1 bsl 20), allocated => Allocated/(1 bsl 20), worst => Worst/(1 bsl 20), processes => Processes }
 	catch
 		_:_ ->
-			#{ node => list_to_binary(Node), total => 0, allocated => 0, worst => 0, processes => 0 }
+			#{ node => atom_to_binary(Node), total => 0, allocated => 0, worst => 0, processes => 0 }
 	end.
 
 -spec apply_ntimes(Times::integer(),M::atom(),F::atom(),A::term())->[any()].
@@ -155,6 +156,13 @@ good_address([{addr,{A,B,C,D}}|_Tail]) when A=/=127 ->
 good_address([_|T])->
 	good_address(T).
 
+to_string_list(L)->
+	to_string_list(L,[]).
+to_atom_list(L)->
+	to_atom_list(L,[]).
+to_binary_list(L)->
+	to_binary_list(L,[]).
+
 -spec to_string_list([term()],[term()])->[string()].
 to_string_list([],R)->
 	lists:reverse(R);
@@ -174,6 +182,16 @@ to_binary_list([H|T],R) when is_atom(H)->
 	to_binary_list(T,[list_to_binary(atom_to_list(H))|R]);
 to_binary_list([H|T],R) when is_binary(H)->
 	to_binary_list(T,[H|R]).
+
+-spec to_atom_list([term()],[term()])->[string()].
+to_atom_list([],R)->
+	lists:reverse(R);
+to_atom_list([H|T],R) when is_list(H)->
+	to_atom_list(T,[list_to_atom(H)|R]);
+to_atom_list([H|T],R) when is_atom(H)->
+	to_atom_list(T,[H|R]);
+to_atom_list([H|T],R) when is_binary(H)->
+	to_atom_list(T,[binary_to_atom(H)|R]).
 
 -spec do(boolean(),{atom(),atom(),term()})->ok.
 do(true,{M,F,A})->

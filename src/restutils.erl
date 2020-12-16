@@ -14,7 +14,7 @@
 %% API
 -export([ create_paginated_return/3,create_paginated_return/4,dump_string_array/1,get_access_token/1,
           add_CORS/1,generate_error/2,get_pagination_parameters/1,paginate/2,validate_token/1,
-					get_access_token_not_secure/1,get_parameter/3]).
+					get_access_token_not_secure/1,get_parameter/3,paginate_record_list/2]).
 
 -record(pagination_info,{limit=0, offset=0, previous_offset=0,
 	next_offset=0, current_page=0, page_count=0, total_count=0}).
@@ -33,12 +33,35 @@ create_paginated_return(Header,List,PaginationInfo,nodes )->
 			  utils:json_node_info(List),
 		  " ] }, " ++
 		  dump_pagination_info(PaginationInfo),"} "]);
+create_paginated_return(Header,List,PaginationInfo, hardware_info )->
+	binary:list_to_bin(
+		[ "{ \"Data\": { \"" ++ Header ++ "\" : [ ",
+		  dump_record_list(hardware_info,List,<<>>),
+		  " ] }, " ++
+		  dump_pagination_info(PaginationInfo),"} "]);
+create_paginated_return(Header,List,PaginationInfo, sim_action )->
+	binary:list_to_bin(
+		[ "{ \"Data\": { \"" ++ Header ++ "\" : [ ",
+		  dump_record_list(sim_action,List,<<>>),
+		  " ] }, " ++
+		  dump_pagination_info(PaginationInfo),"} "]);
 create_paginated_return(Header,List,PaginationInfo,Type )->
 	binary:list_to_bin(
 		[ "{ \"Data\": { \"" ++ Header ++ "\" : [ ",
 		  dump_record_array(List,Type),
 		  " ] }, " ++
 		  dump_pagination_info(PaginationInfo),"} "]).
+
+dump_record_list(_,[],Acc)->
+	Acc;
+dump_record_list(hardware_info,[H1,H2|T],Acc)->
+	dump_record_list(hardware_info,[H2|T],<<Acc/binary, (jiffy:encode(hardware_info:to_json(H1)))/binary, (<<" ,">>)/binary >>);
+dump_record_list(hardware_info,[H1],Acc)->
+	<<Acc/binary, (jiffy:encode(hardware_info:to_json(H1)))/binary >>;
+dump_record_list(sim_action,[H1,H2|T],Acc)->
+	dump_record_list(sim_action,[H2|T],<<Acc/binary, (simengine:sim_action_to_json(H1))/binary, (<<" ,">>)/binary >>);
+dump_record_list(sim_action,[H1],Acc)->
+	<<Acc/binary, (simengine:sim_action_to_json(H1))/binary >>.
 
 dump_pagination_info(PI) ->
 	"\"Meta\": {
@@ -93,9 +116,11 @@ get_access_token(Req) ->
 add_CORS(Req)->
 	cowboy_req:set_resp_header(<<"access-control-allow-origin">>, <<"*">>, Req).
 
+generate_error(Error,Reason) when is_list(Reason)->
+	generate_error(Error,list_to_binary(Reason));
 generate_error(Error,Reason)->
-	binary:list_to_bin(["{ \"ErrorCode\" : ", integer_to_binary(Error), ", \"ErrorDescription\" : \"",
-		Reason, "\" }"]).
+	E = #{ 'ErrorCode' =>  integer_to_binary(Error), 'ErrorDescription' => Reason },
+	jiffy:encode(E).
 
 validate_token(Token)->
 	utils:app_env(rest_api_token,"") == binary_to_list(Token).
@@ -128,6 +153,22 @@ paginate( { Offset, Limit, Filter}, List ) ->
 	{ ReturnList, NextOffset, CurrentPage } = case Limit == 0 of
 		                                          true -> {lists:nthtail(Offset-1,List1),0,1} ;
 		                                          false -> {lists:sublist(List1,Offset,Limit),Offset+Limit,1+(Offset div Limit) }
+	                                          end,
+	PageCount = case Limit == 0 of
+		            true ->1;
+		            false -> TotalCount div Limit
+	            end,
+	{ReturnList,#pagination_info{
+		limit = Limit , offset = Offset , previous_offset = Offset , total_count = TotalCount,
+		next_offset = NextOffset, current_page = CurrentPage,
+		page_count = PageCount }}.
+
+paginate_record_list( { Offset, Limit, _Filter}, List ) ->
+	%% filter the list
+	TotalCount = length(List),
+	{ ReturnList, NextOffset, CurrentPage } = case Limit == 0 of
+		                                          true -> {lists:nthtail(Offset-1,List),0,1} ;
+		                                          false -> {lists:sublist(List,Offset,Limit),Offset+Limit,1+(Offset div Limit) }
 	                                          end,
 	PageCount = case Limit == 0 of
 		            true ->1;

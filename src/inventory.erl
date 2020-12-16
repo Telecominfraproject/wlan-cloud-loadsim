@@ -24,7 +24,7 @@
 	make_client/2,make_clients/5,generate_client_batch/6,get_client/2,
 	all_files_exist/1,valid_ca_name/1,valid_password/1,
 	delete_server/2,import_ca/2,create_tables/0,
-	list_clients/1,gen_lan_clients/0]).
+	list_clients/1,gen_lan_clients/0,generate_single_client/4]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -319,7 +319,7 @@ handle_call({make_client,Ca,Attributes}, _From, State = #inventory_state{}) ->
 		[] ->
 			{reply,{error,unknown_ca},State};
 		[CAInfo] ->
-			{ok , NewState}=create_client(CAInfo,Attributes,State),
+			{ok , NewState}=create_client(CAInfo,Attributes),
 			{reply, ok, NewState}
 	end;
 
@@ -639,9 +639,9 @@ create_servers(CAInfo,[H|T],Type,State,Pid)->
 %% openssl req -batch -config openssl-client.cnf -newkey rsa:2048 -sha256 -out clientcert.csr -outform PEM -nodes
 %% openssl ca -batch -key apassword -config openssl-ca.cnf -policy signing_policy -extensions signing_req_client -out clientcert.pem -infiles clientcert.csr
 %% openssl rsa -passin pass:apassword -in clientkey.pem -out clientkey_dec.pem
--spec create_client( CAInfo :: ca_info(), Attributes::#{ atom() => term() }, State::#inventory_state{}) ->
-			{ ok , NewState::#inventory_state{} } | { error , Reason :: term()}.
-create_client(CAInfo,Attributes,State)->
+-spec create_client( CAInfo :: ca_info(), Attributes::#{ atom() => term() }) ->
+			ok | { error , Reason :: term()}.
+create_client(CAInfo,Attributes)->
 	#{ mac := Mac, serial := Serial, name := _Name , id := HardwareId } = Attributes,
 	BaseFileName = filename:join( [ binary_to_list(CAInfo#ca_info.clients_dir_name),binary_to_list(Serial)]),
 	ClientKeyPem = BaseFileName ++ "-key.pem",
@@ -687,7 +687,7 @@ create_client(CAInfo,Attributes,State)->
 	%% io:format(">>>SERIAL: ~p~n",[Serial]),
 	_R = add_record(Client),
 	%% io:format("RESULT>>>=~p~n",[R]),
-	{ ok, State }.
+	ok.
 
 gen_bands()->
 	case rand:uniform(4) of
@@ -728,6 +728,26 @@ generate_client_batch(CAInfo,Start,HowMany,Attributes,Notification,State)->
 			Error
 	end.
 
+-spec generate_single_client(HardwareId::binary(),CAInfo::ca_info(),Index::integer(),Attributes::#{ atom() => term() }) -> ok.
+generate_single_client(HardwareId,CAInfo,Index,Attributes)->
+	case hardware:get_by_id(HardwareId) of
+		{ok,[HardwareInfo]} ->
+			{ok,[OUI|_]} = oui_server:lookup_vendor(HardwareInfo#hardware_info.vendor),
+			<<A,B,C,D,E,F>> = OUI,
+			Prefix = [A,B,$:,C,D,$:,E,F,$:],
+			%% io:format("BATCH: ca=~p prefix=~p start=~p howmany=~p attrs=~p notify=~p~n",[CAInfo,Prefix,Start,HowMany,Attributes,Notification]),
+			[X1,X2,X3,X4,X5] = lists:flatten(string:pad(integer_to_list(Index,16),5,leading,$0)),
+			#{ serial := Serial, name := Name } = Attributes,
+			[A,B,$:,C,D,$:,E,F,$:] = Prefix,
+			Mac = Prefix ++ [X1,X2,$:,X3,X4,$:,X5,$0],
+			RealSerial = binary_to_list(Serial) ++ [A,B,C,D,E,F] ++ [X1,X2,X3,X4,X5,$0],
+			RealName = binary_to_list(Name) ++ "-" ++ [X1,X2,X3,X4,X5,$0],
+			_ = create_client(CAInfo, Attributes#{ name => list_to_binary(RealName), mac => list_to_binary(Mac) , serial => list_to_binary(RealSerial) });
+	Error ->
+			Error
+	end,
+	ok.
+
 generate_client_batch(_CaInfo,_Prefix,_Current,_Start,0,_Attributes,{M,F,A}=_Notification,_State)->
 	apply(M,F,A);
 generate_client_batch(CaInfo,Prefix,Current,Start,Left,Attributes,Notification,State)->
@@ -737,7 +757,7 @@ generate_client_batch(CaInfo,Prefix,Current,Start,Left,Attributes,Notification,S
 	Mac = Prefix ++ [X1,X2,$:,X3,X4,$:,X5,$0],
 	RealSerial = binary_to_list(Serial) ++ [A,B,C,D,E,F] ++ [X1,X2,X3,X4,X5,$0],
 	RealName = binary_to_list(Name) ++ "-" ++ [X1,X2,X3,X4,X5,$0],
-	_ = create_client(CaInfo, Attributes#{ name => list_to_binary(RealName), mac => list_to_binary(Mac) , serial => list_to_binary(RealSerial) },State),
+	_ = create_client(CaInfo, Attributes#{ name => list_to_binary(RealName), mac => list_to_binary(Mac) , serial => list_to_binary(RealSerial) }),
 	generate_client_batch(CaInfo,Prefix,Current+1,Start,Left-1,Attributes,Notification,State).
 
 all_files_exist([])->

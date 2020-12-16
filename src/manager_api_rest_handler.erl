@@ -212,7 +212,7 @@ do( ?HTTP_GET , Req , #request_state{ resource = <<"simulations">> } = State ) -
 	S = State#request_state.looked_up,
 	{ServerName,Port} = case S#simulation.servers of
 												undefined -> {<<"unknown">>,0};
-												Server ->  {list_to_binary(Server#sim_entry.opensync_server_name), Server#sim_entry.opensync_server_port}
+												Server ->  {Server#sim_entry.opensync_server_name, Server#sim_entry.opensync_server_port}
 											end,
 	Sim = #{ name => S#simulation.name, caname => S#simulation.ca, num_devices => S#simulation.num_devices, nodes => S#simulation.nodes,
 		server => ServerName, port=> Port , assets_created => S#simulation.assets_created },

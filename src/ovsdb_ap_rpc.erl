@@ -12,7 +12,7 @@
 -include("../include/common.hrl").
 -include("../include/ovsdb_ap_tables.hrl").
 
--export ([eval_req/4,eval_resp/4]).
+-export ([eval_req/4,eval_resp/4,publish_monitor/3]).
 
 
 %%------------------------------------------------------------------------------
@@ -30,8 +30,10 @@ eval_req(<<"transact">>,Id,#{<<"params">>:=_P},_Store) ->
 	{ok, make_result(Id,<<>>)};
 
 eval_req(<<"monitor">>,Id,#{<<"params">>:=[<<"Open_vSwitch">>,NSpace|Tables]},Store) when length(Tables)==1 ->	
-	Res = make_result(Id,req_monitor(NSpace,maps:to_list(hd(Tables)),Store)),
-	io:format("MONITOR REQUEST (~s)~n",[NSpace]),
+	Mon = req_monitor(NSpace,maps:to_list(hd(Tables)),Store),
+	Res = make_result(Id,Mon),
+	%Json = iolist_to_binary(jiffy:encode(Res)),
+	io:format("MONITOR REQUEST (~s):~n",[NSpace]), %,Json]),
 	{ok, Res};
 eval_req(<<"monitor">>,Id,P,_) ->
 	?L_EA("unrecognized monitor request: ~p",[P]),
@@ -93,7 +95,7 @@ req_monitor (NameSpace,[{Table,Operations}|_],Store) ->
 	case Table of 
 		<<"Wifi_Associated_Clients">> ->
 			Res = monitor_result(modify,M,Store),
-			publish_monitor(NameSpace,Res),
+			timer:apply_after(3000,?MODULE,publish_monitor,[self(),NameSpace,Res]),
 			#{};
 		_ ->
 			Ret
@@ -132,12 +134,18 @@ monitor_result (_,_,_) ->
 monitor_table_query (Table, Which, Store) ->
 	Fields = rec_fields(Table),
 	F = fun(X) ->
-		M = maps:from_list(lists:zip(Fields,X)),
-		{KeyId,M2} = maps:take(<<"key_id">>,M),
+		M = maps:from_list(lists:zip(Fields,X)),			
+		{KeyId,M2} = case Table of
+						<<"Wifi_Associated_Clients">> ->
+							{KeyId2,Mt} = maps:take(<<"key_id">>,M),
+							{KeyId2,Mt#{<<"key_id">>=><<"">>}};
+	 					_ ->
+							maps:take(<<"key_id">>,M)
+					end,
 		case Which of
 			new -> {KeyId,#{<<"new">>=>M2}};
 			old -> {KeyId,#{<<"old">>=>M2}};
-			both -> {KeyId,#{<<"new">>=>M2, <<"old">>=>#{}}}
+			both -> {KeyId,#{<<"new">>=>M2}}  %, <<"old">>=>#{}}}
 		end
 	end,
 	case ets:select(Store,create_match_spec(Table,[])) of		
@@ -148,14 +156,17 @@ monitor_table_query (Table, Which, Store) ->
 	end.
 
 
--spec publish_monitor (NameSpace :: binary(), Data :: #{binary()=>term()}) -> ok.
-publish_monitor (NameSpace,Data) ->
+-spec publish_monitor (AP :: pid(), NameSpace :: binary(), Data :: #{binary()=>term()}) -> ok.
+publish_monitor (AP,NameSpace,Data) ->
 	RPC = #{
 		<<"id">> => null,
 		<<"method">> => <<"update">>,
 		<<"params">> => [NameSpace,Data]
 	},
-	ovasb_ap:rpc_request(self(),RPC).
+	Json = iolist_to_binary(jiffy:encode(RPC)),
+	io:format("PUBLISHING: ~s~n~s~n",[NameSpace,Json]),
+	?L_IA("PUBLISHING: ~s",[NameSpace]),
+	ovsdb_ap:rpc_request(AP,RPC).
 
 
 %%------------------------------------------------------------------------------

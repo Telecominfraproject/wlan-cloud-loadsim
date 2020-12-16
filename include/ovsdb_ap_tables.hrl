@@ -40,15 +40,29 @@
 -record ('AWLAN_Node',{
 	key_id :: binary() | ets_dont_care(),
 	mqtt_settings = [<<"map">>,[]] :: term() | ets_dont_care(),
-	redirector_addr = <<>> :: term() | ets_dont_care(),
-	manager_addr = <<>> :: term() | ets_dont_care(),
 	sku_number = [<<"set">>,[]] :: term() | ets_dont_care(),
-	serial_number = <<>> :: term() | ets_dont_care(),
 	model = <<>>:: term() | ets_dont_care(),
+	version_matrix = [<<"map">>,[]] :: term() | ets_dont_care(),
+	id = <<"">> :: term(),
 	firmware_version = <<>> :: term() | ets_dont_care(),
+	firmware_url = <<"">> :: term(),
+	upgrade_dl_timer = 0 :: term(),
 	platform_version = <<>> :: term() | ets_dont_care(),
-	revision = <<>> :: term() | ets_dont_care(),
-	version_matrix = [<<"map">>,[]] :: term() | ets_dont_care()
+	firmware_pass = <<"">> :: term(),
+	upgrade_timer = 0 :: term(),
+	max_backoff = 60 :: term(),
+	led_config = [<<"map">>,[]] :: term(),
+	redirector_addr = <<>> :: term() | ets_dont_care(),
+	serial_number = <<>> :: term() | ets_dont_care(),
+	'_version' = [<<"uuid">>,<<"33fad8ee-4cd8-4818-a247-a4161ce3f2b0">>] :: term(),
+	mqtt_headers = [<<"map">>,[]] :: term(),
+	min_backoff = 30 :: term(),
+	device_mode = [<<"set">>,[]] :: term(),
+	upgrade_status = 0 :: term(),
+	revision = <<"1">> :: term() | ets_dont_care(),
+	mqtt_topics = [<<"map">>,[]] :: term(),
+	manager_addr = <<>> :: term() | ets_dont_care(),
+	factory_reset = [<<"set">>,[]] :: term()
 }).
 
 
@@ -157,7 +171,23 @@
 
 
 -record ('DHCP_leased_IP', {
-	key_id :: binary() | ets_dont_care()
+	key_id :: binary() | ets_dont_care(),
+	db_status = 1 :: term(),
+	subnet_mask = <<"255.255.255.0">> :: term(),
+	hostname = <<"">> :: term(),
+	secondary_dns = <<"0.0.0.0/0">> :: term(),
+	inet_addr = <<"">> :: term(),
+	lease_time = 43200 :: term(),
+	hwaddr = <<"">> :: term(),
+	'_version' = [<<"uuid">>,<<"463c9bfd-e539-419c-83d2-6048a1a9e2a7">>] :: term(),
+	manuf_id = 0 :: term(),
+	vendor_class = <<"">> :: term(),
+	device_type = 0 :: term(),
+	dhcp_server = <<"192.168.1.1">> :: term(),
+	device_name = <<"">> :: term(),
+	fingerprint = <<"1,121,3,6,15,114,119,252">> :: term(),
+	primary_dns = <<"192.168.1.1">> :: term(),
+	gateway = <<"192.168.1.1">> :: term()
 }).
 
 -record ('Wifi_Radio_Config', {

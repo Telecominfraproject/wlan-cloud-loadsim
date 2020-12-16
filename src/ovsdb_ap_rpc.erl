@@ -18,18 +18,25 @@
 %%------------------------------------------------------------------------------
 %% request handling
 
--spec eval_req (Method :: binary(), Id :: binary(), Data :: map(), Store :: ets:tid()) -> {ok, ignore} | {ok, Result :: map()} | generic_error().
+-spec eval_req (Method :: binary(), Id :: binary(), Data :: map(), Store :: ets:tid()) -> {ok, ignore} | {ok, Result :: map() | binary()} | generic_error().
 eval_req(<<"echo">>, Id, _Data, _Store) ->
 	?L_I(?DBGSTR("RPC request: ~s (~s)",[<<"echo">>,Id])),
 	{ok, make_result(Id,[])};
 
-eval_req(<<"transact">>,Id,#{<<"params">>:=P},Store) ->
-	Res = run_transactions(Id,P,Store,[]),
+eval_req(<<"transact">>,Id,#{<<"params">>:=[<<"Open_vSwitch">>|Trans]},Store) ->
+	Res = run_transactions(Id,Trans,Store,[]),
 	{ok, make_result(Id,Res)};
+eval_req(<<"transact">>,Id,#{<<"params">>:=_P},_Store) ->
+	{ok, make_result(Id,<<>>)};
 
-eval_req(<<"monitor">>,Id,#{<<"params">>:=P},Store) ->
-	Res = run_monitor(Id,P,Store,#{}),
-	{ok, make_result(Id,Res)};
+eval_req(<<"monitor">>,Id,#{<<"params">>:=[<<"Open_vSwitch">>,NSpace|Tables]},Store) when length(Tables)==1 ->	
+	Res = make_result(Id,req_monitor(NSpace,maps:to_list(hd(Tables)),Store)),
+	io:format("MONITOR REQUEST (~s)~n",[NSpace]),
+	{ok, Res};
+eval_req(<<"monitor">>,Id,P,_) ->
+	?L_EA("unrecognized monitor request: ~p",[P]),
+	{ok, make_result(Id,#{})};
+
 
 eval_req(<<"get_schema">>, Id,_,Store) ->
 	?L_I(?DBGSTR("RPC request: ~s (~s)",[<<"get_schema">>,Id])),
@@ -40,7 +47,7 @@ eval_req (Method, Id, _Data, _Store) ->
 	?L_I(?DBGSTR("RPC request: ~s (~s)",[Method,Id])),
 	{error,io_lib:format("~s not recognized",[Method])}.
 
--spec make_result (Id :: binary(), Result :: [#{binary()=>any()}] | binary()) -> map().
+-spec make_result (Id :: binary(), Result :: map() | list() | binary() | null) -> map() | binary().
 make_result (Id, <<>>) ->
 	iolist_to_binary(io_lib:format("{\"result\":null,\"id\":\"~s\",\"error\":\"internal error\"}",[Id]));
 make_result (Id, Res) when is_binary(Res) ->
@@ -71,33 +78,90 @@ eval_resp (Id, _Data, Queue, _Store) ->
 %%------------------------------------------------------------------------------
 %% transaction and monitor handling
 
--spec run_transactions (Id :: binary(), Transactions :: binary() | #{binary() => term()}, Store :: ets:tid(), Acc :: [#{binary()=>any()}]) -> [#{binary()=>any()}].
+-spec run_transactions (Id :: binary(), Transactions :: [#{binary() => term()}], Store :: ets:tid(), Acc :: [#{binary()=>any()}]) -> [#{binary()=>any()}].
 run_transactions (_,[],_,Acc) ->
 	lists:reverse(Acc);
 run_transactions (Id,[Trans|More],Store,Acc) when is_map(Trans) ->
 	#{<<"table">>:=T, <<"op">>:=OP} = Trans,
 	?L_I(?DBGSTR("=> table: ~s, operation: ~s",[T,OP])),
 	Qr = table_query(Trans,Store),
-	run_transactions (Id,More,Store,[Qr|Acc]);
-run_transactions (Id,[DB|More],Store,Acc) ->
-	?L_I(?DBGSTR("RPC request ID: ~s / transaction for: ~s",[Id,DB])),
-	run_transactions (Id,More,Store,Acc).
+	run_transactions (Id,More,Store,[Qr|Acc]).
 
--spec run_monitor (Id :: binary(), Transactions :: binary() | #{binary() => term()}, Store :: ets:tid(), Acc :: #{binary()=>any()}) -> #{binary()=>any()}.
-run_monitor (_,[],_,Acc) ->
-	Acc;
-run_monitor (Id,[DB|More],Store,Acc) when is_binary(DB) ->
-	?L_IA("RPC request ID: ~s / monitor for: ~s",[Id,DB]),
-	run_monitor (Id,More,Store,Acc);
-run_monitor (Id,[_|More],Store,Acc) ->
-	run_monitor (Id,More,Store,Acc).
+-spec req_monitor (NameSpace :: binary(), ToMonitor :: [#{binary()=>term()}], Store :: ets:tid()) -> Result :: #{binary()=>term()}.
+req_monitor (NameSpace,[{Table,Operations}|_],Store) ->
+	{M,Ret} = monitor (NameSpace,Table,Operations,Store),
+	case Table of 
+		<<"Wifi_Associated_Clients">> ->
+			Res = monitor_result(modify,M,Store),
+			publish_monitor(NameSpace,Res),
+			#{};
+		_ ->
+			Ret
+	end;
+req_monitor (NameSpace,OPS,_) ->
+	?L_EA("Monitor request for namespace '~s' with unsupported operatiosn format ~p",[NameSpace,OPS]),
+	#{}.
 
+-spec monitor (NameSpace :: binary(), Table :: binary(), Operations :: #{binary()=>term()}, Store :: ets:tid()) -> Result :: #{binary()=>term()}.
+monitor (NameSpace, Table, Operations, Store) ->
+	Sel = maps:get(<<"select">>,Operations,#{<<"modify">>=>true}),
+	M = #monitors{
+		namespace = NameSpace,
+		table = Table,
+		initial = maps:get(<<"initial">>,Sel,false),
+		insert = maps:get(<<"insert">>,Sel,false),
+		delete = maps:get(<<"delete">>,Sel,false),
+		modify = maps:get(<<"modify">>,Sel,false)
+	},
+	ets:insert(Store, M),
+	{M,monitor_result(initial,M,Store)}.
+
+-spec monitor_result (State :: initial | insert | delete | modify, Monitor :: #monitors{}, Store :: ets:tid()) -> Result :: #{binary()=>term()}.
+monitor_result (initial,#monitors{table=T, initial=true}, Store) ->
+	monitor_table_query(T, new, Store);
+monitor_result (insert,#monitors{table=T, insert=true}, Store) ->
+	monitor_table_query(T, new, Store);
+monitor_result (delete,#monitors{table=T, delete=true}, Store) ->
+	monitor_table_query(T, old, Store);
+monitor_result (modify,#monitors{table=T, modify=true}, Store) ->
+	monitor_table_query(T, both, Store);
+monitor_result (_,_,_) ->
+	#{}.
+
+-spec monitor_table_query (Table :: binary(), Which :: new | old | both,Store :: ets:tid()) -> Result :: #{binary()=>term()}.
+monitor_table_query (Table, Which, Store) ->
+	Fields = rec_fields(Table),
+	F = fun(X) ->
+		M = maps:from_list(lists:zip(Fields,X)),
+		{KeyId,M2} = maps:take(<<"key_id">>,M),
+		case Which of
+			new -> {KeyId,#{<<"new">>=>M2}};
+			old -> {KeyId,#{<<"old">>=>M2}};
+			both -> {KeyId,#{<<"new">>=>M2, <<"old">>=>#{}}}
+		end
+	end,
+	case ets:select(Store,create_match_spec(Table,[])) of		
+		[] ->
+			#{};
+		Res ->
+			#{Table=>maps:from_list([F(X) || X <- Res])}
+	end.
+
+
+-spec publish_monitor (NameSpace :: binary(), Data :: #{binary()=>term()}) -> ok.
+publish_monitor (NameSpace,Data) ->
+	RPC = #{
+		<<"id">> => null,
+		<<"method">> => <<"update">>,
+		<<"params">> => [NameSpace,Data]
+	},
+	ovasb_ap:rpc_request(self(),RPC).
 
 
 %%------------------------------------------------------------------------------
 %% handling OVSDB tables
 
--spec table_query (P :: list(), Store :: ets:tid()) -> map().
+-spec table_query (P :: map(), Store :: ets:tid()) -> map().
 
 table_query (#{<<"table">>:=T, <<"op">>:= <<"select">>, <<"columns">>:=C, <<"where">>:=W},S) ->
 	Res = ets:select(S,create_match_spec(T,W)),
@@ -114,21 +178,66 @@ table_query (#{<<"table">>:=T, <<"op">>:= <<"delete">>, <<"where">>:=W},S) ->
 
 table_query (#{<<"table">>:=T, <<"op">>:= <<"insert">>, <<"row">>:=R},S) ->
 	Fields = rec_fields(T),
-	Sel = list_to_tuple([binary_to_atom(T)|['_'||_<-Fields]]),
-	Idx = length(ets:match_object(S,Sel)),
-	Rwi = R#{<<"row_idx">>=>Idx},
-	Rec = list_to_tuple([binary_to_atom(T)|[maps:get(X,Rwi,<<>>) || X<-Fields]]),
+	UUID = utils:uuid_b(),
+	Default = maps:from_list(lists:zip(Fields,tl(tuple_to_list(default_record(T))))),
+	Rwi = maps:merge(Default,R#{<<"key_id">>=>utils:uuid_b(),<<"_uuid">>=>[<<"uuid">>,UUID]}),
+	Rec = list_to_tuple([binary_to_atom(T)|[maps:get(X,Rwi,<<"###WILL_CRASH###">>) || X<-Fields]]),
+	% case T of
+	% 	<<"Wifi_VIF_Config">> ->
+	% 		io:format("INSERT VIF:~nInput=~p~nResult=~p~n",[R,Rec]);
+	% 	_ ->
+	% 		ok
+	% end,
 	ets:insert(S,Rec),
-	#{uuid=>[uuid,utils:uuid_b()]};
+	#{uuid=>[uuid,UUID]};
 
-table_query (#{<<"table">>:=T, <<"op">>:= <<"update">>, <<"row">>:=C, <<"where">>:=W},S) ->
+table_query (#{<<"table">>:=T, <<"op">>:= <<"mutate">>, <<"mutations">>:=Mut, <<"where">>:=W},S) ->
+	D = mutate_table(T,Mut,W,S),
+	#{<<"count">> => D};
+
+table_query (#{<<"table">>:=T, <<"op">>:= <<"update">>, <<"row">>:=R, <<"where">>:=W},S) ->
 	M = create_match_spec(T,W),
 	Res = ets:select(S,M),
 	D = ets:select_delete(S,[setelement(3,hd(M),[true])]),
-	ets:insert(S,update_records(T,C,Res,[])),
-	check_update_actions(C),
+	Upd = update_records(T,R,Res,[]),
+	ets:insert(S,Upd),
+	check_update_actions(R),
 	#{<<"count">> => D}.
 	
+%--------mutate_table/4------------------hndle mutations to fields in a table row (or rows)
+
+-spec mutate_table (Table :: binary(), Mutations :: [[any()]], Where :: [any()], Store :: ets:tid()) -> RowsAffected :: integer().
+mutate_table (Table,Mut,Where,Store) ->
+	mutate_table_a (Table,Mut,Where,Store,0).
+
+-spec mutate_table_a (Table :: binary(), Mutations :: [[any()]], Where :: [any()], Store :: ets:tid(), Acc :: integer()) -> RowsAffected :: integer().
+mutate_table_a (_,[],_,_,A) ->
+	A;
+mutate_table_a (Table,[Mut|Tail],Where,Store,A) ->
+	MSpec = create_match_spec(Table,Where),
+	[ToMutate] = ets:select(Store,MSpec),
+	Mutated = apply_mutations(Mut, Table, ToMutate),
+	%io:format("MUTATION: MUT=~p~nToMutate=~p~n,Mutated=~p~n",[Mut,ToMutate,Mutated]),
+	D = ets:select_delete(Store,[setelement(3,hd(MSpec),[true])]),
+	ets:insert(Store,list_to_tuple([binary_to_atom(Table)|Mutated])),
+	mutate_table_a (Table,Tail,Where,Store,A+D).
+
+-spec apply_mutations (Mutations :: [], Table :: binary(), ToMutate :: tuple()) -> MutatedRecord :: tuple().
+apply_mutations ([Field,<<"insert">>,What],Table,Record) ->
+	RecMap = lists:zip(rec_fields(Table),Record),
+	case proplists:get_value(Field,RecMap) of
+		undefined ->
+			Record;
+		[T,L] ->
+			F = fun (X,_) when X=:=Field -> [T,[What|L]]; (_,V) -> V end,
+			[F(Key,Val) || {Key,Val}<-RecMap]
+	end.
+
+
+
+
+
+
 
 %--------check_update_actions/1----------special handling for some updates that need to trigger actions
 
@@ -164,16 +273,18 @@ field_idx (F,[],_) -> F;
 field_idx (F,[F|_],N) -> binary_to_atom(list_to_binary([$$,integer_to_list(N)]));
 field_idx (F,[_|T],N) -> field_idx(F,T,N+1).
 
-%--------update_records/4-----------------create an updated record to eb inserted into ETS from RCP call
-
+%--------update_records/4-----------------create an updated record to be inserted into ETS from RCP call
 -spec update_records (TableName :: binary(), NewValues :: #{binary():=any()}, Records :: [[any()]], Acc :: [[any()]]) -> [tuple()].
-update_records (T,_,[],Acc) ->
-	[list_to_tuple([binary_to_atom(T)|X]) || X <- Acc];
-
+update_records (_,_,[],Acc) ->
+	Acc;
 update_records (T,V,[R|Rest],Acc)  ->
-	Cand = lists:zip(rec_fields(T),R),
-	Updt = [Uv || {F,Ov} <- Cand, case maps:is_key(F,V) of true -> Uv=maps:get(F,V), true; _ -> Uv=Ov, true end],
-	update_records(T,V,Rest,[Updt|Acc]).
+	Fields = rec_fields(T),
+	Default = maps:from_list(lists:zip(Fields,tl(tuple_to_list(default_record(T))))),
+	Cand = maps:from_list(lists:zip(Fields,R)),
+	DefCand = maps:merge(Default,Cand),
+	ResMap = maps:merge(DefCand,V),
+	Rec = list_to_tuple([binary_to_atom(T)|[maps:get(X,ResMap,<<"###WILL_CRASH###">>) || X<-Fields]]),
+	update_records(T,V,Rest,[Rec|Acc]).
 
 %--------read_schema/1-------------------reads the schema from disk for a particular device type
 -spec read_schema(Store :: ets:tid()) -> binary().
@@ -190,7 +301,6 @@ read_schema (Store) ->
 	end.
 
 
-
 %%------------------------------------------------------------------------------
 %% record convertion helpers
 -spec rec_fields (RecordName :: binary()) -> Fieldnames :: [binary()].
@@ -200,6 +310,14 @@ rec_fields (<<"Wifi_Radio_Config">>) ->
 	[atom_to_binary(X)||X<-record_info(fields,'Wifi_Radio_Config')];
 rec_fields (<<"Wifi_VIF_Config">>) ->
 	[atom_to_binary(X)||X<-record_info(fields,'Wifi_VIF_Config')];
+rec_fields (<<"Wifi_VIF_State">>) ->
+	[atom_to_binary(X)||X<-record_info(fields,'Wifi_VIF_State')];
+rec_fields (<<"Wifi_Associated_Clients">>) ->
+	[atom_to_binary(X)||X<-record_info(fields,'Wifi_Associated_Clients')];
+rec_fields (<<"Command_State">>) ->
+	[atom_to_binary(X)||X<-record_info(fields,'Command_State')];
+rec_fields (<<"DHCP_leased_IP">>) ->
+	[atom_to_binary(X)||X<-record_info(fields,'DHCP_leased_IP')];
 rec_fields (<<"Wifi_RRM_Config">>) ->
 	[atom_to_binary(X)||X<-record_info(fields,'Wifi_RRM_Config')];
 rec_fields (<<"Hotspot20_Icon_Config">>) ->
@@ -216,3 +334,35 @@ rec_fields (<<"Wifi_Inet_State">>) ->
 	[atom_to_binary(X)||X<-record_info(fields,'Wifi_Inet_State')];
 rec_fields (<<"AWLAN_Node">>) ->
 	[atom_to_binary(X)||X<-record_info(fields,'AWLAN_Node')].
+
+-spec default_record(RecordName::binary) -> Record :: tuple().
+default_record (<<"Wifi_Inet_Config">>) ->
+	#'Wifi_Inet_Config'{};
+default_record (<<"Wifi_Radio_Config">>) ->
+	#'Wifi_Radio_Config'{};
+default_record (<<"Wifi_VIF_Config">>) ->
+	#'Wifi_VIF_Config'{};
+default_record (<<"Wifi_VIF_State">>) ->
+	#'Wifi_VIF_State'{};
+default_record (<<"Wifi_Associated_Clients">>) ->
+	#'Wifi_Associated_Clients'{};
+default_record (<<"Command_State">>) ->
+	#'Command_State'{};
+default_record (<<"DHCP_leased_IP">>) ->
+	#'DHCP_leased_IP'{};
+default_record (<<"Wifi_RRM_Config">>) ->
+	#'Wifi_RRM_Config'{};
+default_record (<<"Hotspot20_Icon_Config">>) ->
+	#'Hotspot20_Icon_Config'{};
+default_record (<<"Hotspot20_OSU_Providers">>) ->
+	#'Hotspot20_OSU_Providers'{};
+default_record (<<"Hotspot20_Config">>) ->
+	#'Hotspot20_Config'{};
+default_record (<<"Wifi_Stats_Config">>) ->
+	#'Wifi_Stats_Config'{};
+default_record (<<"Wifi_Radio_State">>) ->
+	#'Wifi_Radio_State'{};
+default_record (<<"Wifi_Inet_State">>) ->
+	#'Wifi_Inet_State'{};
+default_record (<<"AWLAN_Node">>) ->
+	#'AWLAN_Node'{}.

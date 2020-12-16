@@ -38,7 +38,7 @@
 
 
 -record ('AWLAN_Node',{
-	row_idx = 0 :: integer() | ets_dont_care(),
+	key_id :: binary() | ets_dont_care(),
 	mqtt_settings = [<<"map">>,[]] :: term() | ets_dont_care(),
 	redirector_addr = <<>> :: term() | ets_dont_care(),
 	manager_addr = <<>> :: term() | ets_dont_care(),
@@ -52,24 +52,13 @@
 }).
 
 
--record ('Wifi_Inet_State',{
-	row_idx = 0 :: integer(),
-	inet_addr = <<>> :: term(),
-    hwaddr = <<>> :: term(),
-    if_name = <<>> :: term(),
-    if_type = <<>> :: term()
-}).
 
 
--record ('Wifi_Radio_State',{
-	row_idx = 0 :: integer() | ets_dont_care(),
-	freq_band = <<>> :: term(),
-	if_name = <<>> :: term(),
-	allowed_channels = <<>>  :: term()
-}).
+
+
 
 -record ('Wifi_Stats_Config', {
-	row_idx = 0 :: integer() | ets_dont_care(),
+	key_id :: binary() | ets_dont_care(),
 	channel_list = <<"">> :: term() | ets_dont_care(),
 	radio_type = <<"">> :: term() | ets_dont_care(),
 	reporting_interval = <<"">> :: term() | ets_dont_care(),
@@ -82,23 +71,39 @@
 }).
 
 -record ('Hotspot20_Config', {
-	row_idx = 0 :: integer() | ets_dont_care()
+	key_id :: binary() | ets_dont_care()
 }).
 
 -record ('Hotspot20_OSU_Providers', {
-	row_idx = 0 :: integer() | ets_dont_care()
+	key_id :: binary() | ets_dont_care()
 }).
 
 -record ('Hotspot20_Icon_Config', {
-	row_idx = 0 :: integer() | ets_dont_care()
+	key_id :: binary() | ets_dont_care()
 }).
 
 -record ('Wifi_RRM_Config', {
-	row_idx = 0 :: integer() | ets_dont_care()
+	key_id :: binary() | ets_dont_care(),
+	'_version' = [<<"uuid">>,<<"9bbd18e7-ed7e-4ff3-b89d-a54c12b27ed7">>] :: term(),
+	freq_band = <<"5GU">> :: term(),
+	probe_resp_threshold = -90 :: term(),
+	min_load = 40 :: term(),
+	cell_size = [<<"set">>,[]] :: term(),
+	client_disconnect_threshold = -90 :: term(),
+	basic_rate = [<<"set">>,[]] :: term(),
+	'_uuid' = [<<"uuid">>,<<"44deb01a-a2a8-4b5b-a2be-0bdf04050b97">>] :: term(),
+	backup_channel = 154 :: term(),
+	snr_percentage_drop = 30 :: term()
 }).
 
+-record ('Command_State', {
+	key_id :: binary() | ets_dont_care()
+}).
+
+
+
 -record ('Wifi_VIF_Config', {
-	row_idx = 0 :: integer() | ets_dont_care(),
+	key_id :: binary() | ets_dont_care(),
 	bridge = <<"">> :: term() | ets_dont_care(),
     ap_bridge = <<"">> :: term() | ets_dont_care(),
 	'_uuid' = <<"">> :: term() | ets_dont_care(),
@@ -112,9 +117,9 @@
 	mode = <<"">> :: term() | ets_dont_care(),
 	rrm = <<"">> :: term() | ets_dont_care(),
 	ssid = <<"">> :: term() | ets_dont_care(),
-	ssid_broadcast = <<"">> :: term() | ets_dont_care(),
-	uapsd_enable = <<"">> :: term() | ets_dont_care(),
-	vif_radio_idx = <<"">> :: term() | ets_dont_care(),
+	ssid_broadcast = <<"enabled">> :: term() | ets_dont_care(),
+	uapsd_enable = false :: term() | ets_dont_care(),
+	vif_radio_idx = [<<"set">>,[]] :: term() | ets_dont_care(),
 	security = <<"">> :: term() | ets_dont_care(),
 	vlan_id = <<"">> :: term() | ets_dont_care(),
 	mac_list = <<"">> :: term() | ets_dont_care(),
@@ -122,40 +127,145 @@
 }).
 
 
+-record ('Wifi_VIF_State', {
+	key_id :: binary() | ets_dont_care(),
+	vif_radio_idx = [<<"set">>,[]]:: term()
+}).
+
+-record ('Wifi_Associated_Clients', {
+	key_id :: binary() | ets_dont_care(),
+	'_version' = [<<"uuid">>,<<"5bc3eb0f-1cc3-4dae-aae5-af02c8d2f1c7">>] :: term(),
+	mac = <<"">> :: term(),
+	state = <<"">> :: term(),
+	uapsd= [<<"set">>,[]] :: term(),
+	capabilities= [<<"set">>,[]] :: term(),
+	kick = [<<"map">>,[]] :: term(),
+	oftag= [<<"set">>,[]] :: term()
+}).
+
+
+-record ('DHCP_leased_IP', {
+	key_id :: binary() | ets_dont_care()
+}).
+
+
+
+
+
 -record ('Wifi_Radio_Config', {
-	row_idx = 0 :: integer() | ets_dont_care(),
+	key_id :: binary() | ets_dont_care(),
 	'_uuid' = <<"">> :: term() | ets_dont_care(),
 	if_name = <<"">> :: term() | ets_dont_care(),
 	bcn_int = <<"">> :: term() | ets_dont_care(),
 	channel = <<"">> :: term() | ets_dont_care(),
-	channel_mode = <<"">> :: term() | ets_dont_care(),
+	channel_mode = [<<"set">>,[]] :: term(),
 	country = <<"">> :: term() | ets_dont_care(),
 	enabled = <<"">> :: term() | ets_dont_care(),
 	ht_mode = <<"">> :: term() | ets_dont_care(),
 	tx_power = <<"">> :: term() | ets_dont_care(),
-	vif_configs = <<"">> :: term() | ets_dont_care(),
+	vif_configs = [<<"set">>,[]] :: term(),
 	freq_band = <<"">> :: term() | ets_dont_care(),
-	hw_config = <<"">> :: term() | ets_dont_care(),
-	hw_type = <<"">> :: term() | ets_dont_care()
+	hw_config = [<<"map">>,[]] :: term(),
+	hw_type = <<"ath10k">> :: term() | ets_dont_care()
+}).
+
+-record ('Wifi_Radio_State',{
+	key_id :: binary() | ets_dont_care(),
+	if_name = <<>> :: term(),
+	dfs_demo = [<<"set">>,[]] :: term(),
+	thermal_downgraded = [<<"set">>,[]] :: term(),
+	temperature_control = [<<"map">>,[]] :: term(),
+	mac = <<>> :: term(),
+	bcn_int = 0 :: term(),
+	allowed_channels = [<<"set">>,[]] :: term(),
+	radio_config = [<<"uuid">>,<<"830bd195-7114-4e99-9b51-5622e47ce221">>] :: term(),
+	thermal_tx_chainmask = [<<"set">>,[]] :: term(),
+	channel_sync = [<<"set">>,[]] :: term(),
+	thermal_shutdown = [<<"set">>,[]] :: term(),
+	hw_type = [<<"set">>,[]] :: term(),
+	vif_states = [<<"uuid">>,<<"87f75538-67d0-408a-9c8b-018665754d48">>] ::term(),
+	country = <<>> :: term(),
+	radar = [<<"map">>,[]] :: term(),
+	tx_chainmask = 0 :: term(),
+	fallback_parents = [<<"map">>,[]] :: term(),
+	hw_config = [<<"map">>,[[<<"dfs_enable">>,<<"1">>],[<<"dfs_ignorecac">>,<<"0">>],[<<"dfs_usenol">>,<<"1">>]]] :: term(),
+	channel = 0 :: term(),
+	tx_power = 18 :: term(),
+	ht_mode = <<"HT80">> :: term(),
+	thermal_downgrade_temp = [<<"set">>,[]] :: term(),
+	hw_mode = <<"11ac">> :: term(),
+	zero_wait_dfs = [<<"set">>,[]] :: term(),
+	enabled = true :: term(),
+	hw_params = [<<"map">>,[]] :: term(),
+	thermal_upgrade_temp = [<<"set">>,[]] :: term(),
+	channels = [<<"map">>,[]] :: term(),
+	custom_options = [<<"map">>,[]] :: term(),
+	'_version' = [<<"uuid">>,<<"c325d603-ac42-43b5-a2e0-0b65c73888c6">>] :: term(),
+	freq_band = <<"5GU">> :: term(),
+	channel_mode = [<<"set">>,[]] :: term(),
+	thermal_integration = [<<"set">>,[]] :: term()
 }).
 
 -record ('Wifi_Inet_Config', {
-	row_idx = 0 :: integer() | ets_dont_care(),
-	'NAT' = <<"">> :: term() | ets_dont_care(),
-	'_uuid' = <<"">> :: term() | ets_dont_care(),
-	broadcast = <<"">> :: term() | ets_dont_care(),
-	enabled = <<"">> :: term() | ets_dont_care(),
-	if_name = <<"">> :: term() | ets_dont_care(),
-	if_type = <<"">> :: term() | ets_dont_care(),
-	ip_assign_scheme = <<"">> :: term() | ets_dont_care(),
-	network = <<"">> :: term() | ets_dont_care(),
-	inet_addr = <<"">> :: term() | ets_dont_care(),
-	mtu = <<"">> :: term() | ets_dont_care(),
-	netmask = <<"">> :: term() | ets_dont_care(),
-	vlan_id = <<"">> :: term() | ets_dont_care(),
-	gateway = <<"">> :: term() | ets_dont_care(),
-	dns = <<"">> :: term() | ets_dont_care(),
-	dhcpd = <<"">> :: term() | ets_dont_care(),
-	parent_ifname = <<"">>  :: term() | ets_dont_care()
+	key_id :: binary() | ets_dont_care(),
+	'_uuid' = [<<"map">>,[]] :: term(),
+    dhcpd = [<<"map">>,[]] :: term(),
+	if_name = <<"">> :: term(),
+	mtu = [<<"set">>,[]] :: term(),
+	network = false :: term(),
+	dns = [<<"map">>,[]] :: term(),
+	if_type = <<"eth">> :: term(),
+	broadcast = [<<"set">>,[]] :: term(),
+	enabled = false :: term(),
+	vlan_id = [<<"set">>,[]] :: term(),
+	netmask = [<<"set">>,[]] :: term(),
+	gateway = [<<"set">>,[]] :: term(),
+	'NAT' = false :: term(),
+	ip_assign_scheme = <<"dhcp">> :: term(),
+	inet_addr = [<<"set">>,[]] :: term(),
+	shcp_sniff = false :: term()
+}).
+
+-record ('Wifi_Inet_State',{
+	key_id :: binary() | ets_dont_care(),
+	dhcpd = [<<"map">>,[]] :: term(),
+	if_name = <<"">> :: term(),
+	upnp_mode = [<<"set">>,[]] :: term(),
+	softwds_mac_addr= [<<"set">>,[]] :: term(),
+	if_type = <<"eth">> :: term(),
+	enabled = false :: term(),
+	softwds_wrap = false :: term(),
+	vlan_id = [<<"set">>,[]] :: term(),
+	netmask = [<<"set">>,[]] :: term(),
+	'NAT' = false :: term(),
+	gre_remote_inet_addr = [<<"set">>,[]] :: term(),
+	if_uuid = <<"">>,
+	inet_addr = [<<"set">>,[]] :: term(),
+	'_version' = [<<"uuid">>,<<"0b10958d-9bfb-45e5-9c36-ad8327750607">>] :: term(),
+	hwaddr = <<"">> :: term(),
+	network = false :: term(),
+	mtu = [<<"set">>,[]] :: term(),
+	parent_ifname = [<<"set">>,[]] :: term(),
+	dns = [<<"map">>,[]] :: term(),
+	broadcast = [<<"set">>,[]] :: term(),
+	gre_ifname = [<<"set">>,[]] :: term(),
+	dhcpc = [<<"map">>,[]] :: term(),
+	ip_assign_scheme = <<"">> :: term(),
+	gateway = [<<"set">>,[]] :: term(),
+	inet_config = [<<"uuid">>,<<"7e38a63b-526a-4b83-b30e-edd4c17ab3f6">>] :: term(),
+	gre_local_inet_addr = [<<"set">>,[]] :: term()
+}).
+
+
+%%------------------------------------------------------------------------------
+%% monitor table
+
+-record (monitors, {
+	namespace :: binary(),
+	table :: binary(),
+	initial :: boolean(),
+	insert :: boolean(),
+	delete :: boolean(),
+	modify :: boolean()
 }).
 

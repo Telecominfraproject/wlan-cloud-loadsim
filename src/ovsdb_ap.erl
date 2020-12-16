@@ -25,7 +25,7 @@
 -export([start_ap/1,stop_ap/1,pause_ap/1,cancel_ap/1]).
 
 %% comm API
--export([rpc_cmd/2,reset_comm/1,mqtt_conf/2,post_event/4,post_event/3]).
+-export([rpc_cmd/2,rpc_request/2,reset_comm/1,mqtt_conf/2,post_event/4,post_event/3]).
 
 
 %% gen_server callbacks
@@ -126,6 +126,10 @@ cancel_ap (Node) ->
 -spec rpc_cmd (Node :: pid(), Rpc :: term()) -> ok.
 rpc_cmd (Node,Rpc) ->
 	gen_server:cast(Node,{exec_rpc,Rpc}).
+
+-spec rpc_request (Node :: pid(), Rpc :: term()) -> ok.
+rpc_request (Node,Rpc) ->
+	gen_server:cast(Node,{exec_rpc_req,Rpc}).
 
 -spec reset_comm (Node :: pid()) -> ok.
 reset_comm (Node) ->
@@ -249,9 +253,7 @@ handle_cast ({exec_rpc, RPC}, State) when is_map(RPC) andalso
 								maps:get(<<"id">>,RPC),
 								RPC,
 								State#ap_state.store) of
-		{ok, ignore} ->
-			{noreply, State};
-
+		
 		{ok, Result} when is_map(Result) andalso is_map_key(<<"result">>,Result) ->
 			R= io_lib:format("~p",[Result]),
 			Bytes = length(lists:flatten(R)),
@@ -282,10 +284,20 @@ handle_cast ({exec_rpc, RPC},  State) when is_map(RPC) andalso
 			?L_E(?DBGSTR("RPC response to request '~B' failed with reason: ~p",[maps:get(<<"id">>,RPC),Reason])),
 			{noreply,State}
 	end;
-	
-handle_cast ({exec_rpc, RPC}, State) ->
+handle_cast ({exec_rpc, RPC},State) ->
 	?L_E(?DBGSTR("invalid RPC: ~p~n",[RPC])),
 	{reply,noreply, State};
+
+handle_cast ({exec_rpc_req, _RPC}, #ap_state{status=paused}=State) ->
+	{noreply, State};
+handle_cast ({exec_rpc_req, RPC}, State) when is_map(RPC) andalso
+										      is_map_key(<<"method">>,RPC) andalso
+										      is_map_key(<<"id">>,RPC) ->
+	R= io_lib:format("~p",[RPC]),
+	Bytes = length(lists:flatten(R)),
+	?L_I(?DBGSTR("RPC UPSTREAM REQUEST (~s): ~Bbytes",[maps:get(<<"id">>,RPC),Bytes])),
+	ok = ovsdb_ap_comm:send_term(State#ap_state.comm,RPC),
+	{noreply, State};
 
 handle_cast (R,State) ->
 	?L_E(?DBGSTR("got unknown request: ~p",[R])),

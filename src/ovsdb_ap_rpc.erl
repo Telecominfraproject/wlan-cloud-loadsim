@@ -32,8 +32,9 @@ eval_req(<<"transact">>,Id,#{<<"params">>:=_P},_Store) ->
 eval_req(<<"monitor">>,Id,#{<<"params">>:=[<<"Open_vSwitch">>,NSpace|Tables]},Store) when length(Tables)==1 ->	
 	Mon = req_monitor(NSpace,maps:to_list(hd(Tables)),Store),
 	Res = make_result(Id,Mon),
-	%Json = iolist_to_binary(jiffy:encode(Res)),
-	io:format("MONITOR REQUEST (~s):~n",[NSpace]), %,Json]),
+	% Json = iolist_to_binary(jiffy:encode(Res,[pretty])),
+	% io:format("MONITOR REQUEST (~s):~n~s~n",[NSpace,Json]),
+	io:format("MONITOR REQUEST (~s):~n",[NSpace]),
 	{ok, Res};
 eval_req(<<"monitor">>,Id,P,_) ->
 	?L_EA("unrecognized monitor request: ~p",[P]),
@@ -95,7 +96,11 @@ req_monitor (NameSpace,[{Table,Operations}|_],Store) ->
 	case Table of 
 		<<"Wifi_Associated_Clients">> ->
 			Res = monitor_result(modify,M,Store),
-			timer:apply_after(3000,?MODULE,publish_monitor,[self(),NameSpace,Res]),
+			timer:apply_after(5000,?MODULE,publish_monitor,[self(),NameSpace,Res]),
+			#{};
+		<<"DHCP_leased_IP">> ->
+			Res = monitor_result(modify,M,Store),
+			timer:apply_after(5500,?MODULE,publish_monitor,[self(),NameSpace,Res]),
 			#{};
 		_ ->
 			Ret

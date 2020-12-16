@@ -53,7 +53,8 @@ configure (#cfg{ca_name=CAName, id=ID, redirector=R}=Config) ->
 		{lan_addr,<<"192.168.1.1">>},
 		{lan_mac,Info#client_info.lan_mac0},
 		{tip_redirector,R},
-		{wifi_clients,Info#client_info.wifi_clients}
+		{wifi_clients,Info#client_info.wifi_clients},
+		{name,Info#client_info.name}
 		% {serial,<<"21P10C69717951">>},
 		% {type,<<"EA8300">>},
 		% {wan_addr,<<"10.20.0.113">>},
@@ -101,6 +102,7 @@ initialize_ap_tables (Store, APC) ->
 	create_table('Wifi_Inet_State',APC,Store),
 	create_table('Wifi_RRM_Config',APC,Store),
 	create_table('Wifi_Stats_Config',APC,Store),
+	create_table ('DHCP_leased_IP',APC,Store),
 	create_table('Wifi_Associated_Clients',APC,Store).
 	
 %%------------------------------------------------------------------------------
@@ -378,7 +380,7 @@ create_table ('Wifi_RRM_Config',_APC,Store) ->
 	});
 
 create_table ('Wifi_Associated_Clients',APC,Store) -> 
-	io:format("CONFIGURED WIFI CLIENTS:~n~p~n",[proplists:get_value(wifi_clients,APC)]),
+	%io:format("CONFIGURED WIFI CLIENTS:~n~p~n",[proplists:get_value(wifi_clients,APC)]),
 	F = fun({_,_,[MAC|_]}) ->
 		ets:insert(Store, #'Wifi_Associated_Clients'{
 			key_id = utils:uuid_b(),
@@ -398,6 +400,19 @@ create_table ('Wifi_Associated_Clients',APC,Store) ->
 	% 	kick = [<<"map">>,[]],
 	% 	oftag = [<<"set">>,[]]
 	% });
+
+create_table ('DHCP_leased_IP',APC,Store) ->
+	F = fun(N,{_,_,[MAC|_]}) ->
+		ets:insert(Store, #'DHCP_leased_IP'{
+			key_id = utils:uuid_b(),
+			'_version' = [<<"uuid">>, utils:uuid_b()],
+			hostname = iolist_to_binary([proplists:get_value(name,APC),"_",integer_to_list(N)]),
+			inet_addr = iolist_to_binary(["192.168.1.",integer_to_list(N+1)]),
+			hwaddr = MAC
+		})
+	end,
+	CL = proplists:get_value(wifi_clients,APC),
+	[F(N,X) || {N,X} <- lists:zip(lists:seq(1,length(CL)),CL)];
 
 create_table ('Wifi_Stats_Config',_APC,Store) ->
 	ets:insert(Store, #'Wifi_Stats_Config'{
@@ -423,6 +438,7 @@ create_table ('AWLAN_Node',APC,Store) ->
 		key_id = utils:uuid_b(),
 		redirector_addr = proplists:get_value(tip_redirector,APC),									
 		serial_number = proplists:get_value(serial,APC),
+		id = proplists:get_value(serial,APC),
 		model = proplists:get_value(type,APC),
 		revision = <<"1">>,
 		platform_version = <<"OPENWRT_EA8300">>,

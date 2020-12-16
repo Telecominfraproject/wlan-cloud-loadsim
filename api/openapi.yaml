@@ -500,6 +500,8 @@ paths:
           application/json:
             schema:
               properties:
+                # only actions supported are
+                # prepare,push,start,stop,pause,cancel,restart
                 action:
                   type: string
                 simulation:

@@ -172,7 +172,8 @@ handle_call({create_simulation,SimInfo}, _From, State = #simengine_state{}) ->
 			case create_sim(SimInfo) of
 				ok ->
 					SimState = #sim_state{ sim_info = SimInfo },
-					{reply, ok, State#simengine_state{ sim_states = maps:put(SimInfo#simulation.name,SimState,State#simengine_state.sim_states )}};
+					{reply, ok, State#simengine_state{
+						sim_states = maps:put(SimInfo#simulation.name,SimState,State#simengine_state.sim_states )}};
 				Error -> { reply, {error,Error} , State}
 			end
 	end;
@@ -249,7 +250,7 @@ handle_call({push,SimName,Attributes,Notification}, _From, State = #simengine_st
 									SimAction = #sim_action{
 										id = JobId,
 										action = <<"push">>,
-										created = calendar:system_time_to_rfc3339(erlang:system_time(second)),
+										created = list_to_binary(calendar:system_time_to_rfc3339(erlang:system_time(second))),
 										simulation = SimName,
 										parameters = Attributes,
 										status = <<"started">>,
@@ -294,7 +295,7 @@ handle_call({start,SimName,Attributes,Notification}, _From, State = #simengine_s
 											SimAction = #sim_action{
 												action = <<"start">>,
 												id = JobId,
-												created = calendar:system_time_to_rfc3339(erlang:system_time(second)),
+												created = list_to_binary(calendar:system_time_to_rfc3339(erlang:system_time(second))),
 												simulation = SimName,
 												parameters = Attributes,
 												status = <<"started">>,
@@ -338,7 +339,7 @@ handle_call({stop,SimName,Attributes,Notification}, _From, State = #simengine_st
 											SimAction = #sim_action{
 												id = JobId,
 												action = <<"stop">>,
-												created = calendar:system_time_to_rfc3339(erlang:system_time(second)),
+												created = list_to_binary(calendar:system_time_to_rfc3339(erlang:system_time(second))),
 												simulation = SimName,
 												parameters = Attributes,
 												status = <<"started">>,
@@ -384,7 +385,7 @@ handle_call({pause,SimName,Attributes,Notification}, _From, State = #simengine_s
 											SimAction = #sim_action{
 												id = JobId,
 												action = <<"pause">>,
-												created = calendar:system_time_to_rfc3339(erlang:system_time(second)),
+												created = list_to_binary(calendar:system_time_to_rfc3339(erlang:system_time(second))),
 												simulation = SimName,
 												parameters = Attributes,
 												status = <<"started">>,
@@ -430,7 +431,7 @@ handle_call({cancel,SimName,Attributes,Notification}, _From, State = #simengine_
 											SimAction = #sim_action{
 												id = JobId,
 												action = <<"cancel">>,
-												created = calendar:system_time_to_rfc3339(erlang:system_time(second)),
+												created = list_to_binary(calendar:system_time_to_rfc3339(erlang:system_time(second))),
 												simulation = SimName,
 												parameters = Attributes,
 												status = <<"started">>,
@@ -476,7 +477,7 @@ handle_call({restart,SimName,Attributes,Notification}, _From, State = #simengine
 											SimAction = #sim_action{
 												id = JobId,
 												action = <<"restart">>,
-												created = calendar:system_time_to_rfc3339(erlang:system_time(second)),
+												created = list_to_binary(calendar:system_time_to_rfc3339(erlang:system_time(second))),
 												simulation = SimName,
 												parameters = Attributes,
 												status = <<"started">>,
@@ -525,12 +526,17 @@ handle_cast(_Request, State = #simengine_state{}) ->
 	{noreply, NewState :: #simengine_state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), NewState :: #simengine_state{}}).
 
-handle_info({ SimName,Node,MsgType,TimeStamp,JobId}=_Msg, State = #simengine_state{}) ->
+handle_info({ SimName,Node,MsgType,TimeStamp,JobId}=Msg, State = #simengine_state{}) ->
 	try
+		io:format(">>MSG: ~p~n",[Msg]),
 		SimState = maps:get(SimName,State#simengine_state.sim_states,undefined),
+		io:format(">>1~n"),
 		NewNodes = lists:delete(Node,SimState#sim_state.outstanding_nodes),
+		io:format(">>1~n"),
 		Now = erlang:timestamp(),
+		io:format(">>1~n"),
 		Elapsed = timer:now_diff(Now,TimeStamp) / 1000000,
+		io:format(">>1~n"),
 		NewSimState = case MsgType of
 				prepare_done->
 					?L_IA("Node ~p prepared. Took ~p seconds.~n",[Node,Elapsed]),
@@ -554,8 +560,11 @@ handle_info({ SimName,Node,MsgType,TimeStamp,JobId}=_Msg, State = #simengine_sta
 					?L_IA("Node ~p restart done. Took ~p seconds.~n",[Node,Elapsed]),
 					SimState#sim_state{ outstanding_nodes = NewNodes, state = started }
 			end,
+		io:format(">>1~n"),
 			SimAction = maps:get(JobId,State#simengine_state.sim_actions,undefined),
+		io:format(">>1~n"),
 			NewCount = SimAction#sim_action.done_count+1,
+		io:format(">>1~n"),
 			NewAction = case NewCount == SimAction#sim_action.target_count of
 				true ->
 					SimAction#sim_action{ target_count = NewCount,
@@ -628,7 +637,7 @@ sim_exists(SimName)->
 
 create_sim(SimInfo) when is_record(SimInfo,simulation) ->
 	{atomic,Result}=mnesia:transaction(fun() ->
-			mnesia:dirty_write( simulations, SimInfo )
+			mnesia:dirty_write( simulations, SimInfo#simulation{ creation_date = list_to_binary(calendar:system_time_to_rfc3339(erlang:system_time(second))) } )
 		end),
 	Result.
 
@@ -712,7 +721,7 @@ start_assets(SimInfo,Attributes,SimEnginePid,{M,F,A}=_Notification,JobId)->
 stop_assets(SimInfo,Attributes,SimEnginePid,{M,F,A}=_Notification,JobId)->
 	?L_IA("~s: Stopping all assets.",[binary_to_list(SimInfo#simulation.name)]),
 	_Results = lists:reverse(lists:foldl(fun(Node,Acc) ->
-		R = rpc:call(Node,simnode,stop,[all,Attributes#{ callback => {SimEnginePid,{SimInfo#simulation.name, Node,start_done,erlang:timestamp(),JobId}} }]),
+		R = rpc:call(Node,simnode,stop,[all,Attributes#{ callback => {SimEnginePid,{SimInfo#simulation.name, Node,stop_done,erlang:timestamp(),JobId}} }]),
 		[R|Acc] end,[],SimInfo#simulation.nodes)),
 	apply(M,F,A),
 	ok.

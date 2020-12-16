@@ -162,25 +162,35 @@
 	key_id :: binary() | ets_dont_care()
 }).
 
-
-
-
-
 -record ('Wifi_Radio_Config', {
 	key_id :: binary() | ets_dont_care(),
-	'_uuid' = <<"">> :: term() | ets_dont_care(),
-	if_name = <<"">> :: term() | ets_dont_care(),
-	bcn_int = <<"">> :: term() | ets_dont_care(),
-	channel = <<"">> :: term() | ets_dont_care(),
+	dfs_demo = [<<"set">>,[]] :: term(),
+	if_name = <<"radio0">> :: term() | ets_dont_care(),
+	temperature_control = [<<"map">>,[]] :: term(),
+	tx_power = 18 :: term() | ets_dont_care(),
+	thermal_downgrade_temp = [<<"set">>,[]] :: term(),
+	ht_mode = <<"HT80">> :: term() | ets_dont_care(),
+	bcn_int = 100 :: term() | ets_dont_care(),
+	zero_wait_dfs = [<<"set">>,[]] :: term(),
+	thermal_tx_chainmask = [<<"set">>,[]] :: term(),
+	hw_mode = <<"11ac">> :: term(),
+	enabled = true :: term() | ets_dont_care(),
+	channel_sync = [<<"set">>,[]] :: term(),
+	thermal_shutdown = [<<"set">>,[]] :: term(),
+	thermal_upgrade_temp = [<<"set">>,[]] :: term(),
+	custom_options = [<<"map">>,[]] :: term(),
+	'_uuid' = [<<"uuid">>,<<"5b0c1d91-a642-4356-a6bd-dfc7cab11edc">>] :: term() | ets_dont_care(),
+	'_version' = [<<"uuid">>,<<"9274f405-bd49-47c7-a8a3-265358d730a1">>],
+	freq_band = <<"5GU">> :: term() | ets_dont_care(),
+	hw_type = <<"ath10k">> :: term() | ets_dont_care(),
+	thermal_integration = [<<"set">>,[]] :: term(),
 	channel_mode = [<<"set">>,[]] :: term(),
-	country = <<"">> :: term() | ets_dont_care(),
-	enabled = <<"">> :: term() | ets_dont_care(),
-	ht_mode = <<"">> :: term() | ets_dont_care(),
-	tx_power = <<"">> :: term() | ets_dont_care(),
 	vif_configs = [<<"set">>,[]] :: term(),
-	freq_band = <<"">> :: term() | ets_dont_care(),
-	hw_config = [<<"map">>,[]] :: term(),
-	hw_type = <<"ath10k">> :: term() | ets_dont_care()
+	country = <<"US">> :: term() | ets_dont_care(),
+	tx_chainmask = [<<"set">>,[]] :: term(),
+	fallback_parents = [<<"map">>,[]] :: term(),
+	hw_config = [<<"map">>,[[<<"dfs_enable">>,<<"1">>],[<<"dfs_ignorecac">>,<<"0">>],[<<"dfs_usenol">>,<<"1">>]]],
+	channel = 149 :: term() | ets_dont_care()
 }).
 
 -record ('Wifi_Radio_State',{

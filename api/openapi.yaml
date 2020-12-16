@@ -855,7 +855,13 @@ components:
         operation:
           type: string
         parameters:
-          type: string
+          type: array
+          items:
+            properties:
+              name:
+                type: string
+              value:
+                type: string
         status:
           type: string
         created:

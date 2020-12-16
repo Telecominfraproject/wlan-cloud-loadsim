@@ -558,7 +558,10 @@ handle_info({ SimName,Node,MsgType,TimeStamp,JobId}=_Msg, State = #simengine_sta
 			NewCount = SimAction#sim_action.done_count+1,
 			NewAction = case NewCount == SimAction#sim_action.target_count of
 				true ->
-					SimAction#sim_action{ target_count = NewCount, done_count = NewCount, completed = list_to_binary(calendar:system_time_to_rfc3339(erlang:system_time(second))) , status = <<"completed">> };
+					SimAction#sim_action{ target_count = NewCount,
+					                      done_count = NewCount,
+					                      completed = list_to_binary(calendar:system_time_to_rfc3339(erlang:system_time(second))) ,
+					                      status = <<"completed">> };
 				false ->
 					SimAction#sim_action{ done_count = NewCount}
 			end,
@@ -774,13 +777,19 @@ generate_server(_,_,_)->
 	ok.
 
 sim_action_to_json(SimAction)->
+	Parameters = case maps:get(stagger,SimAction#sim_action.parameters,undefined) of
+								 undefined ->
+									 #{};
+		             { D , T } ->
+			             #{ name => stagger , value => list_to_binary(integer_to_list(D) ++ "/" ++ integer_to_list(T))}
+	             end,
 	jiffy:encode(#{
 			id => SimAction#sim_action.id,
 			operation => SimAction#sim_action.action,
 			status => SimAction#sim_action.status,
 			created => SimAction#sim_action.created,
 			completed => SimAction#sim_action.completed,
-			parameters => SimAction#sim_action.parameters,
+			parameters => [Parameters],
 			done_count => SimAction#sim_action.done_count,
 			target_count => SimAction#sim_action.target_count
 	}).

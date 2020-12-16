@@ -202,7 +202,7 @@ do( ?HTTP_GET ,Req,#request_state{resource = <<"hardware_definitions">>,id=nothi
 
 do( ?HTTP_GET ,Req,#request_state{resource = <<"simulations">>,id=nothing}=State)->
 	PaginationParameters = restutils:get_pagination_parameters(Req),
-	{ok,Simulations}=simengine:list(),
+	{ok,Simulations}=simengine:list_simulations(),
 	{SubList,PaginationInfo} = restutils:paginate(PaginationParameters,Simulations),
 	JSON = restutils:create_paginated_return("Simulations",SubList,PaginationInfo),
 	{JSON,restutils:add_CORS(Req),State};
@@ -246,7 +246,7 @@ do( ?HTTP_POST , Req , #request_state{ resource = <<"simulations">> } = State ) 
 						assets_created = false },
 					simengine:create(NewSim),
 					URI = <<  <<"/api/v1/simulations/">>/binary, (State#request_state.id)/binary >>,
-					io:format("URI: ~p~n",[URI]),
+					%% io:format("URI: ~p~n",[URI]),
 					Req2 = cowboy_req:set_resp_header(<<"location">>, URI, Req1),
 					{true,restutils:add_CORS(Req2),State}
 			end;
@@ -289,7 +289,7 @@ do( ?HTTP_POST , Req , #request_state{ resource = <<"actions">> } = State ) ->
 					simengine:restart(SimName,Attributes,utils:noop_mfa())
 			end,
 			URI = <<  <<"/api/v1/actions/">>/binary, Id/binary >>,
-			io:format("URI: ~p~n",[URI]),
+			%% io:format("URI: ~p~n",[URI]),
 			Body = #{ action => Action, simulation => SimName, id => Id },
 			Req2 = cowboy_req:set_resp_header(<<"location">>, URI, Req1),
 			Req3 = cowboy_req:set_resp_body( jiffy:encode(Body) , Req2),

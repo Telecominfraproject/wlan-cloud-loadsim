@@ -320,7 +320,7 @@ get_server(ovsdb_server)->
 		ServerName = input("  IP Address or hostname: ",""),
 		Port  =      input("  Port:","6643"),
 		#sim_entry{ name = list_to_binary(Name),
-		            opensync_server_name = ServerName,
+		            opensync_server_name = list_to_binary(ServerName),
 		            opensync_server_port = list_to_integer(Port)
 		}
 	catch

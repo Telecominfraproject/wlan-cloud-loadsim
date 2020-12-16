@@ -375,27 +375,27 @@ create_table ('Wifi_RRM_Config',_APC,Store) ->
 		snr_percentage_drop = 30
 	});
 
-create_table ('Wifi_Associated_Clients',APC,Store) -> 
+create_table ('Wifi_Associated_Clients',_APC,Store) -> 
 	%io:format("CONFIGURED WIFI CLIENTS:~n~p~n",[proplists:get_value(wifi_clients,APC)]),
-	F = fun({_,_,[MAC|_]}) ->
-		ets:insert(Store, #'Wifi_Associated_Clients'{
-			key_id = utils:uuid_b(),
-			'_version' = [<<"uuid">>, utils:uuid_b()],
-			mac = MAC,
-			state = <<"active">>
-		})
-	end,
-	[F(X) || X <- proplists:get_value(wifi_clients,APC)];
-	% ets:insert(Store, #'Wifi_Associated_Clients'{
-	% 	key_id = <<"ee49ed4e-5a04-4100-bf6a-ebfbbc54250e">>,
-	% 	'_version' = [<<"uuid">>,<<"5bc3eb0f-1cc3-4dae-aae5-af02c8d2f1c7">>],
-	% 	mac = <<"52:b6:76:03:6d:f2">>,
-	% 	state = <<"active">>,
-	% 	uapsd = [<<"set">>,[]],
-	% 	capabilities = [<<"set">>,[]],
-	% 	kick = [<<"map">>,[]],
-	% 	oftag = ["set",[]]
-	% });
+	% F = fun({_,_,[MAC|_]}) ->
+	% 	ets:insert(Store, #'Wifi_Associated_Clients'{
+	% 		key_id = utils:uuid_b(),
+	% 		'_version' = [<<"uuid">>, utils:uuid_b()],
+	% 		mac = MAC,
+	% 		state = <<"active">>
+	% 	})
+	% end,
+	% [F(X) || X <- proplists:get_value(wifi_clients,APC)];
+	ets:insert(Store, #'Wifi_Associated_Clients'{
+		key_id = <<"ee49ed4e-5a04-4100-bf6a-ebfbbc54250e">>,
+		'_version' = [<<"uuid">>,<<"5bc3eb0f-1cc3-4dae-aae5-af02c8d2f1c7">>],
+		mac = <<"52:b6:76:03:6d:f2">>,
+		state = <<"active">>,
+		uapsd = [<<"set">>,[]],
+		capabilities = [<<"set">>,[]],
+		kick = [<<"map">>,[]],
+		oftag = ["set",[]]
+	});
 
 create_table ('AWLAN_Node',APC,Store) -> 
 	ets:insert(Store, #'AWLAN_Node'{

@@ -61,14 +61,13 @@ init([]) ->
 			'_', [
 			{ "/api/v1/:restype/[:resid]", manager_api_rest_handler, [] },
 			{ "/ws", web_socket_handler, [] },
-			{ "/", cowboy_static, {priv_file, utils:app_name(), "www/index.html"} },
-			{ "/[...]", cowboy_static, {priv_dir, utils:app_name(), "www" } }
+			{ "/", cowboy_static, {file,filename:join([PrivDir,"www/index.html"])} },
+			{ "/[...]", cowboy_static, {dir, filename:join([PrivDir,"www"])} }
 		]}
 	]),
 	{ok, CB } = case Secure of
 		            true ->
 			            ?L_I("Starting in secure mode."),
-			            PrivDir = utils:priv_dir(),
 			            cowboy:start_tls(
 				            rest_http_listener,
 				            [

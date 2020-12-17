@@ -12,7 +12,7 @@
 	ca = <<>> :: binary(),
 	num_devices = 0 :: integer(),
 	assets_created = false :: boolean(),
-	creation_date :: calendar:datetime(),
+	creation_date = <<>> :: binary(),
 	start_date = undefined :: undefined | calendar:datetime(),
 	end_date = undefined :: undefined | calendar:datetime(),
 	nodes = [] :: [ node() ],
@@ -27,7 +27,7 @@
 	simulation = <<>> :: binary(),
 	parameters = <<>> :: binary(),
 	status = <<>> :: binary(),
-	created,
+	created = <<>> :: binary(),
 	done_count = 0 :: integer(),
 	target_count :: integer(),
 	completed = <<>>}).

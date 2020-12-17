@@ -325,8 +325,14 @@ t1_key()->
 t2_key()->
 	import_ca("sim1","","sim1_key.pem","sim1_cert.pem").
 
-l1()->
-	create_simulation("sim1").
+c1()->
+	Simulation = #simulation{ name = <<"sim1">>,
+	                          ca = <<"sim1">>,
+	                          num_devices = 200,
+	                          opensync_server_port = 6643,
+	                          opensync_server_name = <<"debfarm1-node-a.arilia.com">>,
+	                          start_date = undefined,
+	                          end_date = undefined,
+	                          nodes = ['simnode1@debfarm1-node-c.arilia.com'] },
+		simengine:create(Simulation).
 
-l2()->
-	prepare_simulation("sim1").

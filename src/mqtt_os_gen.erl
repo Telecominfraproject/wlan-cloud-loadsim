@@ -13,9 +13,10 @@
 -include("../include/inventory.hrl").
 
 %% API
--export([gen_report/2]).
+-export([gen_report/3]).
 
-gen_report(RawStartTime,ClientInfo)->
+-spec gen_report(StartTime::integer(),ClientInfo::client_info(),MacStats::#{ MAC::binary() => #'Client.Stats'{} }) -> binary().
+gen_report(RawStartTime,ClientInfo,MacStats)->
 	TimeStamp = os:system_time() div 1000000,
 	StartTime = RawStartTime div 1000000,
 	TR = #'Report'{ nodeID = ClientInfo#client_info.serial,
@@ -34,7 +35,7 @@ gen_report(RawStartTime,ClientInfo)->
 	                neighbors = gen('Neighbor',TimeStamp),
 	                clients = gen('ClientReport',ClientInfo#client_info.wan_mac0,
 	                              ClientInfo#client_info.lan_clients,
-	                              ClientInfo#client_info.wifi_clients,TimeStamp,StartTime),
+	                              ClientInfo#client_info.wifi_clients,TimeStamp,StartTime,MacStats),
 	                survey = gen('Survey',TimeStamp)
 	},
 	opensync_stats:encode_msg(TR,'Report').
@@ -148,23 +149,23 @@ gen('Survey',TimeStamp)->
 		undefined,undefined,undefined,14007260,undefined,154}],
 		[],'RAW'}].
 
--spec gen(atom(),string(),[string()],[{atom(),[string()]}],integer(),integer())->any().
-gen('ClientReport',_MAC,_LANClients,MACSSIDList,TimeStamp,StartTime)->
+-spec gen(atom(),string(),[string()],[{atom(),[string()]}],integer(),integer(), #{ MAC::binary() => #'Client.Stats'{} })->any().
+gen('ClientReport',_MAC,_LANClients,MACSSIDList,TimeStamp,StartTime,MacStats)->
 	WanClients = lists:foldl(fun({Band,SSID,WiFiMACs},A) ->
-		[gen_client_report_for_band(TimeStamp,Band,WiFiMACs,SSID,StartTime)|A]
+		[gen_client_report_for_band(TimeStamp,Band,WiFiMACs,SSID,StartTime,MacStats)|A]
 	            end,[],MACSSIDList),
 	WanClients.
 
-gen_client_report_for_band(TimeStamp,Band,MACs,SSID,StartTime)->
+gen_client_report_for_band(TimeStamp,Band,MACs,SSID,StartTime,MacStats)->
  #'ClientReport'{
 	'band' = Band,
 	timestamp_ms = TimeStamp,
 	channel = rand:uniform(16),
 	client_list = lists:foldl(fun(E,A) ->
-			[gen_client_report_unique_client(E,SSID,TimeStamp,StartTime)|A]
+			[gen_client_report_unique_client(E,SSID,TimeStamp,StartTime,MacStats)|A]
 		end,[],MACs)}.
 
-gen_client_report_unique_client(Mac,SSID,TimeStamp,StartTime)->
+gen_client_report_unique_client(Mac,SSID,TimeStamp,StartTime,MacStats)->
 	#'Client'{
 		mac_address = Mac,
 		ssid = SSID,
@@ -172,20 +173,20 @@ gen_client_report_unique_client(Mac,SSID,TimeStamp,StartTime)->
 		connect_count = rand:uniform(5),
 		disconnect_count = rand:uniform(10),
 		duration_ms = (TimeStamp-StartTime),
-		stats = get_stats(TimeStamp,StartTime)
+		stats = maps:get(Mac,MacStats)
 	}.
 
-get_stats(TimeStamp,StartTime)->
-	Up = ((TimeStamp-StartTime) div 1000),  %% this give me the number of seconds this device has been up...
-	#'Client.Stats'{
-		rx_bytes = Up * (rand:uniform(20000)+10000) ,
-		tx_bytes = Up * (rand:uniform(10000)+5000) ,
-		rx_frames = (Up * (rand:uniform(100)+20)),
-		tx_frames = (Up * (rand:uniform(30)+10)),
-		tx_retries = rand:uniform(50),
-		rx_retries = rand:uniform(20),
-		rx_rate = 1000000.1,
-		tx_rate = 200000.5,
-		rssi = - rand:uniform(20)+15
-	}.
+%%get_stats(TimeStamp,StartTime,MacStats)->
+%%	Up = ((TimeStamp-StartTime) div 1000),  %% this give me the number of seconds this device has been up...
+%%	#'Client.Stats'{
+%%		rx_bytes = Up * (rand:uniform(20000)+10000) ,
+%%		tx_bytes = Up * (rand:uniform(10000)+5000) ,
+%%		rx_frames = (Up * (rand:uniform(100)+20)),
+%%		tx_frames = (Up * (rand:uniform(30)+10)),
+%%		tx_retries = rand:uniform(50),
+%%		rx_retries = rand:uniform(20),
+%%		rx_rate = (rand:uniform(40) / rand:uniform(30)) * 20000.0,
+%%		tx_rate = (rand:uniform(40) / rand:uniform(30)) * 5000.0,
+%%		rssi = -1 * (rand:uniform(20)+15)
+%%	}.
 

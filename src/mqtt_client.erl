@@ -12,6 +12,7 @@
 -include("../include/common.hrl").
 -include("../include/inventory.hrl").
 -include("../include/mqtt_definitions.hrl").
+-include("../include/opensync_stats.hrl").
 
 %% API
 -export([start/4,send_ping/1,c_cfg/0,s_cfg/0,t1/0,t2/0]).
@@ -35,7 +36,9 @@
 											connect_time = 0 :: integer(),
 											messages=0::integer(),
 											start_time = 0 :: number(),
-											send_report_timer}).
+											send_report_timer,
+											last_report = 0,
+											mac_stats = #{} :: #{ binary() => #'Client.Stats'{} }}).
 
 -spec start(CAName::binary(),Serial::binary(),Configuration::gen_configuration_b(), ManagerPid::pid()) -> no_return().
 start(CAName,Serial,Configuration,ManagerPid)->
@@ -45,6 +48,9 @@ start(CAName,Serial,Configuration,ManagerPid)->
 	NewConfig = #{ broker => <<"opensync-mqtt-broker.wlan.local">>, compress => Compress,
 	            port => list_to_integer(binary_to_list(Port)), topics => Topics },
 	{ok,DeviceConfiguration} = inventory:get_client(CAName,Serial),
+
+	MacStats = prepare_mac_stats(DeviceConfiguration),
+
 	full_start(#client_state{
 		id = Serial,
 		caname = CAName,
@@ -56,6 +62,8 @@ start(CAName,Serial,Configuration,ManagerPid)->
 		topics = Topics,
 		keep_alive_ref = undefined,
 		send_report_timer = undefined,
+		mac_stats = MacStats,
+		last_report = os:system_time(),
 		compress = Compress}).
 
 -spec full_start(State::#client_state{})->no_return().
@@ -139,13 +147,14 @@ manage_connection(Socket,CS) ->
 			?L_IA("MQTT(~p): Closing.~n",[CS#client_state.details#client_info.serial]),
 			io:format("MQTT(~p): Closing.~n",[CS#client_state.details#client_info.serial]);
 		send_report ->
-			OpenSyncReport = mqtt_os_gen:gen_report( CS#client_state.start_time,
-															CS#client_state.details),
+			ThisReport = os:system_time(),
+			NewMacStats = increase_stats(CS#client_state.mac_stats,(ThisReport-CS#client_state.last_report) div 1000000000 ),
+			OpenSyncReport = mqtt_os_gen:gen_report(CS#client_state.start_time,CS#client_state.details,NewMacStats),
 			Data = mqtt_message:publish(rand:uniform(60000),CS#client_state.topics,zlib:compress(OpenSyncReport),?MQTT_PROTOCOL_VERSION_3_11),
 			_ = ssl:send(Socket,Data),
 			%% Data2 = mqtt_message:decode(Data,?MQTT_PROTOCOL_VERSION_3_11),
 			?L_IA("MQTT(~p): Sent an MQTT report.~n",[CS#client_state.details#client_info.serial]),
-			manage_connection(Socket,CS);
+			manage_connection(Socket,CS#client_state{ mac_stats = NewMacStats, last_report = ThisReport });
 		{set_ssid,SSID}->
 			CI = CS#client_state.details,
 			?L_IA("MQTT(~p): Setting SSID to ~p.",[CI#client_info.serial,SSID]),
@@ -230,4 +239,40 @@ t1()->
 
 t2()->
 	mqtt_client_manager:start_client(<<"sim1">>,<<"SIM1001A11000010">>,c_cfg()).
+
+-spec prepare_mac_stats( CI::client_info()) -> #{ MAC::binary() => Stats::#'Client.Stats'{} }.
+prepare_mac_stats(CI)->
+	M1 = [ X || { _Port, X } <- CI#client_info.lan_clients],
+	M2 = [ X || { _,_,X } <- CI#client_info.wifi_clients],
+	M = M1 + M2,
+	MacStats = lists:foldl( fun(E,A)->
+														maps:put(E,#'Client.Stats'{		rx_bytes = 0 ,
+														                               tx_bytes = 0 ,
+														                               rx_frames = 0,
+														                               tx_frames = 0,
+														                               tx_retries = 0,
+														                               rx_retries = 0,
+														                               rx_rate = 0.0,
+														                               tx_rate = 0.0,
+														                               rssi = -25}, A)
+													end,#{},M),
+	MacStats.
+
+increase_stats(MacStats,Delta)->
+	maps:fold(  fun(K,V,M) ->
+									NewRxBytes = V#'Client.Stats'.rx_bytes + rand:uniform(75000),
+									NewTxBytes = V#'Client.Stats'.tx_bytes + rand:uniform(20000),
+									NewStats = #'Client.Stats'{ rx_bytes = NewRxBytes,
+																							tx_bytes = NewTxBytes,
+									                            rx_frames = V#'Client.Stats'.rx_frames + rand:uniform(200),
+									                            tx_frames = V#'Client.Stats'.tx_frames + rand:uniform(40),
+									                            tx_retries = V#'Client.Stats'.tx_retries + rand:uniform(10),
+									                            rx_retries = V#'Client.Stats'.rx_retries + rand:uniform(10),
+									                            rx_rate = NewRxBytes / (Delta+1),
+									                            tx_rate = NewTxBytes / (Delta+1),
+									                            rssi = -1 * (rand:uniform(20)+15)
+									},
+									maps:put(K,NewStats,M)
+							end, #{}, MacStats).
+
 

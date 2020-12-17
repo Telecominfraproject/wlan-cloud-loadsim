@@ -70,7 +70,7 @@ dump_client(CAName,Serial)->
 
 -spec get_client_pid(CAName::string()|binary(),Serial::string()|binary())->pid().
 get_client_pid(CAName,Serial)->
-	gen_server:cast(?SERVER,{get_client_pid,utils:safe_binary(CAName),utils:safe_binary(Serial)}).
+	gen_server:call(?SERVER,{get_client_pid,utils:safe_binary(CAName),utils:safe_binary(Serial)}).
 
 update_stats()->
 	{ok,Stats} = get_stats(),

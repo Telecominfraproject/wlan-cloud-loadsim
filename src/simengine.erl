@@ -532,7 +532,7 @@ handle_info({ SimName,Node,MsgType,TimeStamp,JobId}=Msg, State = #simengine_stat
 		SimState = maps:get(SimName,State#simengine_state.sim_states,undefined),
 		io:format(">>3~n"),
 		NewNodes = lists:delete(Node,SimState#sim_state.outstanding_nodes),
-		io:format(">>4~n"),
+		io:format(">>4: Node=~p Outstanding=~p NEW_NODES=: ~p ~n",[Node,SimState#sim_state.outstanding_nodes,NewNodes]),
 		Now = erlang:timestamp(),
 		io:format(">>5~n"),
 		Elapsed = timer:now_diff(Now,TimeStamp) / 1000000,

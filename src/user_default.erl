@@ -320,7 +320,8 @@ get_server(ovsdb_server)->
 	{ list_to_binary(ServerName),list_to_integer(Port)}.
 
 t1_key()->
-	import_ca("sim1","mypassword","tip2-cakey.pem","tip2-cacert.pem").
+	import_ca("sim1","mypassword","tip2-cakey.pem","tip2-cacert.pem"),
+	c1().
 
 t2_key()->
 	import_ca("sim1","","sim1_key.pem","sim1_cert.pem").

@@ -257,6 +257,8 @@ prepare_mac_stats(CI)->
 														                               rx_retries = 0,
 														                               rx_rate = 0.0,
 														                               tx_rate = 0.0,
+														                               rx_errors = 0,
+														                               tx_errors = 0,
 														                               rssi = -25}, A)
 													end,#{},M),
 	MacStats.

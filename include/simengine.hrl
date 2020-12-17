@@ -8,18 +8,6 @@
 %%%-------------------------------------------------------------------
 -author("stephb").
 
--record( sim_entry, {
-	name = <<>> :: binary(),
-	node :: node(),
-	reflector_server_name = auto :: auto | binary(),
-	reflector_server_port = 6643 :: integer(),
-	opensync_server_name = auto :: auto | binary(),
-	opensync_server_port = 6640 :: integer(),
-	mqtt_server_name = auto :: auto | binary(),
-	mqtt_server_port = 1883 :: integer(),
-	names = [] :: [binary()]
-}).
-
 -record( simulation, { name = <<>> :: binary(),
 	ca = <<>> :: binary(),
 	num_devices = 0 :: integer(),
@@ -28,7 +16,9 @@
 	start_date = undefined :: undefined | calendar:datetime(),
 	end_date = undefined :: undefined | calendar:datetime(),
 	nodes = [] :: [ node() ],
-	servers = auto :: auto | sim_entry()
+	internal = false :: boolean(),
+  opensync_server_name = <<>> :: binary(),
+  opensync_server_port = 6643 :: integer()
 }).
 
 -record(sim_action,{
@@ -43,7 +33,6 @@
 	completed = <<>>}).
 
 -type simulation() :: #simulation{}.
--type sim_entry()::#sim_entry{}.
 -type sim_action()::#sim_action{}.
 
--export_type([simulation/0,sim_entry/0,sim_action/0]).
+-export_type([simulation/0,sim_action/0]).

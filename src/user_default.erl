@@ -98,16 +98,21 @@ create_simulation(SimName,CAName) when is_list(SimName),is_list(CAName) ->
 	MaxDevices = length(GoodNodes) * 10000,
 	NumberOfDevices = input("Number of devices (max:" ++ integer_to_list(MaxDevices) ++ ") ", integer_to_list(MaxDevices div 2)),
 	RealNumberOfDevices = utils:select( length(Nodes)==0 , list_to_integer(NumberOfDevices) , utils:adjust(list_to_integer(NumberOfDevices),length(GoodNodes))),
-	OVSDBServers = select_servers(),
+	{ ServerName, ServerPort } = select_servers(),
 	Simulation = #simulation{ name = list_to_binary(SimName),
 	                          ca = list_to_binary(CAName),
 	                          num_devices = RealNumberOfDevices,
 	                          creation_date = calendar:local_time(),
-	                          servers = OVSDBServers,
+	                          opensync_server_port = ServerPort,
+	                          opensync_server_name = ServerName,
 	                          start_date = undefined,
 	                          end_date = undefined,
 	                          nodes = GoodNodes },
-	simengine:create(Simulation).
+	Yes = input("Confirm: [Y]n","Y"),
+	case Yes == "Y" of
+		true -> simengine:create(Simulation);
+		false -> io:format("Creation aborted.~n")
+	end.
 
 -spec show_simulation(SimName::string())-> {ok,Attributes::attribute_list()} | generic_error().
 show_simulation(SimName) when is_list(SimName) ->
@@ -303,31 +308,16 @@ input(Prompt,Default)->
 		false -> InputData
 	end.
 
--spec select_servers() -> Server:: auto | #sim_entry{}.
+-spec select_servers() -> { binary(), integer()}.
 select_servers() ->
-	case input("Do you want to the built-in servers? (yes/no)", "yes") of
-		"yes" ->
-			auto ;
-		_ ->
-			get_server(ovsdb_server)
-	end.
+	get_server(ovsdb_server).
 
--spec get_server( ovsdb_server )-> auto | #sim_entry{}.
+-spec get_server( ovsdb_server )-> { binary(), integer()}.
 get_server(ovsdb_server)->
-	try
-		io:format("Please enter the OpenSync Server configuration:~n"),
-		Name =       input("  Name (for reference only): ",""),
-		ServerName = input("  IP Address or hostname: ",""),
-		Port  =      input("  Port:","6643"),
-		#sim_entry{ name = list_to_binary(Name),
-		            opensync_server_name = list_to_binary(ServerName),
-		            opensync_server_port = list_to_integer(Port)
-		}
-	catch
-		_:_ ->
-			io:format("Invalid information entered. Please try again.~n"),
-			auto
-	end.
+	io:format("Please enter the OpenSync Server configuration:~n"),
+	ServerName = input("  IP Address or hostname: ",""),
+	Port  =      input("  Port:","6643"),
+	{ list_to_binary(ServerName),list_to_integer(Port)}.
 
 t1_key()->
 	import_ca("sim1","mypassword","tip2-cakey.pem","tip2-cacert.pem").

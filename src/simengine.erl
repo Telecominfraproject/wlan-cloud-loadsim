@@ -698,8 +698,8 @@ push_assets(SimInfo,_Attributes,SimEnginePid,{M,F,A}=_Notification,JobId)->
 													Config = #{ sim_name => SimInfo#simulation.name,
 													            sim_ca => SimInfo#simulation.ca,
 													            clients => C,
-																			ovsdb_server_name => SimInfo#simulation.servers#sim_entry.opensync_server_name,
-																			ovsdb_server_port => SimInfo#simulation.servers#sim_entry.opensync_server_port,
+																			ovsdb_server_name => SimInfo#simulation.opensync_server_name,
+																			ovsdb_server_port => SimInfo#simulation.opensync_server_port,
 																			callback => { SimEnginePid, {SimInfo#simulation.name, N,push_done,erlang:timestamp(),JobId} }},
 													io:format("SIMENGINE: Pushing ~p entries to ~p.~n",[length(C),N]),
 													R = rpc:call(N,simnode,set_configuration,[Config]),
@@ -774,15 +774,14 @@ run_batch(Ids,SimInfo,CAInfo,Total,Notification)->
 
 %% Create the servers - only if they are pon automatic mode
 split_build_servers(SimInfo,_Notification)->
-	_ = generate_server(SimInfo,mqtt_server,SimInfo#simulation.servers),
-	_ = generate_server(SimInfo,ovsdb_server,SimInfo#simulation.servers),
+	_ = generate_server(SimInfo,ovsdb_server),
 	ok.
 
-generate_server(SimInfo,mqtt_server,auto)->
+generate_server(#simulation{ internal = true } = SimInfo,mqtt_server)->
 	inventory:make_server(SimInfo#simulation.ca,"mqtt-1",mqtt_server);
-generate_server(SimInfo,ovsdb_server,auto)->
+generate_server(#simulation{ internal = true } = SimInfo,ovsdb_server )->
 	inventory:make_server(SimInfo#simulation.ca,"ovsdb-1",ovsdb_server);
-generate_server(_,_,_)->
+generate_server(_,_)->
 	ok.
 
 sim_action_to_json(SimAction)->

@@ -210,12 +210,10 @@ do( ?HTTP_GET ,Req,#request_state{resource = <<"simulations">>,id=nothing}=State
 
 do( ?HTTP_GET , Req , #request_state{ resource = <<"simulations">> } = State ) ->
 	S = State#request_state.looked_up,
-	{ServerName,Port} = case S#simulation.servers of
-												undefined -> {<<"unknown">>,0};
-												Server ->  {Server#sim_entry.opensync_server_name, Server#sim_entry.opensync_server_port}
-											end,
 	Sim = #{ name => S#simulation.name, caname => S#simulation.ca, num_devices => S#simulation.num_devices, nodes => S#simulation.nodes,
-		server => ServerName, port=> Port , assets_created => S#simulation.assets_created },
+		server => S#simulation.opensync_server_name,
+    port=> S#simulation.opensync_server_port ,
+    assets_created => S#simulation.assets_created },
 	{jiffy:encode(Sim),restutils:add_CORS(Req),State};
 
 do( ?HTTP_POST , Req , #request_state{ resource = <<"simulations">> } = State ) ->
@@ -230,7 +228,8 @@ do( ?HTTP_POST , Req , #request_state{ resource = <<"simulations">> } = State ) 
 						ca = CAName,
 						name = State#request_state.id,
 						num_devices = NumDevices,
-						servers = #sim_entry{ opensync_server_port = Port, opensync_server_name = Server },
+						opensync_server_port = Port,
+						opensync_server_name = Server,
 						nodes = utils:to_atom_list(Nodes) },
 					simengine:update(NewSim),
 					URI = <<  <<"/api/v1/simulations/">>/binary, (State#request_state.id)/binary >>,
@@ -242,7 +241,8 @@ do( ?HTTP_POST , Req , #request_state{ resource = <<"simulations">> } = State ) 
 						ca = CAName,
 						name = State#request_state.id,
 						num_devices = NumDevices,
-						servers = #sim_entry{ opensync_server_port = Port, opensync_server_name = Server },
+						opensync_server_port = Port,
+						opensync_server_name = Server ,
 						nodes = utils:to_atom_list(Nodes),
 						assets_created = false },
 					simengine:create(NewSim),

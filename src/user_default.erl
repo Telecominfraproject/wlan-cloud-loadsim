@@ -323,9 +323,6 @@ t1_key()->
 	import_ca("sim1","mypassword","tip2-cakey.pem","tip2-cacert.pem"),
 	c1().
 
-t2_key()->
-	import_ca("sim1","","sim1_key.pem","sim1_cert.pem").
-
 c1()->
 	Simulation = #simulation{ name = <<"sim1">>,
 	                          ca = <<"sim1">>,
@@ -336,4 +333,19 @@ c1()->
 	                          end_date = undefined,
 	                          nodes = ['simnode1@debfarm1-node-c.arilia.com'] },
 		simengine:create(Simulation).
+
+r1(X)->
+	w(X),
+	push_simulation("sim1"),
+	timer:sleep(1000),
+	start_simulation("sim1").
+
+w(X)->
+	case length(nodes()) of
+		X -> ok;
+		_ -> timer:sleep(1000), w(X)
+	end.
+
+
+
 

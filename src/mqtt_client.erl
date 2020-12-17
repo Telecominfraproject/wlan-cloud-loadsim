@@ -42,7 +42,7 @@
 
 -spec start(CAName::binary(),Serial::binary(),Configuration::gen_configuration_b(), ManagerPid::pid()) -> no_return().
 start(CAName,Serial,Configuration,ManagerPid)->
-	io:format("STARTING CLIENT: ~p~n",[Serial]),
+	%% io:format("STARTING CLIENT: ~p~n",[Serial]),
 	#{ <<"broker">> := Broker, <<"compress">> := Compress, <<"port">> := Port, <<"topics">> := Topics } = Configuration,
 	%% io:format(">>>>Trying topic: ~p  connect to: ~p:~p~n",[Topics,Broker,Port]),
 	NewConfig = #{ broker => <<"opensync-mqtt-broker.wlan.local">>, compress => Compress,

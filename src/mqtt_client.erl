@@ -165,7 +165,10 @@ manage_connection(Socket,CS) ->
 		{dump_client,all}->
 			?L_IA("MQTT(~p)): ~p~n",[CS#client_state.details#client_info.serial,CS]),
 			manage_connection(Socket,CS);
-		{ send_data,Data } ->
+		{ send_stats , Pid }->
+			Pid ! {client_stats,CS#client_state.details#client_info.serial,CS#client_state.mac_stats},
+			manage_connection(Socket,CS);
+		{ send_data, Data } ->
 			%% io:format("MQTT_CLIENT: Received a message to return some data: ~p~n",[Data]),
 			_ = ssl:send(Socket,Data),
 			manage_connection(Socket,CS#client_state{ internal_messages = 1+CS#client_state.internal_messages });
@@ -245,9 +248,6 @@ prepare_mac_stats(CI)->
 	M1 = [ X || { _Port, X } <- CI#client_info.lan_clients],
 	M2 = [ X || { _,_,X } <- CI#client_info.wifi_clients],
 	M = lists:flatten(M1 ++ M2),
-
-	io:format(">>>>~n~nLIST: ~p~n~n",[M]),
-
 	MacStats = lists:foldl( fun(E,A)->
 														maps:put(E,#'Client.Stats'{		rx_bytes = 0 ,
 														                               tx_bytes = 0 ,

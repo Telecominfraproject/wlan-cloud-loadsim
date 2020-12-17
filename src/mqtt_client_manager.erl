@@ -19,7 +19,7 @@
 %% gen_server callbacks
 -export([ init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
           code_change/3,creation_info/0,start_client/3,stop_client/2,is_running/2,
-					get_stats/0,update_stats/0,set_ssid/3,dump_client/2]).
+					get_stats/0,update_stats/0,set_ssid/3,dump_client/2,get_client_pid/2]).
 
 -define(SERVER, ?MODULE).
 
@@ -67,6 +67,10 @@ set_ssid(CAName,Serial,SSID)->
 -spec dump_client(CAName::string()|binary(),Serial::string()|binary())->ok.
 dump_client(CAName,Serial)->
 	gen_server:cast(?SERVER,{dump_client,utils:safe_binary(CAName),utils:safe_binary(Serial)}).
+
+-spec get_client_pid(CAName::string()|binary(),Serial::string()|binary())->pid().
+get_client_pid(CAName,Serial)->
+	gen_server:cast(?SERVER,{get_client_pid,utils:safe_binary(CAName),utils:safe_binary(Serial)}).
 
 update_stats()->
 	{ok,Stats} = get_stats(),
@@ -123,6 +127,14 @@ handle_call({is_running,_CAName,Serial}, _From, State = #mqtt_client_manager_sta
 	end;
 handle_call(get_stats,_From,State = #mqtt_client_manager_state{}) ->
 	{reply, {ok,extract_stats(State)} , State};
+handle_call({get_client_pid,_CAName,Serial},_From,State = #mqtt_client_manager_state{}) ->
+	case maps:get(Serial,State#mqtt_client_manager_state.client_configurations,unknown) of
+		unknown ->
+			?L_IA("MQTT_CLIENT_MANAGER: attempt to show config for device ~p failed.",[Serial]),
+			{ reply, {error,client_unknown}, State};
+		{Pid,_} ->
+			{reply, Pid , State}
+	end;
 handle_call(_Request, _From, State = #mqtt_client_manager_state{}) ->
 	{reply, ok, State}.
 

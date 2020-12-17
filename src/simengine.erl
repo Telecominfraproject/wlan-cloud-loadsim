@@ -534,7 +534,7 @@ handle_cast(_Request, State = #simengine_state{}) ->
 	{noreply, NewState :: #simengine_state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), NewState :: #simengine_state{}}).
 
-handle_info({ SimName,Node,MsgType,TimeStamp,JobId}=Msg, State = #simengine_state{}) ->
+handle_info({ SimName,Node,MsgType,TimeStamp,JobId}=_Msg, State = #simengine_state{}) ->
 	try
 %%		io:format(">>MSG: ~p~n",[Msg]),
 		SimState = maps:get(SimName,State#simengine_state.sim_states,undefined),

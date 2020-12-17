@@ -244,7 +244,7 @@ t2()->
 prepare_mac_stats(CI)->
 	M1 = [ X || { _Port, X } <- CI#client_info.lan_clients],
 	M2 = [ X || { _,_,X } <- CI#client_info.wifi_clients],
-	M = M1 ++ M2,
+	M = lists:flatten(M1 ++ M2),
 
 	io:format(">>>>~n~nLIST: ~p~n~n",[M]),
 

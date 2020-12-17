@@ -260,7 +260,8 @@ handle_call({push,SimName,Attributes,Notification}, _From, State = #simengine_st
 									},
 									NewActions = maps:put(JobId,SimAction,State#simengine_state.sim_actions),
 									{reply,{ok,JobId},State#simengine_state{ sim_states = maps:put(SimName,
-									                                                               S#sim_state{current_op_pid = OpPid, current_op = pushing , outstanding_nodes = [node()] },
+									                                                               S#sim_state{current_op_pid = OpPid, current_op = pushing ,
+			                                                                           outstanding_nodes = SimInfo#simulation.nodes },
 									                                                               State#simengine_state.sim_states),
 									                                         sim_actions = NewActions }}
 							end
@@ -305,7 +306,8 @@ handle_call({start,SimName,Attributes,Notification}, _From, State = #simengine_s
 											},
 											NewActions = maps:put(JobId,SimAction,State#simengine_state.sim_actions),
 											{reply,{ok,JobId},State#simengine_state{ sim_states = maps:put(SimName,
-											                                                               S#sim_state{current_op_pid = OpPid, current_op = starting , outstanding_nodes = [node()] },
+											                                                               S#sim_state{current_op_pid = OpPid, current_op = starting ,
+											                                                                           outstanding_nodes = SimInfo#simulation.nodes },
 											                                                               State#simengine_state.sim_states),
 											                                         sim_actions = NewActions }}
 									end
@@ -349,7 +351,9 @@ handle_call({stop,SimName,Attributes,Notification}, _From, State = #simengine_st
 											},
 											NewActions = maps:put(JobId,SimAction,State#simengine_state.sim_actions),
 											{reply,{ok,JobId},State#simengine_state{ sim_states = maps:put(SimName,
-											                                                               S#sim_state{current_op_pid = OpPid, current_op = stopping , outstanding_nodes = [node()] },
+											                                                               S#sim_state{current_op_pid = OpPid,
+											                                                                           current_op = stopping ,
+											                                                                           outstanding_nodes = SimInfo#simulation.nodes },
 											                                                               State#simengine_state.sim_states),
 											                                         sim_actions = NewActions }};
 										false->
@@ -395,7 +399,9 @@ handle_call({pause,SimName,Attributes,Notification}, _From, State = #simengine_s
 											},
 											NewActions = maps:put(JobId,SimAction,State#simengine_state.sim_actions),
 											{reply,{ok,JobId},State#simengine_state{ sim_states = maps:put(SimName,
-											                                                               S#sim_state{current_op_pid = OpPid, current_op = pausing , outstanding_nodes = [node()] },
+											                                                               S#sim_state{current_op_pid = OpPid,
+											                                                                           current_op = pausing ,
+											                                                                           outstanding_nodes = SimInfo#simulation.nodes },
 											                                                               State#simengine_state.sim_states),
 											                                         sim_actions = NewActions }};
 										false->
@@ -441,7 +447,9 @@ handle_call({cancel,SimName,Attributes,Notification}, _From, State = #simengine_
 											},
 											NewActions = maps:put(JobId,SimAction,State#simengine_state.sim_actions),
 											{reply,{ok,JobId},State#simengine_state{ sim_states = maps:put(SimName,
-											                                                               S#sim_state{current_op_pid = OpPid, current_op = cancelling , outstanding_nodes = [node()] },
+											                                                               S#sim_state{current_op_pid = OpPid,
+											                                                                           current_op = cancelling ,
+											                                                                           outstanding_nodes = SimInfo#simulation.nodes },
 											                                                               State#simengine_state.sim_states),
 											                                         sim_actions = NewActions }};
 										false->

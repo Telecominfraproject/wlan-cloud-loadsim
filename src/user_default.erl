@@ -329,7 +329,7 @@ t2_key()->
 c1()->
 	Simulation = #simulation{ name = <<"sim1">>,
 	                          ca = <<"sim1">>,
-	                          num_devices = 200,
+	                          num_devices = 10,
 	                          opensync_server_port = 6643,
 	                          opensync_server_name = <<"debfarm1-node-a.arilia.com">>,
 	                          start_date = undefined,

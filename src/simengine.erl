@@ -530,13 +530,13 @@ handle_info({ SimName,Node,MsgType,TimeStamp,JobId}=Msg, State = #simengine_stat
 	try
 		io:format(">>MSG: ~p~n",[Msg]),
 		SimState = maps:get(SimName,State#simengine_state.sim_states,undefined),
-		io:format(">>1~n"),
+		io:format(">>3~n"),
 		NewNodes = lists:delete(Node,SimState#sim_state.outstanding_nodes),
-		io:format(">>1~n"),
+		io:format(">>4~n"),
 		Now = erlang:timestamp(),
-		io:format(">>1~n"),
+		io:format(">>5~n"),
 		Elapsed = timer:now_diff(Now,TimeStamp) / 1000000,
-		io:format(">>1~n"),
+		io:format(">>6~n"),
 		NewSimState = case MsgType of
 				prepare_done->
 					?L_IA("Node ~p prepared. Took ~p seconds.~n",[Node,Elapsed]),
@@ -560,11 +560,11 @@ handle_info({ SimName,Node,MsgType,TimeStamp,JobId}=Msg, State = #simengine_stat
 					?L_IA("Node ~p restart done. Took ~p seconds.~n",[Node,Elapsed]),
 					SimState#sim_state{ outstanding_nodes = NewNodes, state = started }
 			end,
-		io:format(">>1~n"),
+		io:format(">>7~n"),
 			SimAction = maps:get(JobId,State#simengine_state.sim_actions,undefined),
-		io:format(">>1~n"),
+		io:format(">>8~n"),
 			NewCount = SimAction#sim_action.done_count+1,
-		io:format(">>1~n"),
+		io:format(">>9~n"),
 			NewAction = case NewCount == SimAction#sim_action.target_count of
 				true ->
 					SimAction#sim_action{ target_count = NewCount,
@@ -574,6 +574,7 @@ handle_info({ SimName,Node,MsgType,TimeStamp,JobId}=Msg, State = #simengine_stat
 				false ->
 					SimAction#sim_action{ done_count = NewCount}
 			end,
+  		io:format(">>10~n"),
 			NewState = State#simengine_state{ sim_states = maps:put(SimName,NewSimState,State#simengine_state.sim_states),
 			                                  sim_actions = maps:put(JobId,NewAction,State#simengine_state.sim_actions)},
 			io:format(">>>New State: ~p~n",[NewState]),

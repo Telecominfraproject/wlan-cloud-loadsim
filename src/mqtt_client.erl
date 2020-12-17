@@ -244,7 +244,7 @@ t2()->
 prepare_mac_stats(CI)->
 	M1 = [ X || { _Port, X } <- CI#client_info.lan_clients],
 	M2 = [ X || { _,_,X } <- CI#client_info.wifi_clients],
-	M = M1 + M2,
+	M = M1 ++ M2,
 	MacStats = lists:foldl( fun(E,A)->
 														maps:put(E,#'Client.Stats'{		rx_bytes = 0 ,
 														                               tx_bytes = 0 ,

@@ -574,8 +574,10 @@ handle_info({ SimName,Node,MsgType,TimeStamp,JobId}=Msg, State = #simengine_stat
 				false ->
 					SimAction#sim_action{ done_count = NewCount}
 			end,
-			{noreply,State#simengine_state{ sim_states = maps:put(SimName,NewSimState,State#simengine_state.sim_states),
-				sim_actions = maps:put(JobId,NewAction,State#simengine_state.sim_actions)}}
+			NewState = State#simengine_state{ sim_states = maps:put(SimName,NewSimState,State#simengine_state.sim_states),
+			                                  sim_actions = maps:put(JobId,NewAction,State#simengine_state.sim_actions)},
+			io:format(">>>New State: ~p~n",[NewState]),
+		  {noreply,NewState}
 	catch
 		_:_ = Error ->
 			io:format("Failed ~p processing INFO MESSAGE~n",[Error]),

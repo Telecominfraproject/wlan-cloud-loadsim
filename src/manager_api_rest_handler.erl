@@ -273,7 +273,7 @@ do( ?HTTP_POST , Req , #request_state{ resource = <<"actions">> } = State ) ->
 		true ->
 			#{ <<"action">> := Action, <<"simulation">> := SimName, <<"parameters">> := AttributesRaw} = Res,
 			Attributes = process_attributes(AttributesRaw),
-			{ok,Id} = case Action of
+			OpResult = case Action of
 				<<"prepare">> ->
 					simengine:prepare(SimName,Attributes,utils:noop_mfa());
 				<<"push">> ->
@@ -289,12 +289,17 @@ do( ?HTTP_POST , Req , #request_state{ resource = <<"actions">> } = State ) ->
 				<<"restart">> ->
 					simengine:restart(SimName,Attributes,utils:noop_mfa())
 			end,
-			URI = <<  <<"/api/v1/actions/">>/binary, Id/binary >>,
-			%% io:format("URI: ~p~n",[URI]),
-			Body = #{ action => Action, simulation => SimName, id => Id },
-			Req2 = cowboy_req:set_resp_header(<<"location">>, URI, Req1),
-			Req3 = cowboy_req:set_resp_body( jiffy:encode(Body) , Req2),
-			{true,restutils:add_CORS(Req3),State};
+			case OpResult of
+				{ ok ,Id } ->
+					URI = <<  <<"/api/v1/actions/">>/binary, Id/binary >>,
+					%% io:format("URI: ~p~n",[URI]),
+					Body = #{ action => Action, simulation => SimName, id => Id },
+					Req2 = cowboy_req:set_resp_header(<<"location">>, URI, Req1),
+					Req3 = cowboy_req:set_resp_body( jiffy:encode(Body) , Req2),
+					{true,restutils:add_CORS(Req3),State};
+				{ error, _Reason } ->
+					create_error(102,"Operation request was denied. Service already busy.",Req1,State)
+			end;
 		false ->
 			create_error(102,"Some fields are invalid or missing. Must have at least 11 valid node, port must not be 0, caname must exist",Req1,State)
 	end;

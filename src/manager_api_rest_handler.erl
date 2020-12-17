@@ -172,6 +172,30 @@ do( ?HTTP_GET ,Req,#request_state{resource = <<"cas">>,id=nothing}=State)->
 	JSON = restutils:create_paginated_return("CAs",SubList,PaginationInfo),
 	{JSON,restutils:add_CORS(Req),State};
 
+do( ?HTTP_POST ,Req,#request_state{resource = <<"cas">>}=State)->
+	try
+		{ok,RawData,Req1} = cowboy_req:read_body(Req),
+		ReqFields = jsx:decode(RawData,[return_maps]),    %% do not use jiffy here...
+		#{ <<"name">> := CAName, <<"key">> := Key, <<"cert">> := Cert, <<"password">> := Password } = ReqFields,
+		CAName = State#request_state.id,
+		KeyFileName = filename:join([utils:priv_dir(),"tmp-key-" ++ binary_to_list(CAName)]),
+		CertFileName = filename:join([utils:priv_dir(),"tmp-cert-" ++ binary_to_list(CAName)]),
+		ok = file:write_file( KeyFileName, Key ),
+		ok = file:write_file( CertFileName, Cert),
+		ok = user_default:import_ca(binary_to_list(CAName),binary_to_list(Password),KeyFileName,CertFileName),
+		{ok,CA} = inventory:get_ca(CAName),
+		{ _ , RawKey } = CA#ca_info.key,
+		CAInfo = #{ name => CA#ca_info.name,
+		            key => list_to_binary(base64:encode_to_string(RawKey)),
+		            cert => list_to_binary(base64:encode_to_string(CA#ca_info.cert))},
+		JSON = jiffy:encode(CAInfo),
+		Req2 = cowboy_req:set_resp_body(JSON,Req1),
+		{true,restutils:add_CORS(Req2),State}
+	catch
+		_:_ ->
+			create_error(102,"Some fields are invalid or missing.",Req,State)
+	end;
+
 do( ?HTTP_GET ,Req,#request_state{resource = <<"cas">>}=State)->
 	CA = State#request_state.looked_up,
 	{ _ , RawKey } = CA#ca_info.key,
@@ -234,8 +258,14 @@ do( ?HTTP_POST , Req , #request_state{ resource = <<"simulations">> } = State ) 
 					simengine:update(NewSim),
 					URI = <<  <<"/api/v1/simulations/">>/binary, (State#request_state.id)/binary >>,
 					io:format("URI: ~p~n",[URI]),
+					Sim = #{ name => NewSim#simulation.name, caname => NewSim#simulation.ca, num_devices => NewSim#simulation.num_devices, nodes => NewSim#simulation.nodes,
+					         server => NewSim#simulation.opensync_server_name,
+					         port=> NewSim#simulation.opensync_server_port ,
+					         assets_created => NewSim#simulation.assets_created },
+					JSON = jiffy:encode(Sim),
 					Req2 = cowboy_req:set_resp_header(<<"location">>, URI, Req1),
-					{true,restutils:add_CORS(Req2),State};
+					Req3 = cowboy_req:set_resp_body(JSON,Req2),
+					{true,restutils:add_CORS(Req3),State};
 				_ ->  %% we are creating a new simulation
 					NewSim = #simulation{
 						ca = CAName,
@@ -247,9 +277,14 @@ do( ?HTTP_POST , Req , #request_state{ resource = <<"simulations">> } = State ) 
 						assets_created = false },
 					simengine:create(NewSim),
 					URI = <<  <<"/api/v1/simulations/">>/binary, (State#request_state.id)/binary >>,
-					%% io:format("URI: ~p~n",[URI]),
+					Sim = #{ name => NewSim#simulation.name, caname => NewSim#simulation.ca, num_devices => NewSim#simulation.num_devices, nodes => NewSim#simulation.nodes,
+										server => NewSim#simulation.opensync_server_name,
+										port=> NewSim#simulation.opensync_server_port ,
+										assets_created => NewSim#simulation.assets_created },
+					JSON = jiffy:encode(Sim),
 					Req2 = cowboy_req:set_resp_header(<<"location">>, URI, Req1),
-					{true,restutils:add_CORS(Req2),State}
+					Req3 = cowboy_req:set_resp_body(JSON,Req2),
+					{true,restutils:add_CORS(Req3),State}
 			end;
 		false ->
 			create_error(102,"Some fields are invalid or missing. Must have at least 11 valid node, port must not be 0, caname must exist",Req1,State)

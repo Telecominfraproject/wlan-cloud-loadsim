@@ -10,6 +10,7 @@
 -author("stephb").
 
 -include("../include/common.hrl").
+-include("../include/errors.hrl").
 -include("../include/inventory.hrl").
 -include("../include/simengine.hrl").
 -include("../include/mqtt_definitions.hrl").
@@ -175,15 +176,14 @@ create_ca(CAName,Password) when is_list(CAName),is_list(Password)->
 import_ca(CAName,Password,KeyFileName,CertFileNAme) when is_list(CAName), is_list(Password), is_list(KeyFileName), is_list(CertFileNAme) ->
 	case utils:pem_key_is_encrypted(KeyFileName) of
 		true ->
-			io:format("Key is encrypted..trying to remove encryption...~n"),
-			TmpKeyFileName = "tmp-"++KeyFileName,
+			TmpKeyFileName = KeyFileName ++ "-tmp",
 			case utils:remove_pem_key_password(Password,KeyFileName,TmpKeyFileName) of
 				true ->
-					io:format("Key was decrypted and can be imported...~n"),
-					_=inventory:import_ca(CAName,#{ password => "", keyfilename => TmpKeyFileName, certfilename => CertFileNAme}),
-					file:delete(TmpKeyFileName);
+					Res = inventory:import_ca(CAName,#{ password => "", keyfilename => TmpKeyFileName, certfilename => CertFileNAme}),
+					file:delete(TmpKeyFileName),
+					Res;
 				false->
-					io:format("Key was not decrypted and will not be imported. Please supply the right password.~n")
+					{ error , ?ERROR_CA_CANNOT_IMPORT_KEY }
 			end;
 		false ->
 			inventory:import_ca(CAName,#{ password => Password, keyfilename => KeyFileName, certfilename => CertFileNAme})

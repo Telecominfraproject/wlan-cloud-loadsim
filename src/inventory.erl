@@ -73,58 +73,52 @@ creation_info() ->
 make_ca(CAName,Password)->
 	case (valid_ca_name(CAName) and valid_password(Password) )of
 		true->
-			gen_server:call(?SERVER,{make_ca,list_to_binary(CAName),list_to_binary(Password),self()});
+			gen_server:call(?SERVER,{make_ca,utils:safe_binary(CAName),utils:safe_binary(Password),self()});
 		false->
 			{error,invalid_ca_name_or_password}
 	end.
 
--spec import_ca(Name::string(),Attributes::attribute_list()) -> {ok,ca_info()} | generic_error().
+-spec import_ca(Name::string(),Attributes::attribute_list()) -> ok | generic_error().
 import_ca(CAName,Attributes)->
-	gen_server:call(?SERVER,{import_ca,list_to_binary(CAName),Attributes,self()}).
+	gen_server:call(?SERVER,{import_ca,utils:safe_binary(CAName),Attributes,self()}).
 
 -spec get_ca( Name::string()|binary() )-> {ok,ca_info()} | generic_error().
 get_ca(Name)->
-	gen_server:call(?SERVER,{get_ca,safe_binary(Name),self()}).
+	gen_server:call(?SERVER,{get_ca,utils:safe_binary(Name),self()}).
 
 -spec delete_ca( Name::string()|binary() ) -> ok | generic_error().
 delete_ca(Name)->
-	gen_server:call(?SERVER,{delete_ca,safe_binary(Name),self()}).
+	gen_server:call(?SERVER,{delete_ca,utils:safe_binary(Name),self()}).
 
 -spec get_cas() -> { ok , [ CAName::string() ]} | generic_error().
 get_cas()->
 	gen_server:call(?SERVER,{get_cas,self()}).
 
--spec safe_binary(string()|binary())->binary().
-safe_binary(X) when is_list(X)->
-	list_to_binary(X);
-safe_binary(X) when is_binary(X)->
-	X.
-
 -spec make_server(CAName::string()|binary(),Name::string()|binary(),Type::service_role())-> { ok , SI::server_info() } | generic_error().
 make_server(CAName,Name, mqtt_server )->
-	gen_server:call(?SERVER,{make_server,safe_binary(CAName),safe_binary(Name),mqtt_server,self()});
+	gen_server:call(?SERVER,{make_server,utils:safe_binary(CAName),utils:safe_binary(Name),mqtt_server,self()});
 make_server(CAName,Name, ovsdb_server )->
-	gen_server:call(?SERVER,{make_server,safe_binary(CAName),safe_binary(Name),ovsdb_server,self()}).
+	gen_server:call(?SERVER,{make_server,utils:safe_binary(CAName),utils:safe_binary(Name),ovsdb_server,self()}).
 
 -spec make_servers(CAName::string()|binary(),Servers::list(ServerName::string()),Type::service_role())-> { ok, list({ ServerName::string(),SI::server_info()})} | generic_error().
 make_servers(CAName,ServerList,mqtt_server)->
-	gen_server:call(?SERVER,{make_servers,safe_binary(CAName),utils:to_binary_list(ServerList,[]),mqtt_server,self()});
+	gen_server:call(?SERVER,{make_servers,utils:safe_binary(CAName),utils:to_binary_list(ServerList,[]),mqtt_server,self()});
 make_servers(CAName,ServerList,ovsdb_server)->
-	gen_server:call(?SERVER,{make_servers,safe_binary(CAName),utils:to_binary_list(ServerList,[]),ovsdb_server,self()}).
+	gen_server:call(?SERVER,{make_servers,utils:safe_binary(CAName),utils:to_binary_list(ServerList,[]),ovsdb_server,self()}).
 
 -spec get_server(CAName::string()|binary(),Id::string()|binary())-> { ok, SI::server_info()} | generic_error().
 get_server(CAName,Id)->
-	gen_server:call(?SERVER,{get_server,safe_binary(CAName),safe_binary(Id),self()}).
+	gen_server:call(?SERVER,{get_server,utils:safe_binary(CAName),utils:safe_binary(Id),self()}).
 
 -spec delete_server(CAName::string()|binary(),Id::string()|binary())-> { ok, SI::server_info()} | generic_error().
 delete_server(CAName,Id)->
-	gen_server:call(?SERVER,{delete_server,safe_binary(CAName),safe_binary(Id),self()}).
+	gen_server:call(?SERVER,{delete_server,utils:safe_binary(CAName),utils:safe_binary(Id),self()}).
 
 -spec make_client(CAName::string()|binary(),Attributes::#{ atom() => term() })-> {ok,Client::client_info()} | generic_error().
 make_client(CAName,Attributes)->
 	case validate_attributes(Attributes) of
 		true ->
-			gen_server:call(?SERVER,{make_client,safe_binary(CAName),Attributes});
+			gen_server:call(?SERVER,{make_client,utils:safe_binary(CAName),Attributes});
 		false ->
 			{error,missing_attributes}
 	end.
@@ -132,7 +126,7 @@ make_client(CAName,Attributes)->
 -spec make_clients(CAName::string()|binary(),Start::integer(),HowMany::integer(),Attributes::#{ atom() => term() }, Notification::notification_cb() ) -> {ok,HowManyDone::integer()} | generic_error().
 make_clients(CAName,Start,HowMany,Attributes,Notification) ->
 	case validate_attributes(Attributes) of
-		true -> gen_server:call(?SERVER,{make_many_clients,safe_binary(CAName),Start,HowMany,Attributes,Notification});
+		true -> gen_server:call(?SERVER,{make_many_clients,utils:safe_binary(CAName),Start,HowMany,Attributes,Notification});
 		false -> { error, missing_attributes }
 	end.
 
@@ -141,11 +135,11 @@ validate_attributes(Attrs) when is_map(Attrs)->
 
 -spec get_client(CAName::string()|binary(),Id::string()|binary())-> { ok , Client::client_info() } | generic_error().
 get_client(CAName,Id)->
-	gen_server:call(?SERVER,{get_client,safe_binary(CAName),safe_binary(Id)}).
+	gen_server:call(?SERVER,{get_client,utils:safe_binary(CAName),utils:safe_binary(Id)}).
 
 -spec list_clients(CAName::string()|binary())-> { ok , [Client::binary()] } | generic_error().
 list_clients(CAName)->
-	gen_server:call(?SERVER,{list_clients,safe_binary(CAName)}).
+	gen_server:call(?SERVER,{list_clients,utils:safe_binary(CAName)}).
 
 %% @doc Spawns the server and registers the local name (unique)
 -spec(start_link() ->

@@ -16,6 +16,7 @@ info:
 servers:
   - url: 'http://renegademac.arilia.com:9090/api/v1'
   - url: 'http://localhost:9090/api/v1'
+  - url: 'http://debfarm1-node-b.arilia.com:9090/api/v1'
 
 security: 
   - ApiKeyAuth: []
@@ -220,29 +221,6 @@ paths:
         403:
           $ref: '#/components/responses/Unauthorized'
 
-    post:
-      tags: [ CA ]
-      summary: Create a new CA
-      operationId: CreateCA
-      requestBody:
-        description: The information about the CA
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CADetails'
-      responses:
-        201:
-          description: Return the list of CAs.This can be an empty list.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CADetails'
-        403:
-          $ref: '#/components/responses/Unauthorized'
-        404:
-          $ref: '#/components/responses/NotFound'
-          
   /cas/{id}:
     get:
       tags: [CA]
@@ -269,8 +247,8 @@ paths:
 
     post:
       tags: [CA]
-      summary: Update the details about a single CA
-      operationId: CreateASingleCA
+      summary: Create a new CA
+      operationId: createCA
       parameters: 
         - in: path
           description: The name of the CA we are interested in.
@@ -278,17 +256,36 @@ paths:
           schema:
             type: string
           required: true
+      requestBody:
+        description: The information about the CA
+        required: true
+        content:
+          application/json:
+            schema:
+              properties:
+                name:
+                  type: string
+                key:
+                  type: string
+                cert:
+                  type: string
+                password:
+                  type: string
       responses:
-        200:
-          description: Details of the requested CA
+        201:
+          description: Creation of a CA success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CADetails'
+        204:
+          description: Update of a CA success
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CADetails'
         403:
           $ref: '#/components/responses/Unauthorized'
-        404:
-          $ref: '#/components/responses/NotFound'
 
     delete:
       tags: [CA]
@@ -393,8 +390,18 @@ paths:
               $ref: '#/components/schemas/SimulationDetails'
       responses:
         200:
-          description: Success
+          description: Return on success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimulationDetails'
         201:
+          description: Return on success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimulationDetails'
+        204:
           description: Return on success
           content:
             application/json:
@@ -646,36 +653,7 @@ components:
           description: The certificate for the CA
           type: string
           format: byte
-        location:
-          type: string
-        Configuration:
-          description: Configuration of the CA
-          type: string
-          readOnly: true
-        Info:
-          $ref: '#/components/schemas/GenericProperties'
 
-    GenericProperties:
-      description: Read-only fields for all entries
-      readOnly: true
-      properties:
-        Id:
-          description: UUID for the record
-          type: string
-          format: uuid
-        Created:
-          description: The creation date for this record
-          type: string
-          format: date-time
-        Accessed:
-          description: The last accessed date for this record
-          type: string
-          format: date-time
-        Modified:
-          description: The last modified date for this record
-          type: string
-          format: date-time
-          
     HardwareDefinitionsList:
       description: List of hardware definitions
       readOnly: true

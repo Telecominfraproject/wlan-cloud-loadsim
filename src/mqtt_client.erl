@@ -259,7 +259,7 @@ prepare_mac_stats(CI)->
 														                               tx_rate = 0.0,
 														                               rx_errors = 0,
 														                               tx_errors = 0,
-														                               rssi = make32bit(-25) }, A)
+														                               rssi = make32bit(-40) }, A)
 													end,#{},M),
 	MacStats.
 
@@ -278,7 +278,7 @@ increase_stats(MacStats,Delta)->
 									                            tx_errors = V#'Client.Stats'.tx_errors + rand:uniform(2)-1,
 									                            rx_rate = NewRxBytes / (Delta+1),
 									                            tx_rate = NewTxBytes / (Delta+1),
-									                            rssi = make32bit(-1 * (rand:uniform(20)+15))
+									                            rssi = make32bit(-1 * (rand:uniform(20)+40))
 									},
 									maps:put(K,NewStats,M)
 							end, #{}, MacStats).

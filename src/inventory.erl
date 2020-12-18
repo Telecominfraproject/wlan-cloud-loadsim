@@ -313,8 +313,12 @@ handle_call({make_client,Ca,Attributes}, _From, State = #inventory_state{}) ->
 		[] ->
 			{reply,{error,unknown_ca},State};
 		[CAInfo] ->
-			{ok , NewState}=create_client(CAInfo,Attributes),
-			{reply, ok, NewState}
+			case create_client(CAInfo,Attributes) of
+				ok ->
+					{reply, ok, State};
+				{error,Reason} ->
+					{reply,{error,Reason},State}
+			end
 	end;
 
 handle_call({make_many_clients,Ca,Start,HowMany,Attributes,Notification}, _From, State = #inventory_state{}) ->
@@ -636,52 +640,57 @@ create_servers(CAInfo,[H|T],Type,State,Pid)->
 -spec create_client( CAInfo :: ca_info(), Attributes::#{ atom() => term() }) ->
 			ok | { error , Reason :: term()}.
 create_client(CAInfo,Attributes)->
-	#{ mac := Mac, serial := Serial, name := _Name , id := HardwareId } = Attributes,
-	BaseFileName = filename:join( [ binary_to_list(CAInfo#ca_info.clients_dir_name),binary_to_list(Serial)]),
-	ClientKeyPem = BaseFileName ++ "-key.pem",
-	ClientKeyDec = BaseFileName ++  "-key_dec.pem",
-	ClientCertCsr = BaseFileName ++  "-cert.csr",
-	ClientCertPem = BaseFileName ++  "-cert.pem",
+	try
+		#{ mac := Mac, serial := Serial, name := _Name , id := HardwareId } = Attributes,
+		BaseFileName = filename:join( [ binary_to_list(CAInfo#ca_info.clients_dir_name),binary_to_list(Serial)]),
+		ClientKeyPem = BaseFileName ++ "-key.pem",
+		ClientKeyDec = BaseFileName ++  "-key_dec.pem",
+		ClientCertCsr = BaseFileName ++  "-cert.csr",
+		ClientCertPem = BaseFileName ++  "-cert.pem",
 
-	CaBase = binary_to_list(CAInfo#ca_info.dir_name),
-	CreateClientScriptFileName = filename:join([CaBase,"ssl-create-client.sh"]),
-	_Result = os:cmd(CreateClientScriptFileName),
-	%% io:format("RESULT: ~p~n",[Result]),
+		CaBase = binary_to_list(CAInfo#ca_info.dir_name),
+		CreateClientScriptFileName = filename:join([CaBase,"ssl-create-client.sh"]),
+		_Result = os:cmd(CreateClientScriptFileName),
+		%% io:format("RESULT: ~p~n",[Result]),
 
-	_ = file:rename( filename:join([CaBase,"clientcert.csr"]),ClientCertCsr ),
-	_ = file:rename( filename:join([CaBase,"clientcert.pem"]),ClientCertPem ),
-	_ = file:rename( filename:join([CaBase,"clientkey.pem"]),ClientKeyPem ),
-	_ = file:rename( filename:join([CaBase,"clientkey_dec.pem"]),ClientKeyDec ),
+		_ = file:rename( filename:join([CaBase,"clientcert.csr"]),ClientCertCsr ),
+		_ = file:rename( filename:join([CaBase,"clientcert.pem"]),ClientCertPem ),
+		_ = file:rename( filename:join([CaBase,"clientkey.pem"]),ClientKeyPem ),
+		_ = file:rename( filename:join([CaBase,"clientkey_dec.pem"]),ClientKeyDec ),
 
-	{ok,ClientCertCsrData} = file:read_file(ClientCertCsr),
-	{ok,ClientKeyDecData} = utils:pem_to_key(ClientKeyDec),
-	{ok,ClientKeyPemData} = utils:pem_to_key(ClientKeyPem),
-	{ok,ClientCertPemData} = utils:pem_to_cert(ClientCertPem),
+		{ok,ClientCertCsrData} = file:read_file(ClientCertCsr),
+		{ok,ClientKeyDecData} = utils:pem_to_key(ClientKeyDec),
+		{ok,ClientKeyPemData} = utils:pem_to_key(ClientKeyPem),
+		{ok,ClientCertPemData} = utils:pem_to_cert(ClientCertPem),
 
-	Bands = gen_bands(),
+		Bands = gen_bands(),
 
-	[X1a,X1b,$:,X2a,X2b,$:,X3a,X3b,$:,X4a,X4b,$:,X5a,X5b,$:,X6a,_X6b] = string:to_lower(binary_to_list(Mac)),
-	Client = #client_info{
-		name = Serial,
-		ca = CAInfo#ca_info.name,
-		cap = [ mqtt_client , ovsdb_client ],
-		wan_mac0 = list_to_binary([X1a,X1b,$:,X2a,X2b,$:,X3a,X3b,$:,X4a,X4b,$:,X5a,X5b,$:,X6a,$0]),
-		lan_mac0 = list_to_binary([X1a,X1b,$:,X2a,X2b,$:,X3a,X3b,$:,X4a,X4b,$:,X5a,X5b,$:,X6a,$8]),
-		id = HardwareId,
-		serial = Serial,
-		bands = Bands,
-		wifi_clients = gen_wan_clients(Bands),
-		lan_clients = [{<<"lan0">>,gen_lan_clients()}],
-		key = ClientKeyPemData,
-		cert = ClientCertPemData,
-		decrypt = ClientKeyDecData,
-		cacert = CAInfo#ca_info.cert,
-		csr = ClientCertCsrData
-	},
-	%% io:format(">>>SERIAL: ~p~n",[Serial]),
-	_R = add_record(Client),
-	%% io:format("RESULT>>>=~p~n",[R]),
-	ok.
+		[X1a,X1b,$:,X2a,X2b,$:,X3a,X3b,$:,X4a,X4b,$:,X5a,X5b,$:,X6a,_X6b] = string:to_lower(binary_to_list(Mac)),
+		Client = #client_info{
+			name = Serial,
+			ca = CAInfo#ca_info.name,
+			cap = [ mqtt_client , ovsdb_client ],
+			wan_mac0 = list_to_binary([X1a,X1b,$:,X2a,X2b,$:,X3a,X3b,$:,X4a,X4b,$:,X5a,X5b,$:,X6a,$0]),
+			lan_mac0 = list_to_binary([X1a,X1b,$:,X2a,X2b,$:,X3a,X3b,$:,X4a,X4b,$:,X5a,X5b,$:,X6a,$8]),
+			id = HardwareId,
+			serial = Serial,
+			bands = Bands,
+			wifi_clients = gen_wan_clients(Bands),
+			lan_clients = [{<<"lan0">>,gen_lan_clients()}],
+			key = ClientKeyPemData,
+			cert = ClientCertPemData,
+			decrypt = ClientKeyDecData,
+			cacert = CAInfo#ca_info.cert,
+			csr = ClientCertCsrData
+		},
+		%% io:format(">>>SERIAL: ~p~n",[Serial]),
+		_R = add_record(Client),
+		%% io:format("RESULT>>>=~p~n",[R]),
+		ok
+	catch
+		_:_ ->
+			{ error , cannot_create_client }
+	end.
 
 gen_bands()->
 	case rand:uniform(4) of
@@ -737,10 +746,9 @@ generate_single_client(HardwareId,CAInfo,Index,Attributes)->
 			RealSerial = binary_to_list(Serial) ++ [A,B,C,D,E,F] ++ [X1,X2,X3,X4,X5,$0],
 			RealName = binary_to_list(Name) ++ "-" ++ [X1,X2,X3,X4,X5,$0],
 			_ = create_client(CAInfo, Attributes#{ name => list_to_binary(RealName), mac => list_to_binary(Mac) , serial => list_to_binary(RealSerial) });
-	Error ->
+		{error,_Reason} = Error ->
 			Error
-	end,
-	ok.
+	end.
 
 generate_client_batch(_CaInfo,_Prefix,_Current,_Start,0,_Attributes,{M,F,A}=_Notification,_State)->
 	apply(M,F,A);

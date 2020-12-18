@@ -40,6 +40,7 @@ gen_report(RawStartTime,ClientInfo,MacStats)->
 	},
 	opensync_stats:encode_msg(TR,'Report').
 
+-spec gen(atom()) -> term().
 gen('Device.FsUtil')->
 	[{'Device.FsUtil','FS_TYPE_ROOTFS',62388,2064},
 	 {'Device.FsUtil','FS_TYPE_TMPFS',125476,288}];
@@ -54,8 +55,8 @@ gen('Device.RadioTemp')->
 	{'Device.RadioTemp','BAND5GU',rand:uniform(20)+40},
 	{'Device.RadioTemp','BAND5GL',rand:uniform(20)+40}].
 
--spec gen( atom(), Qualifier::atom()) ->any();
-         ( atom(), integer()) ->any().
+-spec gen( atom(), Qualifier::atom()) ->term();
+         ( atom(), integer()) ->term().
 gen('Device.PerProcessUtil',ps_cpu_util)->
 	[{'Device.PerProcessUtil',2370,"ovsdb-server",2},
 	{'Device.PerProcessUtil',27,"kworker/0:1",2},

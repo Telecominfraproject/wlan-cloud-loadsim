@@ -55,14 +55,14 @@ logout()->
 	persistent_term:erase(?SIM_APIKEY),
 	ok.
 
--spec connected() -> { ok , none } | { ok , Manager::node() }.
+-spec connected() -> boolean().
 connected()->
-	simnode:connected().
+	nodes() > 0.
 
 -spec connect(NodeName::string()) -> { ok , none | node() }.
 connect(NodeName) ->
 	Node = list_to_atom(NodeName),
-	simnode:connect(Node).
+	manager:connect(Node).
 
 -spec configuration() -> { ok , Configuration::term() }.
 configuration()->
@@ -103,16 +103,13 @@ create_simulation(SimName,CAName) when is_list(SimName),is_list(CAName) ->
 	Simulation = #simulation{ name = list_to_binary(SimName),
 	                          ca = list_to_binary(CAName),
 	                          num_devices = RealNumberOfDevices,
-	                          creation_date = calendar:local_time(),
 	                          opensync_server_port = ServerPort,
 	                          opensync_server_name = ServerName,
-	                          start_date = undefined,
-	                          end_date = undefined,
 	                          nodes = GoodNodes },
 	Yes = input("Confirm: [Y]n","Y"),
 	case Yes == "Y" of
-		true -> simengine:create(Simulation);
-		false -> io:format("Creation aborted.~n")
+		true ->  _ = simengine:create(Simulation), ok;
+		false -> io:format("Creation aborted.~n"), { error, creation_aborted }
 	end.
 
 -spec show_simulation(SimName::string())-> {ok,Attributes::attribute_list()} | generic_error().
@@ -149,7 +146,7 @@ cancel_simulation(SimName)->
 
 -spec list_simulations() -> {ok,SimulationList::[string()]} | generic_error().
 list_simulations() ->
-	simengine:list().
+	simengine:list_simulations().
 
 -spec analyze_nodes()-> ok.
 analyze_nodes()->
@@ -180,7 +177,7 @@ import_ca(CAName,Password,KeyFileName,CertFileNAme) when is_list(CAName), is_lis
 			case utils:remove_pem_key_password(Password,KeyFileName,TmpKeyFileName) of
 				true ->
 					Res = inventory:import_ca(CAName,#{ password => "", keyfilename => TmpKeyFileName, certfilename => CertFileNAme}),
-					file:delete(TmpKeyFileName),
+					_=file:delete(TmpKeyFileName),
 					Res;
 				false->
 					{ error , ?ERROR_CA_CANNOT_IMPORT_KEY }
@@ -320,22 +317,32 @@ get_server(ovsdb_server)->
 	{ list_to_binary(ServerName),list_to_integer(Port)}.
 
 t1_key()->
-	import_ca("sim1","mypassword","tip2-cakey.pem","tip2-cacert.pem").
+	_ = import_ca("sim1","mypassword","tip2-cakey.pem","tip2-cacert.pem"),
+	c1().
 
 c1()->
 	Simulation = #simulation{ name = <<"sim1">>,
 	                          ca = <<"sim1">>,
 	                          num_devices = 10,
 	                          opensync_server_port = 6643,
-	                          opensync_server_name = <<"10.20.0.118">>,
-	                          start_date = undefined,
-	                          end_date = undefined,
-	                          nodes = ['simnode1@hypatia.syramo.com'] },
+	                          opensync_server_name = <<"debfarm1-node-a.arilia.com">>,
+	                          nodes = ['simnode1@debfarm1-node-c.arilia.com'] },
 		simengine:create(Simulation).
+
+t1_key_h() ->
+	_ = import_ca("sim1","mypassword","tip2-cakey.pem","tip2-cacert.pem"),
+	Simulation = #simulation{ name = <<"sim1">>,
+	                          ca = <<"sim1">>,
+	                          num_devices = 10,
+	                          opensync_server_port = 6643,
+	                          opensync_server_name = <<"10.20.0.118">>,
+	                          nodes = ['simnode1@hypatia.syramo.com'] },
+	simengine:create(Simulation).
+
 
 r1(X)->
 	w(X),
-	push_simulation("sim1"),
+	_ = push_simulation("sim1"),
 	timer:sleep(1000),
 	start_simulation("sim1").
 

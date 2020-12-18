@@ -64,7 +64,7 @@ content_types_accepted(Req, State) ->
 is_authorized(Req,#request_state{ method = <<"OPTIONS">> }=State)->
 	{true,Req,State};
 is_authorized(Req, State) ->
-	Answer = case restutils:get_access_token_not_secure(Req) of
+	case restutils:get_access_token_not_secure(Req) of
 		{ok,Token} ->
 			case restutils:validate_token(Token) of
 				true ->
@@ -76,8 +76,7 @@ is_authorized(Req, State) ->
     _ ->
 	    io:format("No access.~n"),
 	    {{false, <<"Bearer">>}, Req, State}
-	end,
-	Answer.
+	end.
 
 delete_resource(Req, State) ->
 	{ true , Req , State }.

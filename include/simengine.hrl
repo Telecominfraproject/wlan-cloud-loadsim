@@ -13,8 +13,8 @@
 	num_devices = 0 :: integer(),
 	assets_created = false :: boolean(),
 	creation_date = <<>> :: binary(),
-	start_date = undefined :: undefined | calendar:datetime(),
-	end_date = undefined :: undefined | calendar:datetime(),
+	start_date = <<>> :: binary(),
+	end_date = <<>> :: binary(),
 	nodes = [] :: [ node() ],
 	internal = false :: boolean(),
   opensync_server_name = <<>> :: binary(),
@@ -25,14 +25,14 @@
 	id = <<>> :: binary(),
 	action = <<>> :: binary(),
 	simulation = <<>> :: binary(),
-	parameters = <<>> :: binary(),
+	parameters = #{} :: #{atom()=>term()},
 	status = <<>> :: binary(),
 	created = <<>> :: binary(),
 	done_count = 0 :: integer(),
 	target_count :: integer(),
 	completed = <<>>}).
 
--type simulation() :: #simulation{}.
+-type simulation()::#simulation{}.
 -type sim_action()::#sim_action{}.
 
 -export_type([simulation/0,sim_action/0]).

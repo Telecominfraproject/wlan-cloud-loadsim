@@ -46,6 +46,12 @@ new (CAName,Id,Store,Redirector) ->
 -spec configure (Config :: cfg()) -> NewConfig :: cfg().
 configure (#cfg{ca_name=CAName, id=ID, redirector=R}=Config) ->
 	{ok,Info} = inventory:get_client(CAName,ID),
+	SSID = case Info#client_info.wifi_clients of
+		[{_,S,_}|_] ->
+			S;
+		_ ->
+			<<"TipWlan-cloud-wifi">>
+	end,
 	APC = [
 		{serial,Info#client_info.serial},
 		{type,Info#client_info.type},
@@ -55,7 +61,8 @@ configure (#cfg{ca_name=CAName, id=ID, redirector=R}=Config) ->
 		{lan_mac,Info#client_info.lan_mac0},
 		{tip_redirector,R},
 		{wifi_clients,Info#client_info.wifi_clients},
-		{name,Info#client_info.name}
+		{name,Info#client_info.name},
+		{ssid,SSID}
 		% {serial,<<"21P10C69717951">>},
 		% {type,<<"EA8300">>},
 		% {wan_addr,<<"10.20.0.113">>},
@@ -444,9 +451,10 @@ create_table ('Wifi_Stats_Config',_APC,Store) ->
 		radio_type = <<"5GU">>
 	});
 
-create_table ('Wifi_VIF_Config',_APC,Store) ->
+create_table ('Wifi_VIF_Config',APC,Store) ->
 	ets:insert(Store,#'Wifi_VIF_Config'{
-		'**key_id**' = <<"21b32c56-5011-455c-9c7c-c58b9d43d583">>
+		'**key_id**' = <<"21b32c56-5011-455c-9c7c-c58b9d43d583">>,
+		ssid = proplists:get_value(ssid,APC)
 	});
 
 create_table ('Wifi_VIF_State',APC,Store) ->
@@ -455,7 +463,8 @@ create_table ('Wifi_VIF_State',APC,Store) ->
 		'**key_id**' = utils:uuid_b(),
 		mac = proplists:get_value(lan_mac,APC),
 		associated_clients = [<<"set">>,[F(X)||X<-proplists:get_value(wifi_clients,APC)]],
-		vif_config = [<<"uuid">>,<<"21b32c56-5011-455c-9c7c-c58b9d43d583">>] 	
+		vif_config = [<<"uuid">>,<<"21b32c56-5011-455c-9c7c-c58b9d43d583">>],
+		ssid = proplists:get_value(ssid,APC)
 	});
 
 create_table ('AWLAN_Node',APC,Store) -> 

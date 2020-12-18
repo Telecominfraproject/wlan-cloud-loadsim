@@ -5,8 +5,15 @@ on time-outs, response times, and number of concurrent users. The system maybe d
 realtime numbers.
 
 ## Getting started
+### Hardware and software
+This simulator requires multiple machines to run. Now, it can be bare-metal or VMs. It does not really matter. Since the goal is to stress server resourcess, we 
+would suggest to run the TIP on a much larger machine and these simulation node on VMs. As for support, this was developed on Debian based Linux distributions (Ubuntun and Debian). We have also done extensive testing on Mac OS X. Windows is not supported currently and there is no plans on supporting it.
+
+### Security
+This simulator should run behind your firewalls. There is no security between the management UI and the simulation manager. You could run the simulation entirely behind a firewall and run the TIP controller in the cloud. 
+
 ### Pre-requisites
-You must install Erlang OTP 22 or newer.
+This simulator uses Erlang. This language is designed to support thousands of processesand very suitable for this task. You must install Erlang OTP 22 or newer in order to run this application.
 #### Linux 
 ##### Ubuntu
 ```
@@ -53,12 +60,12 @@ prompt >
 You need to clone the repository, run a configuration command, and start doing the simulation
 
 ```
-git clone https://github.com/stephb9959/owls
-cd owls
+git clone https://github.com/telecominfroproject/wlan-cloud-loadsim
+cd wlan-cloud-loadsim
 ```
 
 ### Choosing a node type
-In a simulation, you have 2 types of nodes. 
+In a simulation, you have 3 types of nodes. 
 
 #### simmanager node
 There is only one `simmanager` node. This node is responsible for directing all the other nodes in the simulation. It is a 
@@ -79,6 +86,14 @@ follow these instructions and answer the questions for the initial configuration
 ```
 ./simnode_config
 ./simnode
+```
+
+#### simmonitor node
+You should have a single 'simmonitor' node. This node is intended to run on the actual TIP controller server. It's only purpose in life is to report OS details back into the 'simmanager' node. This is then displayed in the UI to monitor the laod experienced on the TIP controller server.
+
+```
+./simmonitor_config
+./simmonitor
 ```
 
 #### On running multiple node types on a single machine

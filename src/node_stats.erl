@@ -153,10 +153,10 @@ handle_info(_Info, State = #node_state{}) ->
                 State :: #node_state{}) -> term()).
 terminate(_Reason, State = #node_state{}) ->
 	_ = timer:cancel(State#node_state.updater),
-	_= case timer:cancel(State#node_state.node_finder_timer) of
-		undefined -> ok;
-		_ -> timer:cancel(State#node_state.node_finder_timer)
-	end,
+	_= case State#node_state.node_finder_timer of
+			undefined -> ok;
+			_ -> timer:cancel(State#node_state.node_finder_timer)
+		end,
 	ok.
 
 %% @private

@@ -788,19 +788,20 @@ split_build_servers(SimInfo,_Notification)->
 	_ = generate_server(SimInfo,ovsdb_server),
 	ok.
 
-generate_server(#simulation{ internal = true } = SimInfo,mqtt_server)->
-	inventory:make_server(SimInfo#simulation.ca,"mqtt-1",mqtt_server);
+%% generate_server(#simulation{ internal = true } = SimInfo,mqtt_server)->
+%%  	inventory:make_server(SimInfo#simulation.ca,"mqtt-1",mqtt_server);
 generate_server(#simulation{ internal = true } = SimInfo,ovsdb_server )->
 	inventory:make_server(SimInfo#simulation.ca,"ovsdb-1",ovsdb_server);
 generate_server(_,_)->
 	ok.
 
+-spec sim_action_to_json(#sim_action{}) -> binary().
 sim_action_to_json(SimAction)->
 	Parameters = case maps:get(stagger,SimAction#sim_action.parameters,undefined) of
-								 undefined ->
-									 #{};
 		             { D , T } ->
-			             #{ name => stagger , value => list_to_binary(integer_to_list(D) ++ "/" ++ integer_to_list(T))}
+			              #{ name => stagger , value => list_to_binary(integer_to_list(D) ++ "/" ++ integer_to_list(T))};
+		             undefined ->
+										#{}
 	             end,
 	jiffy:encode(#{
 			id => SimAction#sim_action.id,

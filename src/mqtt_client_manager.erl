@@ -154,7 +154,7 @@ extract_stats(State)->
 	{noreply, NewState :: #mqtt_client_manager_state{}, timeout() | hibernate} |
 	{stop, Reason :: term(), NewState :: #mqtt_client_manager_state{}}).
 handle_cast({set_ssid,_CAName,Serial,SSID}, State = #mqtt_client_manager_state{}) ->
-	case maps:get(Serial,State#mqtt_client_manager_state.client_configurations,unknown) of
+	_=case maps:get(Serial,State#mqtt_client_manager_state.client_configurations,unknown) of
 		unknown ->
 			?L_IA("MQTT_CLIENT_MANAGER: attempt to set SSID ~p to device ~p failed.",[SSID,Serial]);
 		{Pid,_} ->
@@ -163,7 +163,7 @@ handle_cast({set_ssid,_CAName,Serial,SSID}, State = #mqtt_client_manager_state{}
 	end,
 	{noreply, State};
 handle_cast({dump_client,_CAName,Serial}, State = #mqtt_client_manager_state{}) ->
-	case maps:get(Serial,State#mqtt_client_manager_state.client_configurations,unknown) of
+	_=case maps:get(Serial,State#mqtt_client_manager_state.client_configurations,unknown) of
 		unknown ->
 			?L_IA("MQTT_CLIENT_MANAGER: attempt to show config for device ~p failed.",[Serial]);
 		{Pid,_} ->

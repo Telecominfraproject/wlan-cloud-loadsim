@@ -45,22 +45,16 @@ get_definitions() ->
 	gen_server:call(?SERVER,{get_hardware_definitions,self()}).
 
 -spec get_by_id(Id::string()|binary()) -> { ok , [hardware_info()] } | generic_error().
-get_by_id(Id) when is_list(Id)->
-	gen_server:call(?SERVER,{get_hardware_by_id,list_to_binary(Id)});
-get_by_id(Id) when is_binary(Id)->
-	gen_server:call(?SERVER,{get_hardware_by_id,Id}).
+get_by_id(Id)->
+	gen_server:call(?SERVER,{get_hardware_by_id,utils:safe_binary(Id)}).
 
 -spec get_by_model(Model::string()|binary()) -> { ok , [hardware_info()] } | generic_error().
-get_by_model(Model) when is_list(Model) ->
-	gen_server:call(?SERVER,{get_hardware_by_model,list_to_binary(Model)});
-get_by_model(Model) when is_binary(Model) ->
-	gen_server:call(?SERVER,{get_hardware_by_model,Model}).
+get_by_model(Model)->
+	gen_server:call(?SERVER,{get_hardware_by_model,utils:safe_binary(Model)}).
 
 -spec get_by_vendor(Vendor::string()|binary()) -> { ok , [hardware_info()] } | generic_error().
-get_by_vendor(Vendor) when is_list(Vendor) ->
-	gen_server:call(?SERVER,{get_hardware_by_vendor,list_to_binary(Vendor)});
-get_by_vendor(Vendor) when is_binary(Vendor) ->
-	gen_server:call(?SERVER,{get_hardware_by_vendor,Vendor}).
+get_by_vendor(Vendor)->
+	gen_server:call(?SERVER,{get_hardware_by_vendor,utils:safe_binary(Vendor)}).
 
 %% @doc Spawns the server and registers the local name (unique)
 -spec(start_link() ->

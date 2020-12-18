@@ -85,7 +85,7 @@ full_start(State)->
 									RS = run_client(SSLSocket,State#client_state{ connects = State#client_state.connects+1, t1 = T1 }),
 									utils:do(State#client_state.keep_alive_ref =/= undefined,{timer,cancel,[State#client_state.keep_alive_ref]}),
 									utils:do(State#client_state.send_report_timer =/= undefined,{timer,cancel,[State#client_state.send_report_timer]}),
-									ssl:close(SSLSocket),
+									_ = ssl:close(SSLSocket),
 									RS#client_state{ disconnects = State#client_state.disconnects +1,
 										keep_alive_ref = undefined,
 										send_report_timer = undefined };
@@ -259,10 +259,11 @@ prepare_mac_stats(CI)->
 														                               tx_rate = 0.0,
 														                               rx_errors = 0,
 														                               tx_errors = 0,
-														                               rssi = -25}, A)
+														                               rssi = 0 }, A)
 													end,#{},M),
 	MacStats.
 
+-spec increase_stats( #{ binary() => #'Client.Stats'{} }, Delta::non_neg_integer() ) -> #{ binary() => #'Client.Stats'{} }.
 increase_stats(MacStats,Delta)->
 	maps:fold(  fun(K,V,M) ->
 									NewRxBytes = V#'Client.Stats'.rx_bytes + rand:uniform(75000),

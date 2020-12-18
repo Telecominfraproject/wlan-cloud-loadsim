@@ -599,10 +599,10 @@ create_server(CAInfo,Name,Type,State,_Pid)->
 	_Result = os:cmd(CreateServerScriptFileName),
 	%% io:format("RESULT: ~p~n",[Result]),
 
-	file:rename( filename:join([CaBase,"servercert.csr"]),ServerCertCsr ),
-	file:rename( filename:join([CaBase,"servercert.pem"]),ServerCertPem ),
-	file:rename( filename:join([CaBase,"serverkey.pem"]),ServerKeyPem ),
-	file:rename( filename:join([CaBase,"serverkey_dec.pem"]),ServerKeyDec ),
+	_ = file:rename( filename:join([CaBase,"servercert.csr"]),ServerCertCsr ),
+	_ = file:rename( filename:join([CaBase,"servercert.pem"]),ServerCertPem ),
+	_ = file:rename( filename:join([CaBase,"serverkey.pem"]),ServerKeyPem ),
+	_ = file:rename( filename:join([CaBase,"serverkey_dec.pem"]),ServerKeyDec ),
 
 	{ok,KeyPemData} = utils:pem_to_key(ServerKeyPem),
 	{ok,ServerCertPemData} = utils:pem_to_cert(ServerCertPem),
@@ -648,10 +648,10 @@ create_client(CAInfo,Attributes)->
 	_Result = os:cmd(CreateClientScriptFileName),
 	%% io:format("RESULT: ~p~n",[Result]),
 
-	file:rename( filename:join([CaBase,"clientcert.csr"]),ClientCertCsr ),
-	file:rename( filename:join([CaBase,"clientcert.pem"]),ClientCertPem ),
-	file:rename( filename:join([CaBase,"clientkey.pem"]),ClientKeyPem ),
-	file:rename( filename:join([CaBase,"clientkey_dec.pem"]),ClientKeyDec ),
+	_ = file:rename( filename:join([CaBase,"clientcert.csr"]),ClientCertCsr ),
+	_ = file:rename( filename:join([CaBase,"clientcert.pem"]),ClientCertPem ),
+	_ = file:rename( filename:join([CaBase,"clientkey.pem"]),ClientKeyPem ),
+	_ = file:rename( filename:join([CaBase,"clientkey_dec.pem"]),ClientKeyDec ),
 
 	{ok,ClientCertCsrData} = file:read_file(ClientCertCsr),
 	{ok,ClientKeyDecData} = utils:pem_to_key(ClientKeyDec),

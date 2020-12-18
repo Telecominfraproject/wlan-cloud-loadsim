@@ -55,11 +55,11 @@ allowed_methods(Req, State) ->
 	{[?HTTP_GET,?HTTP_OPTIONS,?HTTP_POST,?HTTP_DELETE], Req, State}.
 
 content_types_provided(Req, State) ->
-	{[{{<<"application">>, <<"json">>, '*'}, db_to_json},
-		{{<<"text">>,<<"html">>,<<"charset=ISO-8859-1">>},db_to_html}], Req, State}.
+	{[{{<<"application">>, <<"json">>, '*'}, db_to_json}], Req, State}.
 
 content_types_accepted(Req, State) ->
-	{[{{<<"application">>, <<"json">>, '*'}, json_to_db}], Req, State}.
+	{[{{<<"application">>, <<"json">>, '*'}, json_to_db},
+	  {{<<"text">>,<<"html">>,<<"charset=ISO-8859-1">>},db_to_html}], Req, State}.
 
 is_authorized(Req,#request_state{ method = <<"OPTIONS">> }=State)->
 	{true,Req,State};
@@ -81,7 +81,6 @@ is_authorized(Req, State) ->
 
 delete_resource(Req, State) ->
 	{ true , Req , State }.
-
 
 resource_exists(Req, #request_state{ method = ?HTTP_GET, resource = <<"cas">>, id=nothing }=State) ->
 	{ true , Req , State };
@@ -247,7 +246,7 @@ do( ?HTTP_POST , Req , #request_state{ resource = <<"simulations">> } = State ) 
 						opensync_server_port = Port,
 						opensync_server_name = Server,
 						nodes = utils:to_atom_list(Nodes) },
-					simengine:update(NewSim),
+					_=simengine:update(NewSim),
 					URI = <<  <<"/api/v1/simulations/">>/binary, (State#request_state.id)/binary >>,
 					io:format("URI: ~p~n",[URI]),
 					Sim = #{ name => NewSim#simulation.name, caname => NewSim#simulation.ca, num_devices => NewSim#simulation.num_devices, nodes => NewSim#simulation.nodes,
@@ -266,7 +265,7 @@ do( ?HTTP_POST , Req , #request_state{ resource = <<"simulations">> } = State ) 
 						opensync_server_name = Server ,
 						nodes = utils:to_atom_list(Nodes),
 						assets_created = false },
-					simengine:create(NewSim),
+					_=simengine:create(NewSim),
 					URI = <<  <<"/api/v1/simulations/">>/binary, (State#request_state.id)/binary >>,
 					Sim = #{ name => NewSim#simulation.name, caname => NewSim#simulation.ca, num_devices => NewSim#simulation.num_devices, nodes => NewSim#simulation.nodes,
 					         server => NewSim#simulation.opensync_server_name,

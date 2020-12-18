@@ -57,7 +57,7 @@ log_error(Message)->
 log_error(Message,Args)->
 	gen_server:cast({global,?SERVER},{log_error,node(),Message,Args}).
 
--spec report_event(Event::atom(),EventData::#{})->no_return().
+-spec report_event(Event::atom(),EventData::#{})->ok.
 report_event(Event,EventData)->
 	gen_server:cast({global,?SERVER},{event,node(),Event,EventData}).
 

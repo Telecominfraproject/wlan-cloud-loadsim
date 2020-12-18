@@ -95,6 +95,7 @@ dump_record_array([H1,H2|T],Type,Blob)->
 dump_record_array([H1|_],Type,Blob)->
 	binary:list_to_bin([ Blob, ${ , Type:to_json(H1), $} ]).
 
+-spec get_access_token_not_secure(Req::term()) -> { ok, Token::binary()} | { error, Reason::term()}.
 get_access_token_not_secure(_Req) ->
 	{ok,<<"1234567890">>}.
 

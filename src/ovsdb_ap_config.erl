@@ -19,6 +19,7 @@
 -record (cfg, {
 	ca_name :: string() | binary(),
 	redirector :: binary(),
+	serial :: binary(),
 	id :: binary(),
 	store_ref :: ets:tid(),
 	cacert    = <<>> :: binary(),		% pem file (in memory) of the server certificate chain
@@ -31,7 +32,7 @@
 
 
 -export([new/4,configure/1]).
--export ([id/1,ca_certs/1,client_cert/1,client_key/1,tip_redirector/2,tip_manager/2]).
+-export ([id/1,ca_certs/1,client_cert/1,client_key/1,tip_redirector/2,tip_manager/2,caname/1,serial/1]).
 
 
 %%------------------------------------------------------------------------------
@@ -65,7 +66,8 @@ configure (#cfg{ca_name=CAName, id=ID, redirector=R}=Config) ->
 	],
 	initialize_ap_tables(Config#cfg.store_ref,validate_config(APC)),
 	Config#cfg{
-		cacert    = Info#client_info.cacert,
+		cacert = Info#client_info.cacert,
+		serial = Info#client_info.serial,
 		cert = Info#client_info.cert,
 		key  = Info#client_info.key
 	}.
@@ -111,6 +113,14 @@ initialize_ap_tables (Store, APC) ->
 -spec id (Config :: cfg()) -> Id :: binary().
 id(Cfg) ->
 	Cfg#cfg.id.
+
+-spec caname (Config :: cfg()) -> CAName :: binary().
+caname(Cfg) ->
+	Cfg#cfg.ca_name.
+
+-spec serial (Config :: cfg()) -> Serial :: binary().
+serial(Cfg) ->
+	Cfg#cfg.serial.
 
 -spec ca_certs (Config :: cfg()) -> binary().
 ca_certs (Cfg) ->
@@ -169,7 +179,7 @@ modify_mac (MAC) ->
 -spec create_table (Table :: atom(), AP_Config :: [{atom(),term()}], Store :: ets:tid()) -> true.
 create_table ('Wifi_Radio_State',APC,Store) ->
 	ets:insert(Store, #'Wifi_Radio_State'{
-		key_id = utils:uuid_b(),
+		'**key_id**' = utils:uuid_b(),
 		if_name = <<"radio0">>,
 		mac = modify_mac(proplists:get_value(lan_mac,APC)),
 		bcn_int = 100,
@@ -188,7 +198,7 @@ create_table ('Wifi_Radio_State',APC,Store) ->
 		freq_band = <<"5GU">>
 	}),
 	ets:insert(Store, #'Wifi_Radio_State' {
-		key_id = utils:uuid_b(),
+		'**key_id**' = utils:uuid_b(),
 		if_name = <<"radio1">>,
 		mac = modify_mac(proplists:get_value(lan_mac,APC)),
 		bcn_int = 100,
@@ -208,7 +218,7 @@ create_table ('Wifi_Radio_State',APC,Store) ->
 		freq_band = <<"2.4G">>
 	}),
 	ets:insert(Store, #'Wifi_Radio_State'{
-		key_id = utils:uuid_b(),
+		'**key_id**' = utils:uuid_b(),
 		if_name = <<"radio2">>,
 		mac = modify_mac(proplists:get_value(lan_mac,APC)),
 		bcn_int = 100,
@@ -229,20 +239,20 @@ create_table ('Wifi_Radio_State',APC,Store) ->
 
 create_table ('Wifi_Radio_Config',_APC,Store) ->
 	ets:insert(Store, #'Wifi_Radio_Config'{
-		key_id = <<"830bd195-7114-4e99-9b51-5622e47ce221">>,
+		'**key_id**' = <<"830bd195-7114-4e99-9b51-5622e47ce221">>,
 		'_uuid' = [<<"uuid">>, <<"830bd195-7114-4e99-9b51-5622e47ce221">>],
 		freq_band = <<"5GU">>,
 		if_name = <<"radio0">>
 
 	}),
 	ets:insert(Store, #'Wifi_Radio_Config'{
-		key_id = <<"94f9b810-8c71-4961-a9c0-7f3a96869368">>,
+		'**key_id**' = <<"94f9b810-8c71-4961-a9c0-7f3a96869368">>,
 		'_uuid' = [<<"uuid">>, <<"94f9b810-8c71-4961-a9c0-7f3a96869368">>],
 		freq_band = <<"5GL">>,
 		if_name = <<"radio2">>
 	}),
 	ets:insert(Store, #'Wifi_Radio_Config'{
-		key_id = <<"fb11d840-cbe9-4e32-9744-ebcda9162e52">>,
+		'**key_id**' = <<"fb11d840-cbe9-4e32-9744-ebcda9162e52">>,
 		'_uuid' = [<<"uuid">>, <<"fb11d840-cbe9-4e32-9744-ebcda9162e52">>],
 		freq_band = <<"2.4G">>,
 		if_name = <<"radio1">>
@@ -250,7 +260,7 @@ create_table ('Wifi_Radio_Config',_APC,Store) ->
 
 create_table ('Wifi_Inet_State',APC,Store) -> 
 	ets:insert(Store, #'Wifi_Inet_State'{
-		key_id = utils:uuid_b(),
+		'**key_id**' = utils:uuid_b(),
 		if_name= <<"wwan">>,
 		if_type = <<"eth">>,
 		enabled = false,
@@ -258,7 +268,7 @@ create_table ('Wifi_Inet_State',APC,Store) ->
 		inet_config = [<<"uuid">>,<<"7e38a63b-526a-4b83-b30e-edd4c17ab3f6">>]
 	}),
 	ets:insert(Store, #'Wifi_Inet_State'{
-		key_id = utils:uuid_b(),
+		'**key_id**' = utils:uuid_b(),
 		dhcpd = [<<"map">>,[[<<"lease_time">>,<<"12h">>],[<<"start">>,<<"100">>],[<<"stop">>,<<"150">>]]],
 		if_name= <<"lan">>,
 		if_type = <<"bridge">>,
@@ -273,7 +283,7 @@ create_table ('Wifi_Inet_State',APC,Store) ->
 		inet_config = [<<"uuid">>,<<"19484645-8519-4bd0-98dd-13f1fec83395">>]
 	}),
 	ets:insert(Store, #'Wifi_Inet_State'{
-		key_id = utils:uuid_b(),
+		'**key_id**' = utils:uuid_b(),
 		if_name= <<"wan6">>,
 		if_type = <<"eth">>,
 		enabled = false,
@@ -281,7 +291,7 @@ create_table ('Wifi_Inet_State',APC,Store) ->
 		inet_config = [<<"uuid">>,<<"b803af39-e392-437b-8c86-dd87d24f8b49">>]
 	}),
 	ets:insert(Store, #'Wifi_Inet_State'{
-		key_id = utils:uuid_b(),
+		'**key_id**' = utils:uuid_b(),
 		if_name= <<"wan">>,
 		if_type = <<"bridge">>,
 		enabled = true,
@@ -300,7 +310,7 @@ create_table ('Wifi_Inet_State',APC,Store) ->
 
 create_table ('Wifi_Inet_Config',APC,Store) -> 
 	ets:insert(Store, #'Wifi_Inet_Config'{
-		key_id = <<"1a533ecc-90d7-499e-a76c-0d593a446fdb">>,
+		'**key_id**' = <<"1a533ecc-90d7-499e-a76c-0d593a446fdb">>,
 		'_uuid' = [<<"uuid">>, <<"1a533ecc-90d7-499e-a76c-0d593a446fdb">>],
 		dhcpd = [<<"map">>,[]],
 		if_name = <<"wan">>,
@@ -318,7 +328,7 @@ create_table ('Wifi_Inet_Config',APC,Store) ->
 		inet_addr = [<<"set">>,[]]
 	}),
 	ets:insert(Store, #'Wifi_Inet_Config'{
-		key_id = <<"b803af39-e392-437b-8c86-dd87d24f8b49">>,
+		'**key_id**' = <<"b803af39-e392-437b-8c86-dd87d24f8b49">>,
 		'_uuid' = [<<"uuid">>, <<"b803af39-e392-437b-8c86-dd87d24f8b49">>],
 		if_name = <<"wan6">>,
 		network = true,
@@ -327,7 +337,7 @@ create_table ('Wifi_Inet_Config',APC,Store) ->
 		'NAT' = false
 	}),
 	ets:insert(Store, #'Wifi_Inet_Config'{
-		key_id = <<"7e38a63b-526a-4b83-b30e-edd4c17ab3f6">>,
+		'**key_id**' = <<"7e38a63b-526a-4b83-b30e-edd4c17ab3f6">>,
 		'_uuid' = [<<"uuid">>, <<"7e38a63b-526a-4b83-b30e-edd4c17ab3f6">>],
 		if_name = <<"wwan">>,
 		network = true,
@@ -337,7 +347,7 @@ create_table ('Wifi_Inet_Config',APC,Store) ->
 		ip_assign_scheme = <<"dhcp">>
 	}),
 	ets:insert(Store, #'Wifi_Inet_Config'{
-		key_id = <<"19484645-8519-4bd0-98dd-13f1fec83395">>,
+		'**key_id**' = <<"19484645-8519-4bd0-98dd-13f1fec83395">>,
 		'_uuid' = [<<"uuid">>, <<"19484645-8519-4bd0-98dd-13f1fec83395">>],
 		dhcpd = [<<"map">>,[[<<"lease_time">>,<<"12h">>],[<<"start">>,<<"100">>],[<<"stop">>,<<"150">>]]],
 		if_name = <<"lan">>,
@@ -352,7 +362,7 @@ create_table ('Wifi_Inet_Config',APC,Store) ->
 
 create_table ('Wifi_RRM_Config',_APC,Store) ->
 	ets:insert(Store,#'Wifi_RRM_Config'{
-		key_id = <<"d1f9874c-d8e7-4426-9d70-c856c4dc6126">>,
+		'**key_id**' = <<"d1f9874c-d8e7-4426-9d70-c856c4dc6126">>,
 		'_version' = [<<"uuid">>,<<"9bbd18e7-ed7e-4ff3-b89d-a54c12b27ed7">>],
 		freq_band = <<"2.4G">>,
 		min_load = 50,
@@ -361,7 +371,7 @@ create_table ('Wifi_RRM_Config',_APC,Store) ->
 		snr_percentage_drop = 20
 	}),
 	ets:insert(Store,#'Wifi_RRM_Config'{
-		key_id = <<"8cf973a6-a268-4de4-9bf2-5f7d9222f806">>,
+		'**key_id**' = <<"8cf973a6-a268-4de4-9bf2-5f7d9222f806">>,
 		'_version' = [<<"uuid">>,<<"9bbd18e7-ed7e-4ff3-b89d-a54c12b27ed7">>],
 		freq_band = <<"5GL">>,
 		min_load = 40,
@@ -370,7 +380,7 @@ create_table ('Wifi_RRM_Config',_APC,Store) ->
 		snr_percentage_drop = 30
 	}),
 	ets:insert(Store,#'Wifi_RRM_Config'{
-		key_id = <<"44deb01a-a2a8-4b5b-a2be-0bdf04050b97">>,
+		'**key_id**' = <<"44deb01a-a2a8-4b5b-a2be-0bdf04050b97">>,
 		'_version' = [<<"uuid">>,<<"9bbd18e7-ed7e-4ff3-b89d-a54c12b27ed7">>],
 		freq_band = <<"5GU">>,
 		min_load = 40,
@@ -383,7 +393,7 @@ create_table ('Wifi_Associated_Clients',APC,Store) ->
 	%io:format("CONFIGURED WIFI CLIENTS:~n~p~n",[proplists:get_value(wifi_clients,APC)]),
 	F = fun({_,_,[MAC|_]}) ->
 		ets:insert(Store, #'Wifi_Associated_Clients'{
-			key_id = utils:uuid_b(),
+			'**key_id**' = utils:uuid_b(),
 			'_version' = [<<"uuid">>, utils:uuid_b()],
 			mac = MAC,
 			state = <<"active">>
@@ -391,7 +401,7 @@ create_table ('Wifi_Associated_Clients',APC,Store) ->
 	end,
 	[F(X) || X <- proplists:get_value(wifi_clients,APC)];
 	% ets:insert(Store, #'Wifi_Associated_Clients'{
-	% 	key_id = <<"ee49ed4e-5a04-4100-bf6a-ebfbbc54250e">>,
+	% 	'**key_id**' = <<"ee49ed4e-5a04-4100-bf6a-ebfbbc54250e">>,
 	% 	'_version' = [<<"uuid">>,<<"5bc3eb0f-1cc3-4dae-aae5-af02c8d2f1c7">>],
 	% 	mac = <<"52:b6:76:03:6d:f2">>,
 	% 	state = <<"active">>,
@@ -402,40 +412,42 @@ create_table ('Wifi_Associated_Clients',APC,Store) ->
 	% });
 
 create_table ('DHCP_leased_IP',APC,Store) ->
+	CL = proplists:get_value(wifi_clients,APC),
+	NM = proplists:get_value(name,APC),
 	F = fun(N,{_,_,[MAC|_]}) ->
 		ets:insert(Store, #'DHCP_leased_IP'{
-			key_id = utils:uuid_b(),
+			'**key_id**' = utils:uuid_b(),
 			'_version' = [<<"uuid">>, utils:uuid_b()],
 			hostname = iolist_to_binary([proplists:get_value(name,APC),"_",integer_to_list(N)]),
 			inet_addr = iolist_to_binary(["192.168.1.",integer_to_list(N+1)]),
-			hwaddr = MAC
+			hwaddr = MAC,
+			device_name = iolist_to_binary([NM,".SimClient_",integer_to_list(N+1)])
 		})
 	end,
-	CL = proplists:get_value(wifi_clients,APC),
 	[F(N,X) || {N,X} <- lists:zip(lists:seq(1,length(CL)),CL)];
 
 create_table ('Wifi_Stats_Config',_APC,Store) ->
 	ets:insert(Store, #'Wifi_Stats_Config'{
-		key_id = <<"f84b6834-80d6-4fd6-af73-98e3f4f96033">>,
+		'**key_id**' = <<"f84b6834-80d6-4fd6-af73-98e3f4f96033">>,
 		'_uuid' = [<<"uuid">>,<<"f84b6834-80d6-4fd6-af73-98e3f4f96033">>],
 		radio_type = <<"2.4G">>
 
 	}),
 	ets:insert(Store, #'Wifi_Stats_Config'{
-		key_id = <<"682166f4-8d40-47b9-8ddc-827940cae8ef">>,
+		'**key_id**' = <<"682166f4-8d40-47b9-8ddc-827940cae8ef">>,
 		'_uuid' = [<<"uuid">>,<<"682166f4-8d40-47b9-8ddc-827940cae8ef">>],
 		radio_type = <<"5GL">>
 
 	}),
 	ets:insert(Store, #'Wifi_Stats_Config'{
-		key_id = <<"21b32c56-5011-455c-9c7c-c58b9d43d583">>,
+		'**key_id**' = <<"21b32c56-5011-455c-9c7c-c58b9d43d583">>,
 		'_uuid' = [<<"uuid">>,<<"21b32c56-5011-455c-9c7c-c58b9d43d583">>],
 		radio_type = <<"5GU">>
 	});
 
 create_table ('AWLAN_Node',APC,Store) -> 
 	ets:insert(Store, #'AWLAN_Node'{
-		key_id = utils:uuid_b(),
+		'**key_id**' = utils:uuid_b(),
 		redirector_addr = proplists:get_value(tip_redirector,APC),									
 		serial_number = proplists:get_value(serial,APC),
 		id = proplists:get_value(serial,APC),

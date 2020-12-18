@@ -266,8 +266,8 @@ prepare_mac_stats(CI)->
 -spec increase_stats( #{ binary() => #'Client.Stats'{} }, Delta::non_neg_integer()) -> #{ binary() => #'Client.Stats'{} }.
 increase_stats(MacStats,Delta)->
 	maps:fold(  fun(K,V,M) ->
-									NewRxBytes = V#'Client.Stats'.rx_bytes + rand:uniform(75000),
-									NewTxBytes = V#'Client.Stats'.tx_bytes + rand:uniform(20000),
+									NewRxBytes = V#'Client.Stats'.rx_bytes + rand:uniform(7500000),
+									NewTxBytes = V#'Client.Stats'.tx_bytes + rand:uniform(2000000),
 									NewStats = #'Client.Stats'{ rx_bytes = NewRxBytes,
 																							tx_bytes = NewTxBytes,
 									                            rx_frames = V#'Client.Stats'.rx_frames + rand:uniform(200),

@@ -247,7 +247,6 @@ do( ?HTTP_POST , Req , #request_state{ resource = <<"simulations">> } = State ) 
 						nodes = utils:to_atom_list(Nodes) },
 					_=simengine:update(NewSim),
 					URI = <<  <<"/api/v1/simulations/">>/binary, (State#request_state.id)/binary >>,
-					io:format("URI: ~p~n",[URI]),
 					Sim = #{ name => NewSim#simulation.name, caname => NewSim#simulation.ca, num_devices => NewSim#simulation.num_devices, nodes => NewSim#simulation.nodes,
 					         server => NewSim#simulation.opensync_server_name,
 					         port=> NewSim#simulation.opensync_server_port ,

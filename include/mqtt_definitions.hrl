@@ -154,7 +154,7 @@
 
 -record( mqtt_connect_variable_header, {
 	protocol_name = <<0,4,$M:8,$Q:8,$T:8,$T:8>> :: binary(),
-	protocol_version = 0 :: integer(),
+	protocol_version = ?MQTT_PROTOCOL_VERSION_3_11 :: ?MQTT_PROTOCOL_VERSION_3_11 | ?MQTT_PROTOCOL_VERSION_5 ,
 	username_flag = 0 :: integer(),
 	password_flag = 0 :: integer(),
 	will_retain_flag = 0 :: integer(),
@@ -325,43 +325,30 @@
 
 -type mqtt_connack_variable_header_v4() :: #mqtt_connack_variable_header_v4{}.
 -type mqtt_connack_variable_header_v5() :: #mqtt_connack_variable_header_v5{}.
-
 -type mqtt_publish_variable_header_v4() :: #mqtt_publish_variable_header_v4{}.
 -type mqtt_publish_variable_header_v5() :: #mqtt_publish_variable_header_v5{}.
-
 -type mqtt_puback_variable_header_v5() :: #mqtt_puback_variable_header_v5{}.
 -type mqtt_puback_variable_header_v4() :: #mqtt_puback_variable_header_v4{}.
-
 -type mqtt_pubrec_variable_header_v4() :: #mqtt_pubrec_variable_header_v4{}.
 -type mqtt_pubrec_variable_header_v5() :: #mqtt_pubrec_variable_header_v5{}.
-
 -type mqtt_pubrel_variable_header_v4() :: #mqtt_pubrel_variable_header_v4{}.
 -type mqtt_pubrel_variable_header_v5() :: #mqtt_pubrel_variable_header_v5{}.
-
 -type mqtt_pubcomp_variable_header_v4() :: #mqtt_pubcomp_variable_header_v4{}.
 -type mqtt_pubcomp_variable_header_v5() :: #mqtt_pubcomp_variable_header_v5{}.
-
 -type mqtt_subscribe_variable_header_v4() :: #mqtt_subscribe_variable_header_v4{}.
 -type mqtt_subscribe_variable_header_v5() :: #mqtt_subscribe_variable_header_v5{}.
-
 -type mqtt_suback_variable_header_v4() :: #mqtt_suback_variable_header_v4{}.
 -type mqtt_suback_variable_header_v5() :: #mqtt_suback_variable_header_v5{}.
-
 -type mqtt_unsubscribe_variable_header_v4() :: #mqtt_unsubscribe_variable_header_v4{}.
 -type mqtt_unsubscribe_variable_header_v5() :: #mqtt_unsubscribe_variable_header_v5{}.
-
 -type mqtt_unsuback_variable_header_v4() :: #mqtt_unsuback_variable_header_v4{}.
 -type mqtt_unsuback_variable_header_v5() :: #mqtt_unsuback_variable_header_v5{}.
-
 -type mqtt_disconnect_variable_header_v4() :: #mqtt_disconnect_variable_header_v4{}.
 -type mqtt_disconnect_variable_header_v5() :: #mqtt_disconnect_variable_header_v5{}.
-
 -type mqtt_auth_variable_header_v4() :: #mqtt_auth_variable_header_v4{}.
 -type mqtt_auth_variable_header_v5() :: #mqtt_auth_variable_header_v5{}.
-
 -type mqtt_pingreq_variable_header_v4() :: #mqtt_pingreq_variable_header_v4{}.
 -type mqtt_pingreq_variable_header_v5() :: #mqtt_pingreq_variable_header_v5{}.
-
 -type mqtt_pingresp_variable_header_v4() :: #mqtt_pingresp_variable_header_v4{}.
 -type mqtt_pingresp_variable_header_v5() :: #mqtt_pingresp_variable_header_v5{}.
 

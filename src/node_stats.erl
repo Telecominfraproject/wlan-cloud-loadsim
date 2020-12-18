@@ -11,6 +11,8 @@
 
 -behaviour(gen_server).
 
+-include("../include/common.hrl").
+
 %% API
 -export([start_link/0,creation_info/0,update_stats/0,node_type/0,find_manager/2,connect/1,disconnect/0,
 	connected/0]).
@@ -25,7 +27,13 @@
 -define(SERVER, ?MODULE).
 -define(START_SERVER,{local,?MODULE}).
 
--record(node_state, { node_type, updater, nodeid, node_finder_timer, manager }).
+-record(node_state, {
+	node_type,
+	nodeid,
+	updater_timer = undefined,
+	node_finder_timer = undefined,
+	manager }).
+
 %%%===================================================================
 %%% API
 %%%===================================================================
@@ -80,7 +88,7 @@ init([]) ->
 			{ok,NodeFinder} = timer:apply_interval(7500,?MODULE,find_manager,[self(),NodeId])
 	end,
 	{ok,TRef} = timer:apply_interval(2000,?MODULE,update_stats,[]),
-	{ok, #node_state{ node_type = NodeType, updater = TRef, node_finder_timer = NodeFinder, nodeid = NodeId }}.
+	{ok, #node_state{ node_type = NodeType, updater_timer = TRef, node_finder_timer = NodeFinder, nodeid = NodeId }}.
 
 %% @private
 %% @doc Handling call messages
@@ -152,11 +160,13 @@ handle_info(_Info, State = #node_state{}) ->
 -spec(terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
                 State :: #node_state{}) -> term()).
 terminate(_Reason, State = #node_state{}) ->
-	_ = timer:cancel(State#node_state.updater),
-	_= case State#node_state.node_finder_timer of
-			undefined -> ok;
-			_ -> timer:cancel(State#node_state.node_finder_timer)
-		end,
+	_ = timer:cancel(State#node_state.updater_timer),
+	_=case State#node_state.node_type of
+		manager ->
+			ok;
+		_ ->
+			timer:cancel(State#node_state.node_finder_timer)
+	end,
 	ok.
 
 %% @private
@@ -239,10 +249,10 @@ try_connecting(NodeName,State)->
 					_=global:sync(),
 					manager:connect(State#node_state.node_type),
 					erlang:monitor_node(NodeName,true),
-					_=lager:info("Adding new manager ~p node.",[NodeName]),
+					?L_IA("Adding new manager ~p node.",[NodeName]),
 					State#node_state{ manager = NodeName };
 				pang ->
-					_=lager:info("Manager node ~p unresponsive.",[NodeName]),
+					?L_IA("Manager node ~p unresponsive.",[NodeName]),
 					State
 			end
 	end.

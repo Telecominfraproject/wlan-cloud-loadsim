@@ -150,7 +150,7 @@ gen('Survey',TimeStamp)->
 		undefined,undefined,undefined,14007260,undefined,154}],
 		[],'RAW'}].
 
--spec gen(atom(),string(),[string()],[{atom(),[string()]}],integer(),integer(), #{ MAC::binary() => #'Client.Stats'{} })->any().
+-spec gen(atom(),binary(),[binary()],[{atom(),[binary()]}],integer(),integer(), #{ MAC::binary() => #'Client.Stats'{} })->any().
 gen('ClientReport',_MAC,_LANClients,MACSSIDList,TimeStamp,StartTime,MacStats)->
 	WanClients = lists:foldl(fun({Band,SSID,WiFiMACs},A) ->
 		[gen_client_report_for_band(TimeStamp,Band,WiFiMACs,SSID,StartTime,MacStats)|A]

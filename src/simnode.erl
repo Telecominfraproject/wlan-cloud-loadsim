@@ -104,23 +104,22 @@ update_stats(Client,Role,Stats)->
 %%% gen_server callbacks
 %%%===================================================================
 %% @doc Spawns the server and registers the local name (unique)
--spec(start_link(Config::term()) ->
-	{ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
+-spec start_link(Config::term()) -> {ok, Pid :: pid()} | ignore | {error, Reason :: term()}.
 start_link(Config) ->
 	gen_server:start_link(?START_SERVER, ?MODULE, [Config], []).
 
 %% @private
 %% @doc Initializes the server
--spec(init(Args :: term()) ->
-	{ok, State :: #simnode_state{}} | {ok, State :: #simnode_state{}, timeout() | hibernate} |
-	{stop, Reason :: term()} | ignore).
+-spec init(Args :: proplists:proplist()) -> {ok, State :: #simnode_state{}}.
+	%%| {ok, State :: #simnode_state{}, timeout() | hibernate} |
+	%%{stop, Reason :: term()} | ignore).
 init([Config]) ->
-	NodeId = utils:app_env(node_id,1),
-	{ok,#simnode_state{ node_id = NodeId,
-	                    ap_client_handler = proplists:get_value(ap_client,Config,undefined),
-	                    mqtt_server_handler = proplists:get_value(mqtt_server,Config,undefined),
-	                    ovsdb_server_handler = proplists:get_value(ovsdb_server,Config,undefined),
-	                    manager = none }}.
+	_=utils:priv_dir(),
+	{ ok, #simnode_state{ node_id = utils:app_env(node_id,1),
+		                    ap_client_handler = proplists:get_value(ap_client,Config,undefined),
+		                    mqtt_server_handler = proplists:get_value(mqtt_server,Config,undefined),
+		                    ovsdb_server_handler = proplists:get_value(ovsdb_server,Config,undefined),
+		                    manager = none }}.
 
 %% @private
 %% @doc Handling call messages

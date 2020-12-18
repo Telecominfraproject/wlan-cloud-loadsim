@@ -55,28 +55,29 @@ process(#mqtt_processor_state{}=State) ->
 	{ok,State}.
 
 -spec answer_msg( Msg :: mqtt_answerable(), State :: mqtt_processor_state()) -> {ok,NewState::mqtt_processor_state()}.
-answer_msg( #mqtt_connect_variable_header{ protocol_version = ?MQTT_PROTOCOL_VERSION_3_11 }=Msg, State )->
-	VariableHeader = #mqtt_connack_variable_header_v4{ connect_acknowledge_flag = 0,connect_reason_code = ?MQTT_RC_CONNECTION_ACCEPTED },
-	Response = #mqtt_msg{ packet_type = ?MQTT_CONNACK , variable_header = VariableHeader },
-	Blob = mqtt_message:encode(Response),
-	_Result = (State#mqtt_processor_state.module):send(State#mqtt_processor_state.socket,Blob),
-	%% io:format("Sending CONNECT response(~p): ~p~n",[Result,Blob]),
-	Stats1 = State#mqtt_processor_state.stats#mqtt_connection_stats{ client_identifier = Msg#mqtt_connect_variable_header.client_identifier },
-	Stats2 = ?INCREMENT_STATS2(Stats1,msg_connect,msg_connack),
-	{ok,State#mqtt_processor_state{ version = Msg#mqtt_connect_variable_header.protocol_version,
-		stats = Stats2 }};
-
-answer_msg( #mqtt_connect_variable_header{ protocol_version = ?MQTT_PROTOCOL_VERSION_5 }=Msg, State )->
-	VariableHeader = #mqtt_connack_variable_header_v5{ connect_acknowledge_flag = 0,connect_reason_code = ?MQTT_RC_CONNECTION_ACCEPTED },
-	Response = #mqtt_msg{ packet_type = ?MQTT_CONNACK , variable_header = VariableHeader },
-	Blob = mqtt_message:encode(Response),
-	_Result = (State#mqtt_processor_state.module):send(State#mqtt_processor_state.socket,Blob),
-	%% io:format("Sending CONNECT response(~p): ~p~n",[Result,Blob]),
-	Stats1 = State#mqtt_processor_state.stats#mqtt_connection_stats{ client_identifier = Msg#mqtt_connect_variable_header.client_identifier },
-	Stats2 = ?INCREMENT_STATS2(Stats1,msg_connect,msg_connack),
-	{ok,State#mqtt_processor_state{ version = Msg#mqtt_connect_variable_header.protocol_version,
-		stats = Stats2 }};
-
+answer_msg( #mqtt_connect_variable_header{}=Msg, State )->
+	case Msg#mqtt_connect_variable_header.protocol_version of
+		?MQTT_PROTOCOL_VERSION_3_11 ->
+			VariableHeader = #mqtt_connack_variable_header_v4{ connect_acknowledge_flag = 0,connect_reason_code = ?MQTT_RC_CONNECTION_ACCEPTED },
+			Response = #mqtt_msg{ packet_type = ?MQTT_CONNACK , variable_header = VariableHeader },
+			Blob = mqtt_message:encode(Response),
+			_Result = (State#mqtt_processor_state.module):send(State#mqtt_processor_state.socket,Blob),
+			%% io:format("Sending CONNECT response(~p): ~p~n",[Result,Blob]),
+			Stats1 = State#mqtt_processor_state.stats#mqtt_connection_stats{ client_identifier = Msg#mqtt_connect_variable_header.client_identifier },
+			Stats2 = ?INCREMENT_STATS2(Stats1,msg_connect,msg_connack),
+			{ok,State#mqtt_processor_state{ version = Msg#mqtt_connect_variable_header.protocol_version, stats = Stats2 }};
+		?MQTT_PROTOCOL_VERSION_5 ->
+			VariableHeader = #mqtt_connack_variable_header_v5{ connect_acknowledge_flag = 0,connect_reason_code = ?MQTT_RC_CONNECTION_ACCEPTED },
+			Response = #mqtt_msg{ packet_type = ?MQTT_CONNACK , variable_header = VariableHeader },
+			Blob = mqtt_message:encode(Response),
+			_Result = (State#mqtt_processor_state.module):send(State#mqtt_processor_state.socket,Blob),
+			%% io:format("Sending CONNECT response(~p): ~p~n",[Result,Blob]),
+			Stats1 = State#mqtt_processor_state.stats#mqtt_connection_stats{ client_identifier = Msg#mqtt_connect_variable_header.client_identifier },
+			Stats2 = ?INCREMENT_STATS2(Stats1,msg_connect,msg_connack),
+			{ok,State#mqtt_processor_state{ version = Msg#mqtt_connect_variable_header.protocol_version, stats = Stats2 }};
+		0 ->
+			{ok,State}
+	end;
 answer_msg( #mqtt_publish_variable_header_v4{}=Msg, State )->
 	case Msg#mqtt_publish_variable_header_v4.qos_level_flag of
 		0 ->

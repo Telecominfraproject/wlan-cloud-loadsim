@@ -59,7 +59,7 @@ connack_packet_encoding_decoding_test()->
 publish_packet_encoding_decoding_test()->
 	?DBGTRC("Starting"),
 	PacketVariableHeader = #mqtt_publish_variable_header_v5{
-		topic_name = "topic/b/c",
+		topic_name = <<"topic/b/c">>,
 		packet_identifier = 12345,
 		properties = [
 			{ payload_format_indicator, 0 },

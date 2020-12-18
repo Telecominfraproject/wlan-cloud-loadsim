@@ -66,11 +66,11 @@ listen_loop(Id,ListenSock,ParentPid)->
 		                                                 socket = Socket,
 		                                                 version = undefined
 		                }]),
-		    ssl:controlling_process(Socket,Pid),
-		    listen_loop_secure(Id,ListenSock,ParentPid);
+		    _=gen_tcp:controlling_process(Socket,Pid),
+		    listen_loop(Id,ListenSock,ParentPid);
     Error ->
 	    io:format("SSL Handshake Error: ~p~n",[Error]),
-	    listen_loop_secure(Id,ListenSock,ParentPid)
+	    listen_loop(Id,ListenSock,ParentPid)
   end.
 
 listen_loop_secure(Id,ListenSock,ParentPid)->
@@ -91,7 +91,7 @@ listen_loop_secure(Id,ListenSock,ParentPid)->
                            socket = SslSocket,
                            version = undefined
 					    }]),
-					    ssl:controlling_process(SslSocket,Pid),
+					    _=ssl:controlling_process(SslSocket,Pid),
 							listen_loop_secure(Id,ListenSock,ParentPid);
 						Error ->
 							io:format("SSL Handshake Error: ~p~n",[Error]),

@@ -4127,8 +4127,8 @@ t1(FileName)->
 			{ok,Msg} = mqtt_message:decode(apply(?MODULE,X,[]),4),
 			Decompressed = zlib:uncompress(Msg#mqtt_msg.variable_header#mqtt_publish_variable_header_v4.payload),
 			Report=opensync_stats:decode_msg(Decompressed,'Report'),
-			dump_header(FileName,E),
-			dump_data(FileName,Report),A
+			_=dump_header(FileName,E),
+			_=dump_data(FileName,Report),A
 		end,[],L).
 
 dump_header(FileName,E)->
@@ -4140,30 +4140,3 @@ dump_data(FileName,Data)->
 	{ok,IoDev}=file:open(FileName,[append]),
 	io:fwrite(IoDev,"~p~n~n",[Data]),
 	_=file:close(IoDev).
-
-t2()->
-	test("SIM11000001000",
-	      [ {'BAND5GU',animals:get_an_animal(),["00:01:00:00:20:00","00:01:00:00:21:00","00:01:00:00:22:00"]},
-					{'BAND2G',animals:get_an_animal(),["00:01:01:00:20:00","00:01:01:00:21:00","00:01:01:00:22:00"]}]).
-
-test(Serial,MACSSIDList)->
-	TimeStamp = os:system_time(),
-	TR = #'Report'{ nodeID = Serial,
-	                device = [ #'Device'{
-		                timestamp_ms = TimeStamp,
-		                uptime = 12,
-		                load = mqtt_os_gen:gen('Device.LoadAvg'),
-                    mem_util = mqtt_os_gen:gen('Device.MemUtil'),
-                    fs_util = mqtt_os_gen:gen('Device.FsUtil'),
-		                cpuUtil = mqtt_os_gen:gen('Device.CpuUtil'),
-		                thermal_stats = mqtt_os_gen:gen('Device.Thermal'),
-		                radio_temp = mqtt_os_gen:gen('Device.RadioTemp'),
-                    ps_cpu_util = mqtt_os_gen:gen('Device.PerProcessUtil',ps_cpu_util),
-                    ps_mem_util = mqtt_os_gen:gen('Device.PerProcessUtil',ps_mem_util)
-	                }],
-	                neighbors = mqtt_os_gen:gen('Neighbor'),
-	                clients = mqtt_os_gen:gen('ClientReport',MACSSIDList)
-
-		},
-
-	opensync_stats:encode_msg(TR,'Report').

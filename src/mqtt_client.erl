@@ -276,8 +276,8 @@ increase_stats(MacStats,Delta)->
 									                            rx_retries = V#'Client.Stats'.rx_retries + rand:uniform(10),
 									                            rx_errors = V#'Client.Stats'.rx_errors + rand:uniform(2)-1,
 									                            tx_errors = V#'Client.Stats'.tx_errors + rand:uniform(2)-1,
-									                            rx_rate = NewRxBytes / (Delta+1),
-									                            tx_rate = NewTxBytes / (Delta+1),
+									                            rx_rate = 25000.0 + (NewRxBytes / (Delta+1)),
+									                            tx_rate = 5000.0 + (NewTxBytes / (Delta+1)),
 									                            rssi = make32bit(-1 * (rand:uniform(20)+40))
 									},
 									maps:put(K,NewStats,M)

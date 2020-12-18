@@ -264,7 +264,7 @@ prepare_mac_stats(CI)->
 	MacStats.
 
 -spec increase_stats( #{ binary() => #'Client.Stats'{} }, Delta::non_neg_integer()) -> #{ binary() => #'Client.Stats'{} }.
-increase_stats(MacStats,Delta)->
+increase_stats(MacStats,_Delta)->
 	maps:fold(  fun(K,V,M) ->
 									NewRxBytes = V#'Client.Stats'.rx_bytes + rand:uniform(7500000),
 									NewTxBytes = V#'Client.Stats'.tx_bytes + rand:uniform(2000000),
@@ -276,8 +276,8 @@ increase_stats(MacStats,Delta)->
 									                            rx_retries = V#'Client.Stats'.rx_retries + rand:uniform(10),
 									                            rx_errors = V#'Client.Stats'.rx_errors + rand:uniform(2)-1,
 									                            tx_errors = V#'Client.Stats'.tx_errors + rand:uniform(2)-1,
-									                            rx_rate = 25000.0 + (NewRxBytes / (Delta+1)),
-									                            tx_rate = 5000.0 + (NewTxBytes / (Delta+1)),
+									                            rx_rate = mid_rand( 700000.0, 1000000.0),
+									                            tx_rate = mid_rand( 300000.0, 500000.0),
 									                            rssi = make32bit(-1 * (rand:uniform(20)+40))
 									},
 									maps:put(K,NewStats,M)
@@ -288,3 +288,8 @@ make32bit(A)->
 	V1 = <<A:32>>,
 	<<V2:32>> = V1,
 	V2.
+
+-spec mid_rand(float(),float()) -> float().
+mid_rand(Middle,Max)->
+	Delta=Max-Middle,
+	(Middle-Delta)+rand:uniform(trunc(2*Delta)).

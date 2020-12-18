@@ -169,8 +169,7 @@ do( ?HTTP_GET , Req , #request_state{ resource = <<"ouis">> , id = nothing } = S
 	{restutils:create_paginated_return( "OUIs" , SubList, PaginationInfo),Req,State};
 do( ?HTTP_GET , Req , #request_state{ resource = <<"ouis">> } = State ) ->
 	Maker = State#request_state.looked_up,
-	JSON = binary:list_to_bin([<<"{ \"OUI\" : \"">> , State#request_state.id, <<"\" , \"Vendor\" : \"">>, Maker, <<"\" }">>]),
-	{JSON,Req,State};
+	create_response( binary:list_to_bin([<<"{ \"OUI\" : \"">> , State#request_state.id, <<"\" , \"Vendor\" : \"">>, Maker, <<"\" }">>]),Req,State);
 
 %%%===================================================================
 %%% Vendor Management
@@ -179,12 +178,11 @@ do( ?HTTP_GET , Req , #request_state{ resource = <<"vendors">> , id = nothing } 
 	PaginationParameters = restutils:get_pagination_parameters(Req),
 	{ok,Vendors}=oui_server:get_vendors(),
 	{ SubList , PaginationInfo } = restutils:paginate(PaginationParameters,Vendors),
-	{restutils:create_paginated_return("Vendors",SubList,PaginationInfo),Req,State};
+	create_response(restutils:create_paginated_return("Vendors",SubList,PaginationInfo),Req,State);
 do( ?HTTP_GET , Req , #request_state{ resource = <<"vendors">> } = State ) ->
 	Maker = State#request_state.id,
-	JSON = binary:list_to_bin([<<"{ \"Vendor\" : \"">> , Maker, <<"\" , \"OUIs\" : [ ">>,
-	                           restutils:dump_string_array(State#request_state.looked_up), <<" ] }">>]),
-	{JSON,Req,State};
+	create_response( binary:list_to_bin([<<"{ \"Vendor\" : \"">> , Maker, <<"\" , \"OUIs\" : [ ">>,
+	                           restutils:dump_string_array(State#request_state.looked_up), <<" ] }">>]),Req,State);
 
 %%%===================================================================
 %%% Simulation Devices Management
@@ -193,7 +191,7 @@ do( ?HTTP_GET ,Req,#request_state{ resource = <<"simulations">>, subres = <<"dev
 	PaginationParameters = restutils:get_pagination_parameters(Req),
 	{ok,DeviceList}=inventory:list_clients(State#request_state.id),
 	{SubList,PaginationInfo} = restutils:paginate(PaginationParameters,DeviceList),
-	{restutils:create_paginated_return("SerialNumbers",SubList,PaginationInfo),Req,State};
+	create_response(restutils:create_paginated_return("SerialNumbers",SubList,PaginationInfo),Req,State);
 do( ?HTTP_GET ,Req,#request_state{ resource = <<"simulations">>, subres = <<"devices">>  }=State)->
 	try
 		ClientInfo = State#request_state.looked_up,
@@ -307,8 +305,7 @@ do( ?HTTP_POST ,Req,#request_state{resource = <<"cas">>}=State)->
 		            key => list_to_binary(base64:encode_to_string(RawKey)),
 		            cert => list_to_binary(base64:encode_to_string(CA#ca_info.cert))},
 		JSON = jiffy:encode(CAInfo),
-		Req2 = cowboy_req:set_resp_body(JSON,Req1),
-		{true,Req2,State}
+		create_response(JSON,Req1,State)
 	catch
 		_:_ ->
 			create_error(102,"Some fields are invalid or missing.",Req,State)

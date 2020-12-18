@@ -104,7 +104,9 @@ initialize_ap_tables (Store, APC) ->
 	create_table('Wifi_Inet_State',APC,Store),
 	create_table('Wifi_RRM_Config',APC,Store),
 	create_table('Wifi_Stats_Config',APC,Store),
-	create_table ('DHCP_leased_IP',APC,Store),
+	create_table('DHCP_leased_IP',APC,Store),
+	create_table('Wifi_VIF_Config',APC,Store),
+	create_table('Wifi_VIF_State',APC,Store),
 	create_table('Wifi_Associated_Clients',APC,Store).
 	
 %%------------------------------------------------------------------------------
@@ -173,9 +175,6 @@ modify_mac (MAC) ->
 
 %%------------------------------------------------------------------------------
 %% table creation
-
-
-
 -spec create_table (Table :: atom(), AP_Config :: [{atom(),term()}], Store :: ets:tid()) -> true.
 create_table ('Wifi_Radio_State',APC,Store) ->
 	ets:insert(Store, #'Wifi_Radio_State'{
@@ -443,6 +442,20 @@ create_table ('Wifi_Stats_Config',_APC,Store) ->
 		'**key_id**' = <<"21b32c56-5011-455c-9c7c-c58b9d43d583">>,
 		'_uuid' = [<<"uuid">>,<<"21b32c56-5011-455c-9c7c-c58b9d43d583">>],
 		radio_type = <<"5GU">>
+	});
+
+create_table ('Wifi_VIF_Config',_APC,Store) ->
+	ets:insert(Store,#'Wifi_VIF_Config'{
+		'**key_id**' = <<"21b32c56-5011-455c-9c7c-c58b9d43d583">>
+	});
+
+create_table ('Wifi_VIF_State',APC,Store) ->
+	F = fun({_,_,[MAC|_]}) -> MAC end,
+	ets:insert(Store,#'Wifi_VIF_State'{
+		'**key_id**' = utils:uuid_b(),
+		mac = proplists:get_value(lan_mac,APC),
+		associated_clients = [<<"set">>,[F(X)||X<-proplists:get_value(wifi_clients,APC)]],
+		vif_config = [<<"uuid">>,<<"21b32c56-5011-455c-9c7c-c58b9d43d583">>] 	
 	});
 
 create_table ('AWLAN_Node',APC,Store) -> 

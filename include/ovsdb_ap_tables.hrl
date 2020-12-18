@@ -155,7 +155,50 @@
 
 -record ('Wifi_VIF_State', {
 	'**key_id**' = <<>> :: binary() | ets_dont_care(),
-	vif_radio_idx = [<<"set">>,[]]:: term()
+	if_name = <<"wlan0">> :: term(),
+	vif_radio_idx = [<<"set">>,[]] :: term(),
+	state = [<<"set">>,[]] :: term(),
+	mac = <<>> :: term(),
+	uapsd_enable = true :: term(),
+	ap_bridge = true :: term(),
+	mac_list = [<<"set">>,[]] :: term(),
+	ssid = <<"TipWlan-cloud-wifi">> :: term(),
+	wps_pbc = [<<"set">>,[]] :: term(),
+	associated_clients = [<<"set">>,[]] :: term(),
+	btm = 1 :: term(),
+	ssid_broadcast = <<"enabled">> :: term(),
+	mcast2ucast = [<<"set">>,[]] :: term(),
+	wps = [<<"set">>,[]] :: term(),
+	mode = <<"ap">> :: term(),
+	mac_list_type = <<"none">> :: term(),
+	wps_pbc_key_id = <<"">> :: term(),
+	ft_psk = 0 :: term(),
+	channel = 149 :: term(),
+	parent = [<<"set">>,[]] :: term(),
+	multi_ap = [<<"set">>,[]] :: term(),
+	ap_vlan_sta_addr = [<<"set">>,[]] :: term(),
+	security = [<<"map">>,[[<<"encryption">>,<<"WPA-PSK">>],[<<"key">>,<<"w1r3l3ss-fr33d0m">>],[<<"mode">>,<<"2">>]]] :: term(),
+	wds = [<<"set">>,[]] :: term(),
+	enabled = true :: term(),
+	vlan_id = 1 :: term(),
+	custom_options = [<<"map">>,[[<<"client_dl_limit">>,<<"0">>],
+								[<<"client_ul_limit">>,<<"0">>],
+								[<<"dtim_period">>,<<"2">>],
+								[<<"ieee80211k">>,<<"1">>],
+								[<<"rate_limit_en">>,<<"0">>],
+								[<<"rts_threshold">>,<<"65535">>],
+								[<<"ssid_dl_limit">>,<<"0">>],
+								[<<"ssid_ul_limit">>,<<"0">>]]] :: term(),
+	min_hw_mode = <<"11ac">> :: term(),
+	vif_config = [<<"uuid">>,<<"bc95a046-00de-4b57-9d41-ef3cca56a1b5">>] :: term(),
+	'_version' = [<<"uuid">>,<<"7e213f7e-aee9-45b1-bd3b-6c9f92531d8b">>] :: term(),
+	captive_portal = [<<"map">>,[]] :: term(),
+	bridge = <<"lan">> :: term(),
+	group_rekey = 0 :: term(),
+	ft_mobility_domain = [<<"set">>,[]] :: term(),
+	captive_allowlist = [<<"set">>,[]] :: term(),
+	rrm = 1 :: term(),
+	dynamic_beacon = [<<"set">>,[]] :: term()
 }).
 
 -record ('Wifi_Associated_Clients', {
@@ -222,7 +265,7 @@
 }).
 
 -record ('Wifi_Radio_State',{
-	'**key_id**' = <<>> :: binary() | ets_dont_care(),
+	'**key_id**' = <<"">>:: binary() | ets_dont_care(),
 	if_name = <<>> :: term(),
 	dfs_demo = [<<"set">>,[]] :: term(),
 	thermal_downgraded = [<<"set">>,[]] :: term(),
@@ -322,7 +365,6 @@
 	inet_config = [<<"uuid">>,<<"7e38a63b-526a-4b83-b30e-edd4c17ab3f6">>] :: term(),
 	gre_local_inet_addr = [<<"set">>,[]] :: term()
 }).
-
 
 %%------------------------------------------------------------------------------
 %% monitor table

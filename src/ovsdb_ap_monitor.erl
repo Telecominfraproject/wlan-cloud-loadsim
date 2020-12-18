@@ -100,8 +100,8 @@ publish_monitor (NameSpace,Data) ->
 		<<"method">> => <<"update">>,
 		<<"params">> => [NameSpace,Data]
 	},
-	Json = iolist_to_binary(jiffy:encode(RPC)),
-	io:format("PUBLISHING: ~s~n~s~n",[NameSpace,Json]),
+	% Json = iolist_to_binary(jiffy:encode(RPC)),
+	% io:format("PUBLISHING: ~s~n~s~n",[NameSpace,Json]),
 	?L_IA("PUBLISHING: ~s",[NameSpace]),
 	ovsdb_ap:rpc_request(self(),RPC).
 

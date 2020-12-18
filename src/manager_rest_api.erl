@@ -59,7 +59,7 @@ init([]) ->
 	Dispatch = cowboy_router:compile([
 		{
 			'_', [
-			{ "/api/v1/:restype/[:resid]", manager_api_rest_handler, [] },
+			{ "/api/v1/:restype/[:resid/[:subres/[:subid]]]", manager_api_rest_handler, [] },
 			{ "/ws", web_socket_handler, [] },
 			{ "/", cowboy_static, {file,filename:join([PrivDir,"www/index.html"])} },
 			{ "/[...]", cowboy_static, {dir, filename:join([PrivDir,"www"])} }
@@ -71,17 +71,16 @@ init([]) ->
 			            cowboy:start_tls(
 				            rest_http_listener,
 				            [
-					            { port, Port } ,
-					            {cacertfile, filename:join([PrivDir,"ssl","sim_cert.pem"])},
-					            {certfile, filename:join([PrivDir,"ssl","server-api-cert.pem"])},
-					            {keyfile, filename:join([PrivDir,"ssl","server-api-key_dec.pem"])}				            ],
+					            {port,Port},{sndbuf,250000},
+					            {certfile, filename:join([PrivDir,"ssl","web-server-api-cert.pem"])},
+					            {keyfile, filename:join([PrivDir,"ssl","web-server-api-key_dec.pem"])}				            ],
 				            #{env => #{dispatch => Dispatch}} );
 		            false ->
 			            ?L_I("Starting in clear mode."),
 			            cowboy:start_clear(
 				            rest_http_listener,
 				            [
-					            { port, Port }
+					            {port,Port},{sndbuf,250000}
 				            ],
 				            #{env => #{dispatch => Dispatch}} )
 	            end,

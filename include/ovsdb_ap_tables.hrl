@@ -38,7 +38,7 @@
 
 
 -record ('AWLAN_Node',{
-	key_id :: binary() | ets_dont_care(),
+	'**key_id**' = <<>>:: binary() | ets_dont_care(),
 	mqtt_settings = [<<"map">>,[]] :: term() | ets_dont_care(),
 	sku_number = [<<"set">>,[]] :: term() | ets_dont_care(),
 	model = <<>>:: term() | ets_dont_care(),
@@ -67,7 +67,7 @@
 
 
 -record ('Wifi_Stats_Config', {
-	key_id :: binary() | ets_dont_care(),
+	'**key_id**' = <<>>:: binary() | ets_dont_care(),
 	'_version' = [<<"uuid">>,<<"4ad2c67d-99d6-4431-a6a7-09a0fa95b8e2">>] :: term(),
 	radio_type = <<"2.4G">> :: term() | ets_dont_care(),
 	sampling_interval = 10 :: term() | ets_dont_care(),
@@ -83,19 +83,19 @@
 }).
 
 -record ('Hotspot20_Config', {
-	key_id :: binary() | ets_dont_care()
+	'**key_id**' = <<>>:: binary() | ets_dont_care()
 }).
 
 -record ('Hotspot20_OSU_Providers', {
-	key_id :: binary() | ets_dont_care()
+	'**key_id**' = <<>>:: binary() | ets_dont_care()
 }).
 
 -record ('Hotspot20_Icon_Config', {
-	key_id :: binary() | ets_dont_care()
+	'**key_id**' :: binary() | ets_dont_care()
 }).
 
 -record ('Wifi_RRM_Config', {
-	key_id :: binary() | ets_dont_care(),
+	'**key_id**' = <<>> :: binary() | ets_dont_care(),
 	'_version' = [<<"uuid">>,<<"9bbd18e7-ed7e-4ff3-b89d-a54c12b27ed7">>] :: term(),
 	freq_band = <<"5GU">> :: term(),
 	probe_resp_threshold = -90 :: term(),
@@ -109,13 +109,13 @@
 }).
 
 -record ('Command_State', {
-	key_id :: binary() | ets_dont_care()
+	'**key_id**' = <<>>:: binary() | ets_dont_care()
 }).
 
 
 
 -record ('Wifi_VIF_Config', {
-	key_id :: binary() | ets_dont_care(),
+	'**key_id**' = <<>> :: binary() | ets_dont_care(),
 	vif_radio_idx = [<<"set">>,[]] :: term(),
 	if_name = <<"wlan0">> :: term() | ets_dont_care(),
 	ap_bridge = <<"">> :: term() | ets_dont_care(),
@@ -154,12 +154,12 @@
 
 
 -record ('Wifi_VIF_State', {
-	key_id :: binary() | ets_dont_care(),
+	'**key_id**' = <<>> :: binary() | ets_dont_care(),
 	vif_radio_idx = [<<"set">>,[]]:: term()
 }).
 
 -record ('Wifi_Associated_Clients', {
-	key_id :: binary() | ets_dont_care(),
+	'**key_id**' = <<>> :: binary() | ets_dont_care(),
 	'_version' = [<<"uuid">>,<<"5bc3eb0f-1cc3-4dae-aae5-af02c8d2f1c7">>] :: term(),
 	mac = <<"">> :: term(),
 	state = <<"">> :: term(),
@@ -171,7 +171,7 @@
 
 
 -record ('DHCP_leased_IP', {
-	key_id :: binary() | ets_dont_care(),
+	'**key_id**' = <<>> :: binary() | ets_dont_care(),
 	db_status = 1 :: term(),
 	subnet_mask = <<"255.255.255.0">> :: term(),
 	hostname = <<"">> :: term(),
@@ -184,14 +184,14 @@
 	vendor_class = <<"">> :: term(),
 	device_type = 0 :: term(),
 	dhcp_server = <<"192.168.1.1">> :: term(),
-	device_name = <<"">> :: term(),
+	device_name = <<"Simulation">> :: term(),
 	fingerprint = <<"1,121,3,6,15,114,119,252">> :: term(),
 	primary_dns = <<"192.168.1.1">> :: term(),
 	gateway = <<"192.168.1.1">> :: term()
 }).
 
 -record ('Wifi_Radio_Config', {
-	key_id :: binary() | ets_dont_care(),
+	'**key_id**' = <<>> :: binary() | ets_dont_care(),
 	dfs_demo = [<<"set">>,[]] :: term(),
 	if_name = <<"radio0">> :: term() | ets_dont_care(),
 	temperature_control = [<<"map">>,[]] :: term(),
@@ -222,7 +222,7 @@
 }).
 
 -record ('Wifi_Radio_State',{
-	key_id :: binary() | ets_dont_care(),
+	'**key_id**' = <<>> :: binary() | ets_dont_care(),
 	if_name = <<>> :: term(),
 	dfs_demo = [<<"set">>,[]] :: term(),
 	thermal_downgraded = [<<"set">>,[]] :: term(),
@@ -259,7 +259,7 @@
 }).
 
 -record ('Wifi_Inet_Config', {
-	key_id :: binary() | ets_dont_care(),
+	'**key_id**' = <<>> :: binary() | ets_dont_care(),
 	if_name = <<"">> :: term(),
 	dhcpd = [<<"map">>,[]] :: term(),
 	dhcp_sniff = false :: term(),
@@ -294,7 +294,7 @@
 }).
 
 -record ('Wifi_Inet_State',{
-	key_id :: binary() | ets_dont_care(),
+	'**key_id**' = <<>> :: binary() | ets_dont_care(),
 	dhcpd = [<<"map">>,[]] :: term(),
 	if_name = <<"">> :: term(),
 	upnp_mode = [<<"set">>,[]] :: term(),
@@ -333,6 +333,7 @@
 	initial :: boolean(),
 	insert :: boolean(),
 	delete :: boolean(),
-	modify :: boolean()
+	modify :: boolean(),
+	published = true :: boolean()
 }).
 

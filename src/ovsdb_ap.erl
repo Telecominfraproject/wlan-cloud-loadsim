@@ -14,6 +14,7 @@
 -include("../include/common.hrl").
 -include("../include/ovsdb_definitions.hrl").
 -include("../include/ovsdb_ap_tables.hrl").
+-include("../include/opensync_stats.hrl").
 
 
 -define(SERVER, ?MODULE).
@@ -25,7 +26,7 @@
 -export([start_ap/1,stop_ap/1,pause_ap/1,cancel_ap/1]).
 
 %% comm API
--export([rpc_cmd/2,rpc_request/2,reset_comm/1,mqtt_conf/2,post_event/4,post_event/3]).
+-export([rpc_cmd/2,rpc_request/2,reset_comm/1,mqtt_conf/2,post_event/4,post_event/3,check_publish_monitor/1,check_for_mqtt_updates/1]).
 
 
 %% gen_server callbacks
@@ -48,7 +49,8 @@
 	store :: ets:tid(),					% the tables where OVSDB server stores info
 	req_queue :: ets:tid(),				% not used at the moment ... used to que request IDs
 	reporting :: timer:tref(),			% statistics reporting interval timer reference
-	stats_ets :: ets:tid()				% statistics table
+	stats_ets :: ets:tid(),				% statistics table
+	updates = none :: none | timer:tref()		% timer reference for periodic updates from MQTT while running
 }).
 
 
@@ -147,6 +149,14 @@ post_event (Node, Event, Args, Comment) ->
 post_event (Event, Args, Comment) ->
 	post_event(self(),Event,Args,Comment).
 
+-spec check_publish_monitor (Node :: pid()) -> ok.
+check_publish_monitor (Node) ->
+	gen_server:cast(Node,check_publish_monitor).
+
+-spec check_for_mqtt_updates (Node :: pid()) -> ok.
+check_for_mqtt_updates (Node) ->
+	gen_server:cast(Node,check_mqtt_updates).
+
 
 
 
@@ -224,6 +234,14 @@ handle_cast ({mqtt_conf,Conf}, State) ->
 
 handle_cast ({stats_update,Event},State) ->
 	true = update_statistics(Event,State#ap_state.stats_ets),
+	{noreply, State};
+
+handle_cast (check_mqtt_updates, State) ->
+	S = request_mqtt_updates(State),
+	{noreply, S};
+
+handle_cast (check_publish_monitor, State) ->
+	ovsdb_ap_monitor:publish_unpublished(State#ap_state.store),
 	{noreply, State};
 
 handle_cast (send_report,State) ->
@@ -337,6 +355,9 @@ handle_info({'EXIT', Pid, Reason}, State) ->
 	?L_E(?DBGSTR("Abnormal exit from ~p with reason: ~p",[Pid,Reason])),
 	{noreply, State};
 
+handle_info({client_stats,Serial,Stats},State) ->
+	S = handle_mqtt_stats_update(Serial,Stats,State),
+	{noreply, S};
 
 handle_info (Msg,State) ->
 	?L_E(?DBGSTR("got unexpected info message ~p",[Msg])),
@@ -385,7 +406,7 @@ code_change (_,OldState,_) ->
 prepare_state (CAName, ID, Options) ->
 	Store = ets:new(ovsdb_ap,[bag,private,{keypos, 1}]),
 	Stats = ets:new(ovsdb_ap_stats,[ordered_set,private,{keypos, 2}]),
-	{'ok', Tref} = timer:apply_interval(proplists:get_value(report_int,Options,?AP_REPORT_INTERVAL),
+	{ok, Tref} = timer:apply_interval(proplists:get_value(report_int,Options,?AP_REPORT_INTERVAL),
 										gen_server,cast,[self(),send_report]),
 	Redirector = proplists:get_value(redirector,Options,<<"">>),
 	update_statistics({report_mark,{},<<>>},Stats),
@@ -415,7 +436,21 @@ set_status (Status, #ap_state{status=OldStatus, config=Cfg}=State) ->
 	ovsdb_client_handler:ap_status(Status,ovsdb_ap_config:id(Cfg)),
 	post_event(status_change,{OldStatus,Status},io_lib:format("status change := ~p -> ~p",[OldStatus,Status])),
 	?L_I(?DBGSTR("AP ~p : status change := ~p -> ~p",[self(),OldStatus,Status])),
-	State#ap_state{status=Status}.
+	start_stop_mqtt_updates(State#ap_state{status=Status}).
+
+-spec start_stop_mqtt_updates (State :: #ap_state{}) -> NewState :: #ap_state{}.
+start_stop_mqtt_updates(#ap_state{status=running, updates=none}=State) ->
+	{ok, Ref} = timer:apply_interval(60000,?MODULE,check_for_mqtt_updates,[self()]),
+	State#ap_state{updates=Ref};
+start_stop_mqtt_updates(#ap_state{status=running}=State) ->
+	State;
+start_stop_mqtt_updates(#ap_state{updates=U}=State) when U =/= none->
+	{ok, cancel} = timer:cancel(U),
+	State#ap_state{updates=none};
+start_stop_mqtt_updates(State) ->
+	State.
+
+	
 
 
 
@@ -598,6 +633,20 @@ stop_mqtt(#ap_state{mqtt=idle}=State) ->
 stop_mqtt(#ap_state{ca_name=CAName, id=ID}=State) ->
 	_ = mqtt_client_manager:stop_client(CAName,ID),
 	State#ap_state{mqtt=idle}.
+
+-spec request_mqtt_updates (State :: #ap_state{}) -> NewState :: #ap_state{}.
+request_mqtt_updates (#ap_state{config=Cfg} = State) ->
+	CA = ovsdb_ap_config:caname(Cfg),
+	Serial = ovsdb_ap_config:serial(Cfg),
+	Mqtt = mqtt_client_manager:get_client_pid(CA,Serial),
+	Mqtt ! {send_stats, self()},
+	State.
+
+-spec handle_mqtt_stats_update (Serial :: binary(), Stats :: #{binary() => #'Client.Stats'{}}, State :: #ap_state{}) -> NewState :: #ap_state{}.
+handle_mqtt_stats_update (_Serial,_Stats,State) ->
+	io:format("GOT MQTT STATS:~n"),
+	State.
+	
 	
 
 

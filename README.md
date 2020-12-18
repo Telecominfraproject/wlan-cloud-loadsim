@@ -104,8 +104,8 @@ mkdir ~/projects
 cd ~/projects
 mkdir simnode1
 cd simnode1
-git clone https://github.com/stephb9959/owls
-cd owls
+git clone https://github.com/telecominfraproject/wlan-cloud-loadsim
+cd wlan-cloud-loadsim
 ./simnode_config
 ./simnode
 ```
@@ -116,8 +116,8 @@ in another terminal window
 cd ~/projects
 mkdir simnode2
 cd simnode2
-git clone https://github.com/stephb9959/owls
-cd owls
+git clone https://github.com/telecominfraproject/wlan-cloud-loadsim
+cd wlan-cloud-loadsim
 ./simnode_config
 ./simnode
 ```

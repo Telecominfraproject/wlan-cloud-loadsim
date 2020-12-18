@@ -19,7 +19,7 @@
 %% common types
 %%-----------------------------------------------------------------------------
 
--type selspec() :: [binary(),...].
+-type selspec() :: [any()].
 -type matchspec() :: [{tuple(),list(),list()},...].
 -type db_record() :: #{binary()=>term()}.
 -type db_records() :: [db_record()].

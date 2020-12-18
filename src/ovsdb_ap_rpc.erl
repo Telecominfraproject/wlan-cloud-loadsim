@@ -35,7 +35,7 @@ eval_req(<<"monitor">>,Id,#{<<"params">>:=[<<"Open_vSwitch">>,NSpace|Tables]},St
 	% Json = iolist_to_binary(jiffy:encode(Res,[pretty])),
 	% io:format("MONITOR REQUEST (~s):~n~s~n",[NSpace,Json]),
 	io:format("MONITOR REQUEST (~s):~n",[NSpace]),
-	timer:apply_after(3000,ovsdb_ap,check_publish_monitor,[self()]),
+	_ = timer:apply_after(3000,ovsdb_ap,check_publish_monitor,[self()]),
 	{ok, Res};
 eval_req(<<"monitor">>,Id,P,_) ->
 	?L_EA("unrecognized monitor request: ~p",[P]),

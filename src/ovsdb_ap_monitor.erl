@@ -13,7 +13,7 @@
 -include("../include/ovsdb_ap_tables.hrl").
 
 
- -export ([req_monitor/3,maybe_publish_data/6,publish_unpublished/1]).
+ -export ([req_monitor/3,maybe_publish_data/6,publish_unpublished/1,refresh_publications/1]).
 
 
 -spec req_monitor (NameSpace :: binary(), ToMonitor :: [#{binary()=>term()}], Store :: ets:tid()) -> Result :: #{binary()=>term()}.
@@ -100,9 +100,9 @@ publish_monitor (NameSpace,Data) ->
 		<<"method">> => <<"update">>,
 		<<"params">> => [NameSpace,Data]
 	},
-	% Json = iolist_to_binary(jiffy:encode(RPC)),
-	% io:format("PUBLISHING: ~s~n~s~n",[NameSpace,Json]),
-	?L_IA("PUBLISHING: ~s",[NameSpace]),
+	Json = iolist_to_binary(jiffy:encode(RPC)),
+	%io:format("PUBLISHING: ~s~n~s~n",[NameSpace,Json]),
+	?L_IA("PUBLISHING: ~s~n~s",[NameSpace,Json]),
 	ovsdb_ap:rpc_request(self(),RPC).
 
 -spec maybe_publish_data (NameSpace :: binary(), 
@@ -126,7 +126,7 @@ publish_unpublished (Store) ->
 	ToPublish = ets:match_object(Store,#monitors{published=false, modify=true, _='_'}),
 	%ToPublish = ets:match_object(Store,#monitors{_='_'}),
 	%io:format ("UNPUBLISHED:~n~p~n",[ToPublish]),
-	F = fun (#monitors{namespace=NS, table=T}=P) ->
+	F = fun (#monitors{namespace=NS, table=T}=P) when is_binary(T) ->
 			QRes = ovsdb_dba:select_with_key(T,[],Store),
 			publish_monitor(NS,monitor_result(T,QRes,[])),
 			P#monitors{published=true}
@@ -134,6 +134,18 @@ publish_unpublished (Store) ->
 	N = [F(X) || X <- ToPublish],
 	[ets:delete_object(Store,X) || X <- ToPublish],
 	ets:insert(Store,N).
+
+
+-spec refresh_publications (Store::ets:tid()) -> ok.
+refresh_publications (Store) ->
+	ToPublish = ets:match_object(Store,#monitors{modify=true, _='_'}),
+	F = fun (#monitors{namespace=NS, table=T}=P) when is_binary(T) ->
+			QRes = ovsdb_dba:select_with_key(T,[],Store),
+			publish_monitor(NS,monitor_result(T,QRes,[])),
+			P#monitors{published=true}
+		end,
+	[F(X) || X <- ToPublish].
+
 
 
 

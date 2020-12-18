@@ -91,7 +91,7 @@
 }).
 
 -record ('Hotspot20_Icon_Config', {
-	'**key_id**' :: binary() | ets_dont_care()
+	'**key_id**' = <<>> :: binary() | ets_dont_care()
 }).
 
 -record ('Wifi_RRM_Config', {
@@ -164,7 +164,7 @@
 	mac = <<"">> :: term(),
 	state = <<"">> :: term(),
 	uapsd= [<<"set">>,[]] :: term(),
-	capabilities= [<<"set">>,[]] :: term(),
+	capabilities= [<<"set">>,[<<"11ac">>,<<"11n">>,<<"11ab">>]] :: term(),
 	kick = [<<"map">>,[]] :: term(),
 	oftag = [<<"set">>,[]] :: term()
 }).
@@ -328,12 +328,12 @@
 %% monitor table
 
 -record (monitors, {
-	namespace :: binary(),
-	table :: binary(),
-	initial :: boolean(),
-	insert :: boolean(),
-	delete :: boolean(),
-	modify :: boolean(),
-	published = true :: boolean()
+	namespace :: binary() | ets_dont_care(),
+	table :: binary() | ets_dont_care(),
+	initial :: boolean() | ets_dont_care(),
+	insert :: boolean() | ets_dont_care(),
+	delete :: boolean() | ets_dont_care(),
+	modify :: boolean() | ets_dont_care(),
+	published = true :: boolean() | ets_dont_care()
 }).
 

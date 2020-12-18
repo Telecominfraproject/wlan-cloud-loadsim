@@ -81,6 +81,8 @@ is_authorized(Req, State) ->
 delete_resource(Req, State) ->
 	{ true , Req , State }.
 
+resource_exists(Req, #request_state{ method = ?HTTP_GET, resource = <<"nodes">>, id=nothing }=State) ->
+	{ true , Req , State };
 resource_exists(Req, #request_state{ method = ?HTTP_GET, resource = <<"cas">>, id=nothing }=State) ->
 	{ true , Req , State };
 resource_exists(Req, #request_state{ method = ?HTTP_GET, resource = <<"ouis">>, id=nothing }=State) ->

@@ -105,18 +105,18 @@ make_ip_addr(_ID) ->
 
 -spec initialize_ap_tables (Store :: ets:tid(), Config :: proplists:proplist()) -> true.
 initialize_ap_tables (Store, APC) ->
-%	create_radio_tables(APC,Store),
-%	create_VIF_tables(APC,Store),
+	create_radio_tables(APC,Store),
+	create_VIF_tables(APC,Store),
 	create_table('AWLAN_Node',APC,Store),
-	create_table('Wifi_Radio_Config',APC,Store),
-	create_table('Wifi_Radio_State',APC,Store),
+%	create_table('Wifi_Radio_Config',APC,Store),
+%	create_table('Wifi_Radio_State',APC,Store),
 	create_table('Wifi_Inet_Config',APC,Store),
 	create_table('Wifi_Inet_State',APC,Store),
-	create_table('Wifi_RRM_Config',APC,Store),
-	create_table('Wifi_Stats_Config',APC,Store),
+%	create_table('Wifi_RRM_Config',APC,Store),
+%	create_table('Wifi_Stats_Config',APC,Store),
 	create_table('DHCP_leased_IP',APC,Store),
-	create_table('Wifi_VIF_Config',APC,Store),
-	create_table('Wifi_VIF_State',APC,Store),
+%	create_table('Wifi_VIF_Config',APC,Store),
+%	create_table('Wifi_VIF_State',APC,Store),
 	create_table('Wifi_Associated_Clients',APC,Store).
 	
 %%------------------------------------------------------------------------------
@@ -190,7 +190,7 @@ create_radio_tables(APC,Store)->
 								ets:insert(Store,#'Wifi_RRM_Config'{
 									'**key_id**' = Wifi_RRM_ConfigUUID,
 									'_uuid' = [<<"uuid">>,Wifi_RRM_ConfigUUID],
-									'_version' = [<<"uuid">>,<<"9bbd18e7-ed7e-4ff3-b89d-a54c12b27ed7">>],
+									'_version' = [<<"uuid">>,utils:uuid_b()],
 									freq_band = Band,
 									min_load = 40,
 									backup_channel = get_backup_channel(Band),
@@ -217,7 +217,7 @@ create_radio_tables(APC,Store)->
 									ht_mode = <<"HT80">>,
 									hw_mode = <<"11ac">>,
 									enabled = true,
-									'_version' = [<<"uuid">>,<<"c325d603-ac42-43b5-a2e0-0b65c73888c6">>],
+									'_version' = [<<"uuid">>,utils:uuid_b()],
 									freq_band = Band
 								}), N+1
 		end,0,proplists:get_value(bands,APC)).

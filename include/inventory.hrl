@@ -85,6 +85,7 @@
 	vendor = <<>> :: binary(),
 	model = <<>> :: binary(),
 	capabilities = [] :: [ mqtt_client | ovsdb_client ],
+	bands = [] :: [ 'BAND2G' | 'BAND5GL' | 'BAND5GU' ],
 	firmware = <<>> :: binary()
 }).
 

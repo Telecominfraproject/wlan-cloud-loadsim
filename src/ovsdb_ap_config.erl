@@ -105,15 +105,15 @@ make_ip_addr(_ID) ->
 
 -spec initialize_ap_tables (Store :: ets:tid(), Config :: proplists:proplist()) -> true.
 initialize_ap_tables (Store, APC) ->
-	create_radio_tables(APC,Store),
+%	create_radio_tables(APC,Store),
 %	create_VIF_tables(APC,Store),
 	create_table('AWLAN_Node',APC,Store),
-%	create_table('Wifi_Radio_Config',APC,Store),
-%	create_table('Wifi_Radio_State',APC,Store),
+	create_table('Wifi_Radio_Config',APC,Store),
+	create_table('Wifi_Radio_State',APC,Store),
 	create_table('Wifi_Inet_Config',APC,Store),
 	create_table('Wifi_Inet_State',APC,Store),
-%	create_table('Wifi_RRM_Config',APC,Store),
-%	create_table('Wifi_Stats_Config',APC,Store),
+	create_table('Wifi_RRM_Config',APC,Store),
+	create_table('Wifi_Stats_Config',APC,Store),
 	create_table('DHCP_leased_IP',APC,Store),
 	create_table('Wifi_VIF_Config',APC,Store),
 	create_table('Wifi_VIF_State',APC,Store),
@@ -189,10 +189,10 @@ create_radio_tables(APC,Store)->
 									radio_type = Band}),
 								ets:insert(Store,#'Wifi_RRM_Config'{
 									'**key_id**' = Wifi_RRM_ConfigUUID,
+									'_uuid' = [<<"uuid">>,Wifi_RRM_ConfigUUID],
 									'_version' = [<<"uuid">>,<<"9bbd18e7-ed7e-4ff3-b89d-a54c12b27ed7">>],
 									freq_band = Band,
 									min_load = 40,
-									'_uuid' = [<<"uuid">>,Wifi_RRM_ConfigUUID],
 									backup_channel = get_backup_channel(Band),
 									snr_percentage_drop = 30
 								}),
@@ -204,7 +204,7 @@ create_radio_tables(APC,Store)->
 		            ets:insert(Store, #'Wifi_Radio_State'{
 									'**key_id**' = utils:uuid_b(),
 									if_name = IFName,
-									mac = modify_mac(proplists:get_value(lan_mac,APC),0),
+									mac = modify_mac(proplists:get_value(wan_mac,APC),0),
 									bcn_int = 100,
 									allowed_channels = [<<"set">>, get_allowed_channels(Band)],
 									radio_config = [<<"uuid">>,RadioConfigUUID],
@@ -230,7 +230,7 @@ create_VIF_tables(APC,Store)->
 	}),
 	ets:insert(Store,#'Wifi_VIF_State'{
 		'**key_id**' = utils:uuid_b(),
-		mac = proplists:get_value(lan_mac,APC),
+		mac = proplists:get_value(wan_mac,APC),
 		associated_clients = [<<"set">>,proplists:get_value(wifi_clients,APC)],
 		vif_config = [<<"uuid">>,Wifi_VIF_ConfigUUID],
 		ssid = proplists:get_value(ssid,APC)
@@ -243,18 +243,18 @@ create_table ('Wifi_Radio_State',APC,Store) ->
 	ets:insert(Store, #'Wifi_Radio_State'{
 		'**key_id**' = utils:uuid_b(),
 		if_name = <<"radio0">>,
-		mac = modify_mac(proplists:get_value(lan_mac,APC),0),
+		mac = modify_mac(proplists:get_value(wan_mac,APC),0),
 		bcn_int = 100,
-		allowed_channels = [<<"set">>,[100,104,108,112,116,120,124,128,132,136,140,144,149,153,157,161,165]],
+		allowed_channels = [<<"set">>,get_allowed_channels(<<"5GU">>)],
 		radio_config = [<<"uuid">>,<<"830bd195-7114-4e99-9b51-5622e47ce221">>],
 		vif_states = [<<"set">>,[]], % [<<"uuid">>,<<"87f75538-67d0-408a-9c8b-018665754d48">>],
 		country = <<"US">>,
 		radar = [<<"map">>,[]],
 		tx_chainmask = 3,
-		channel = 149,
+		channel = get_default_channel(<<"5GU">>),
 		tx_power = 18,
 		ht_mode = <<"HT80">>,
-		hw_mode = <<"11ac">>,
+		hw_mode = get_hw_mode(<<"5GU">>),
 		enabled = true,
 		'_version' = [<<"uuid">>,<<"c325d603-ac42-43b5-a2e0-0b65c73888c6">>],
 		freq_band = <<"5GU">>
@@ -262,19 +262,19 @@ create_table ('Wifi_Radio_State',APC,Store) ->
 	ets:insert(Store, #'Wifi_Radio_State' {
 		'**key_id**' = utils:uuid_b(),
 		if_name = <<"radio1">>,
-		mac = modify_mac(proplists:get_value(lan_mac,APC),1),
+		mac = modify_mac(proplists:get_value(wan_mac,APC),1),
 		bcn_int = 100,
-		allowed_channels = [<<"set">>,[1,2,3,4,5,6,7,8,9,10,11]],
+		allowed_channels = [<<"set">>,get_allowed_channels(<<"2.4G">>)],
 		radio_config = [<<"uuid">>,<<"fb11d840-cbe9-4e32-9744-ebcda9162e52">>],
 		vif_states = [<<"set">>,[]],
 		hw_config = [<<"map">>,[]],
 		country = <<"US">>,
 		radar = [<<"map">>,[]],
 		tx_chainmask = 3,
-		channel = 6,
+		channel = get_default_channel(<<"2.4G">>),
 		tx_power = 18,
 		ht_mode = <<"HT80">>,
-		hw_mode = <<"11n">>,
+		hw_mode = get_hw_mode(<<"2.4G">>),
 		enabled = true,
 		'_version' = [<<"uuid">>,<<"0b76545e-c106-41d4-aed2-3d89812f3a11">>],
 		freq_band = <<"2.4G">>
@@ -282,18 +282,18 @@ create_table ('Wifi_Radio_State',APC,Store) ->
 	ets:insert(Store, #'Wifi_Radio_State'{
 		'**key_id**' = utils:uuid_b(),
 		if_name = <<"radio2">>,
-		mac = modify_mac(proplists:get_value(lan_mac,APC),2),
+		mac = modify_mac(proplists:get_value(wan_mac,APC),2),
 		bcn_int = 100,
-		allowed_channels = [<<"set">>,[36,40,44,48,52,56,60,64]],
+		allowed_channels = [<<"set">>,get_allowed_channels(<<"5GL">>)],
 		radio_config = [<<"uuid">>,<<"94f9b810-8c71-4961-a9c0-7f3a96869368">>],
 		vif_states = [<<"set">>,[]],
 		country = <<"US">>,
 		radar = [<<"map">>,[]],
 		tx_chainmask = 3,
-		channel = 36,
+		channel = get_default_channel(<<"5GL">>),
 		tx_power = 18,
 		ht_mode = <<"HT80">>,
-		hw_mode = <<"11ac">>,
+		hw_mode = get_hw_mode(<<"5GL">>),
 		enabled = true,
 		'_version' = [<<"uuid">>,<<"86116d0d-19fc-47db-be17-8eac2ff9bda7">>],
 		freq_band = <<"5GL">>
@@ -338,7 +338,7 @@ create_table ('Wifi_Inet_State',APC,Store) ->
 		netmask = <<"255.255.255.0">>,
 		inet_addr = proplists:get_value(lan_addr,APC),
 		'_version' = [<<"uuid">>,<<"6237745e-3a4d-41a3-858d-7cbce39f5b8c">>],
-		hwaddr = proplists:get_value(lan_mac,APC),
+		hwaddr = proplists:get_value(wan_mac,APC),
 		network = true,
 		mtu = 1500,
 		ip_assign_scheme = <<"static">>,
@@ -520,7 +520,7 @@ create_table ('Wifi_VIF_Config',APC,Store) ->
 create_table ('Wifi_VIF_State',APC,Store) ->
 	ets:insert(Store,#'Wifi_VIF_State'{
 		'**key_id**' = utils:uuid_b(),
-		mac = proplists:get_value(lan_mac,APC),
+		mac = proplists:get_value(wan_mac,APC),
 		associated_clients = [<<"set">>,proplists:get_value(wifi_clients,APC)],
 		vif_config = [<<"uuid">>,<<"21b32c56-5011-455c-9c7c-c58b9d43d583">>],
 		ssid = proplists:get_value(ssid,APC)
@@ -561,8 +561,7 @@ get_all_wifi_macs([{_Band,_SSID,Macs}|T],Acc)->
 
 convert_band('BAND2G')-> <<"2.4G">>;
 convert_band('BAND5GL')-> <<"5GL">>;
-convert_band('BAND5GU')-> <<"5GU">>;
-convert_band('BAND5G')-> <<"5G">>.
+convert_band('BAND5GU')-> <<"5GU">>.
 
 modify_mac(MAC,N) ->
 	[X1,X2,$:,X3,X4,$:,X5,X6,$:,X7,X8,$:,X9,X10,$:,X11,_X12] = binary_to_list(MAC),
@@ -580,4 +579,7 @@ get_backup_channel(<<"5GU">>)->154;
 get_backup_channel(<<"2.4G">>)->11;
 get_backup_channel(<<"5GL">>)->44.
 
+get_hw_mode(<<"5GU">>)-><<"11ac">>;
+get_hw_mode(<<"2.4G">>)-><<"11n">>;
+get_hw_mode(<<"5GL">>)-><<"11ac">>.
 

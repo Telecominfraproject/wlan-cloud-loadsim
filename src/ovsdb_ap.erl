@@ -26,7 +26,7 @@
 -export([start_ap/1,stop_ap/1,pause_ap/1,cancel_ap/1]).
 
 %% comm API
--export([rpc_cmd/2,rpc_request/2,reset_comm/1,mqtt_conf/2,post_event/4,post_event/3,check_publish_monitor/1,check_for_mqtt_updates/1]).
+-export([rpc_cmd/2,rpc_request/2,reset_comm/1,mqtt_conf/2,post_event/4,post_event/3,check_publish_monitor/1,check_for_mqtt_updates/1,set_ssid/2]).
 
 
 %% gen_server callbacks
@@ -156,6 +156,11 @@ check_publish_monitor (Node) ->
 -spec check_for_mqtt_updates (Node :: pid()) -> ok.
 check_for_mqtt_updates (Node) ->
 	gen_server:cast(Node,check_mqtt_updates).
+
+-spec set_ssid(Node :: pid(), SSID :: binary()) -> ok.
+set_ssid (Node,SSID) ->
+	gen_server:cast(Node,{set_ssid,SSID}).
+
 
 
 
@@ -316,6 +321,11 @@ handle_cast ({exec_rpc_req, RPC}, State) when is_map(RPC) andalso
 	?L_I(?DBGSTR("RPC UPSTREAM REQUEST (~s): ~Bbytes",[maps:get(<<"id">>,RPC),Bytes])),
 	ok = ovsdb_ap_comm:send_term(State#ap_state.comm,RPC),
 	{noreply, State};
+
+handle_cast ({set_ssid,SSID},#ap_state{config=Cfg}=State) ->
+	io:format("SETTING SSID: ~s~n",[SSID]),
+	mqtt_client_manager:set_ssid(ovsdb_ap_config:caname(Cfg),ovsdb_ap_config:serial(Cfg),SSID),
+	{noreply,State};
 
 handle_cast (R,State) ->
 	?L_E(?DBGSTR("got unknown request: ~p",[R])),

@@ -333,12 +333,14 @@ t1_key_h() ->
 	_ = import_ca("sim1","mypassword","tip2-cakey.pem","tip2-cacert.pem"),
 	Simulation = #simulation{ name = <<"sim1">>,
 	                          ca = <<"sim1">>,
-	                          num_devices = 10,
+	                          num_devices = 3,
 	                          opensync_server_port = 6643,
 	                          opensync_server_name = <<"10.20.0.118">>,
 	                          nodes = ['simnode1@hypatia.syramo.com'] },
 	simengine:create(Simulation).
 
+t1_key_hz() ->
+	import_ca("sim1","mypassword","tip2-cakey.pem","tip2-cacert.pem").
 
 r1(X)->
 	w(X),

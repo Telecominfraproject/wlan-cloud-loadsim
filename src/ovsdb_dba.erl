@@ -67,6 +67,7 @@ insert (T,R,S) when is_map(R) ->
     insert (T,[R],S);
 insert (T,R,S) ->
     {UUIDs,ModRec} = lists:unzip([ make_row_uuid(T,X) || X <- R ]),
+    check_for_ssid(T,R),
     ets:insert(S,ModRec),
     UUIDs.
 
@@ -78,6 +79,7 @@ update (T,R,W,S) ->
     _ = ets:select_delete(S,DelSpec),
     Old = [ maps:from_list(lists:zip(rec_fields(T),X)) || X <- Res ],
     {UUIDs,ModRec} = lists:unzip([ modify_row_record(T,X,R) || X <- Old ]),
+    check_for_ssid(T,R),
     ets:insert(S,ModRec),
     UUIDs.
 
@@ -158,7 +160,12 @@ apply_mutation ([F,Op,_],RowMap) ->
     ?L_EA("table mutation with operation '~s' on Fields '~s' not supported!",[Op,F]),
     RowMap.
 
-
+-spec check_for_ssid(TableName ::  binary(), Record ::  [#{binary()=>any()}]) -> ok.
+check_for_ssid (_T,[R]) when is_map(R) andalso is_map_key(<<"ssid">>,R) ->
+    #{<<"ssid">>:=SSID} = R,
+    ovsdb_ap:set_ssid(self(),SSID);
+check_for_ssid (_,_) ->
+    ok.
 
 
 %%-----------------------------------------------------------------------------

@@ -14,26 +14,6 @@
 
 
 %%------------------------------------------------------------------------------
-%% auxiliary types
-
--record (version_matrix_map, {
-	'DATE' = <<"Mon Nov  2 09">> :: term(),
-	'FIRMWARE' = <<"0.1.0-0-notgit-development">> :: term(),
-	'FW_BUILD' = <<"0">> :: term(),
-	'FW_COMMIT' = <<"notgit">> :: term(),
-	'FW_IMAGE_ACTIVE' = <<"ea8300-2020-11-02-pending-97ebe9d">> :: term(), 
-	'FW_IMAGE_INACTIVE' = <<"unknown">> :: term(),
-	'FW_PROFILE' = <<"development">> :: term(),
-	'FW_VERSION' = <<"0.1.0">> :: term(),
-	'HOST' = <<"runner@72477083da86">> :: term(),
-	'OPENSYNC' = <<"2.0.5.0">> :: term(),
-	'core' = <<"2.0.5.0/0/notgit">> :: term(),
-	'vendor/tip' = <<"0.1.0/0/notgit">> :: term()
-}).
-
-
-
-%%------------------------------------------------------------------------------
 %% the tables
 
 

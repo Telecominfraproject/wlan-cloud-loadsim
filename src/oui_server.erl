@@ -21,7 +21,8 @@
 -define(MAKER_LOOKUP_TABLE_FILENAME,"maker_lookup_table.ets").
 
 %% API
--export([start_link/0,creation_info/0,refresh/0,refresh/2,get_all/0,lookup_oui/1,lookup_vendor/1,get_an_oui/0,get_ouis/0,get_vendors/0]).
+-export([start_link/0,creation_info/0,refresh/0,refresh/2,get_all/0,lookup_oui/1,lookup_vendor/1,
+         get_an_oui/0,get_ouis/0,get_vendors/0,lookup_oui_from_mac/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -64,16 +65,23 @@ get_vendors()->
 	gen_server:call(?SERVER,get_vendors).
 
 -spec lookup_oui(OUI:: string() | binary()) -> {ok,Vendor::binary()} | generic_error().
-lookup_oui(OUI) when is_list(OUI) ->
-	gen_server:call(?SERVER,{lookup_oui,list_to_binary(OUI)});
-lookup_oui(OUI) when is_binary(OUI) ->
-	gen_server:call(?SERVER,{lookup_oui,OUI}).
+lookup_oui(OUI)->
+	gen_server:call(?SERVER,{lookup_oui,utils:safe_binary(OUI)}).
+
+-spec lookup_oui_from_mac(OUI:: string() | binary()) -> {ok,Vendor::binary()} | generic_error().
+lookup_oui_from_mac(OUI)->
+	try
+		<<X1,X2,$:,X3,X4,$:,X5,X6,_/binary>> = utils:safe_binary(OUI),
+		ProperOUI = list_to_binary(string:to_upper([X1,X2,X3,X4,X5,X6])),
+		gen_server:call(?SERVER,{lookup_oui,ProperOUI})
+	catch
+		_:_ ->
+			{ error, invalid_mac_address_format }
+	end.
 
 -spec lookup_vendor(Vendor::string() | binary() ) -> {ok,[ OUI::binary() ] } | generic_error().
-lookup_vendor(Vendor) when is_list(Vendor)->
-	gen_server:call(?SERVER,{lookup_vendor,list_to_binary(Vendor)});
-lookup_vendor(Vendor) when is_binary(Vendor)->
-	gen_server:call(?SERVER,{lookup_vendor,Vendor}).
+lookup_vendor(Vendor)->
+	gen_server:call(?SERVER,{lookup_vendor,utils:safe_binary(Vendor)}).
 
 %% @doc Spawns the server and registers the local name (unique)
 -spec(start_link() ->

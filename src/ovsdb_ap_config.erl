@@ -495,12 +495,18 @@ create_table ('Wifi_Associated_Clients',APC,Store) ->
 create_table ('DHCP_leased_IP',APC,Store) ->
 	NM = proplists:get_value(name,APC),
 	lists:foldl( fun(MAC,N)->
-									ets:insert(Store, #'DHCP_leased_IP'{
+										Vendor = case oui_server:lookup_oui_from_mac(MAC) of
+											         {ok,X} -> X;
+															 _ -> <<"unknown">>
+										         end,
+
+		ets:insert(Store, #'DHCP_leased_IP'{
 										'**key_id**' = utils:uuid_b(),
 										'_version' = [<<"uuid">>, utils:uuid_b()],
 										hostname = iolist_to_binary([proplists:get_value(name,APC),"_",integer_to_list(N)]),
 										inet_addr = iolist_to_binary(["192.168.1.",integer_to_list(N+1)]),
 										hwaddr = MAC,
+										vendor_class = Vendor,
 										device_name = iolist_to_binary([NM,".SimClient_",integer_to_list(N+1)])
 									}),
 									N+1

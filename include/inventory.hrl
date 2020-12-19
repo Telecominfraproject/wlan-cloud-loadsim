@@ -86,7 +86,18 @@
 	model = <<>> :: binary(),
 	capabilities = [] :: [ mqtt_client | ovsdb_client ],
 	bands = [] :: [ 'BAND2G' | 'BAND5GL' | 'BAND5GU' ],
-	firmware = <<>> :: binary()
+	firmware_profile = <<"development">> :: binary(),
+	firmware_date = <<"Mon Nov  2 09">> :: binary(),
+	firmware_build = <<"0">> :: binary(),
+	firmware_commit = <<"notgit">> :: binary(),
+	firmware = <<"0.1.0-0-notgit-development">> :: binary(),
+	opensync = <<"2.0.5.0">> :: binary(),
+	core = <<"2.0.5.0/0/notgit">> :: binary(),
+	firmware_image_active = <<"0.1.0-0-notgit-development">> :: binary(),
+	firmware_image_inactive = <<"unknown">> :: binary(),
+	firmware_version = <<"0.1.0">> :: binary(),
+	firmware_host = <<"runner@72477083da86">> :: binary(),
+	vendor_tip = <<"0.1.0/0/notgit">> :: binary()
 }).
 
 -type any_role() :: service_role() | client_role().

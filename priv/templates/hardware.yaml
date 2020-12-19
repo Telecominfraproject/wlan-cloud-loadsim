@@ -5,6 +5,10 @@ Devices:
     Description: TP Link Home Gateway
     Vendor: TP-Link Technologies Ltd
     Model: ea8300
+    Bands:
+      - BAND2G
+      - BAND5GL
+      - BAND5GU
     Capabilities:
       - mqtt_client
       - ovsdb_client
@@ -13,6 +17,10 @@ Devices:
     Description: EdgeCore 5211
     Vendor: Edgecore Networks Corporation
     Model: ecw5211
+    Bands:
+      - BAND2G
+      - BAND5GL
+      - BAND5GU
     Capabilities:
       - mqtt_client
       - ovsdb_client
@@ -21,6 +29,10 @@ Devices:
     Description: EdgeCore 5410
     Vendor: Edgecore Networks Corporation
     Model: ecw5410
+    Bands:
+      - BAND2G
+      - BAND5GL
+      - BAND5GU
     Capabilities:
       - mqtt_client
       - ovsdb_client

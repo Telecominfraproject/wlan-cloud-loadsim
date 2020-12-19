@@ -219,7 +219,7 @@ create_radio_tables(APC,Store)->
 									enabled = true,
 									'_version' = [<<"uuid">>,<<"c325d603-ac42-43b5-a2e0-0b65c73888c6">>],
 									freq_band = Band
-								})
+								}), N+1
 		end,0,proplists:get_value(bands,APC)).
 
 create_VIF_tables(APC,Store)->

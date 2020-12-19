@@ -97,11 +97,11 @@ comm_loop (#c_state{socket=S, rxb=Rx, ap=AP, id=ID, options=Opts}=State) ->
 
 		{ssl_closed, S} ->
 			ovsdb_ap:post_event(AP,comm_error,{<<"socket_closed">>},<<>>),
-			?L_E(?DBGSTR("Socket closed by server")),
+			?L_E(?DBGSTR("~p: Socket closed by server.",[ID])),
 			comm_loop(try_reconnect(State));
 
-    	{ssl_error, S, Reason} ->
-			?L_E(?DBGSTR("socket error ~p",[Reason])),
+		{ssl_error, S, Reason} ->
+			?L_E(?DBGSTR("~p: socket error:~p. ",[ID,Reason])),
 			ovsdb_ap:post_event(AP,comm_error,{<<"undefined">>},io_lib:format("got SSL error: ~p",[Reason])),
 			_ = ssl:close(S),
 			comm_loop(try_reconnect(State));

@@ -693,11 +693,10 @@ create_client(CAInfo,Attributes)->
 	end.
 
 gen_bands()->
-	case rand:uniform(4) of
+	case rand:uniform(3) of
 		1 -> ['BAND2G'];
-		2 -> ['BAND2G','BAND5G'];
-		3 -> ['BAND2G','BAND5G','BAND5GL','BAND5GU'];
-		4 -> ['BAND2G','BAND5G','BAND5GL','BAND5GU']
+		2 -> ['BAND2G','BAND5GL'];
+		3 -> ['BAND2G','BAND5GL','BAND5GU']
 	end.
 
 gen_client(OUI)->

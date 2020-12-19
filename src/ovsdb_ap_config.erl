@@ -60,7 +60,7 @@ configure (#cfg{ca_name=CAName, id=ID, redirector=R}=Config) ->
 		{lan_addr,<<"192.168.1.1">>},
 		{lan_mac,Info#client_info.lan_mac0},
 		{tip_redirector,R},
-		{wifi_clients,Info#client_info.wifi_clients},
+		{wifi_clients,get_all_wifi_macs(Info#client_info.wifi_clients)},
 		{name,Info#client_info.name},
 		{ssid,SSID}
 		% {serial,<<"21P10C69717951">>},
@@ -397,15 +397,16 @@ create_table ('Wifi_RRM_Config',_APC,Store) ->
 
 create_table ('Wifi_Associated_Clients',APC,Store) -> 
 	%io:format("CONFIGURED WIFI CLIENTS:~n~p~n",[proplists:get_value(wifi_clients,APC)]),
-	F = fun({_,_,[MAC|_]}) ->
-		ets:insert(Store, #'Wifi_Associated_Clients'{
-			'**key_id**' = utils:uuid_b(),
-			'_version' = [<<"uuid">>, utils:uuid_b()],
-			mac = MAC,
-			state = <<"active">>
-		})
-	end,
-	[F(X) || X <- proplists:get_value(wifi_clients,APC)];
+	lists:foldl( fun(MAC,A)->
+									ets:insert(Store, #'Wifi_Associated_Clients'{
+										'**key_id**' = utils:uuid_b(),
+										'_version' = [<<"uuid">>, utils:uuid_b()],
+										mac = MAC,
+										state = <<"active">>
+									}), A
+								end,[],proplists:get_value(wifi_clients,APC));
+	%%end,
+	%%[F(X) || X <- proplists:get_value(wifi_clients,APC)];
 	% ets:insert(Store, #'Wifi_Associated_Clients'{
 	% 	'**key_id**' = <<"ee49ed4e-5a04-4100-bf6a-ebfbbc54250e">>,
 	% 	'_version' = [<<"uuid">>,<<"5bc3eb0f-1cc3-4dae-aae5-af02c8d2f1c7">>],
@@ -418,19 +419,18 @@ create_table ('Wifi_Associated_Clients',APC,Store) ->
 	% });
 
 create_table ('DHCP_leased_IP',APC,Store) ->
-	CL = proplists:get_value(wifi_clients,APC),
 	NM = proplists:get_value(name,APC),
-	F = fun(N,{_,_,[MAC|_]}) ->
-		ets:insert(Store, #'DHCP_leased_IP'{
-			'**key_id**' = utils:uuid_b(),
-			'_version' = [<<"uuid">>, utils:uuid_b()],
-			hostname = iolist_to_binary([proplists:get_value(name,APC),"_",integer_to_list(N)]),
-			inet_addr = iolist_to_binary(["192.168.1.",integer_to_list(N+1)]),
-			hwaddr = MAC,
-			device_name = iolist_to_binary([NM,".SimClient_",integer_to_list(N+1)])
-		})
-	end,
-	[F(N,X) || {N,X} <- lists:zip(lists:seq(1,length(CL)),CL)];
+	lists:foldl( fun(MAC,N)->
+									ets:insert(Store, #'DHCP_leased_IP'{
+										'**key_id**' = utils:uuid_b(),
+										'_version' = [<<"uuid">>, utils:uuid_b()],
+										hostname = iolist_to_binary([proplists:get_value(name,APC),"_",integer_to_list(N)]),
+										inet_addr = iolist_to_binary(["192.168.1.",integer_to_list(N+1)]),
+										hwaddr = MAC,
+										device_name = iolist_to_binary([NM,".SimClient_",integer_to_list(N+1)])
+									}),
+									N+1
+								end,1,proplists:get_value(wifi_clients,APC));
 
 create_table ('Wifi_Stats_Config',_APC,Store) ->
 	ets:insert(Store, #'Wifi_Stats_Config'{
@@ -458,11 +458,10 @@ create_table ('Wifi_VIF_Config',APC,Store) ->
 	});
 
 create_table ('Wifi_VIF_State',APC,Store) ->
-	F = fun({_,_,[MAC|_]}) -> MAC end,
 	ets:insert(Store,#'Wifi_VIF_State'{
 		'**key_id**' = utils:uuid_b(),
 		mac = proplists:get_value(lan_mac,APC),
-		associated_clients = [<<"set">>,[F(X)||X<-proplists:get_value(wifi_clients,APC)]],
+		associated_clients = [<<"set">>,proplists:get_value(wifi_clients,APC)],
 		vif_config = [<<"uuid">>,<<"21b32c56-5011-455c-9c7c-c58b9d43d583">>],
 		ssid = proplists:get_value(ssid,APC)
 	});
@@ -493,3 +492,9 @@ create_table ('AWLAN_Node',APC,Store) ->
 						 ]]
 	}).
 
+get_all_wifi_macs(Clients)->
+	get_all_wifi_macs(Clients,[]).
+get_all_wifi_macs([],All)->
+	lists:flatten(All);
+get_all_wifi_macs([{_Band,_SSID,Macs}|T],Acc)->
+	get_all_wifi_macs(T,Acc ++ Macs).

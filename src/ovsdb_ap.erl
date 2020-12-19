@@ -323,7 +323,7 @@ handle_cast ({exec_rpc_req, RPC}, State) when is_map(RPC) andalso
 	{noreply, State};
 
 handle_cast ({set_ssid,SSID},#ap_state{config=Cfg}=State) ->
-	io:format("SETTING SSID: ~s~n",[SSID]),
+	%% io:format("SETTING SSID: ~s~n",[SSID]),
 	mqtt_client_manager:set_ssid(ovsdb_ap_config:caname(Cfg),ovsdb_ap_config:serial(Cfg),SSID),
 	{noreply,State};
 
@@ -654,7 +654,7 @@ request_mqtt_updates (#ap_state{config=Cfg} = State) ->
 
 -spec handle_mqtt_stats_update (Serial :: binary(), Stats :: #{binary() => #'Client.Stats'{}}, State :: #ap_state{}) -> NewState :: #ap_state{}.
 handle_mqtt_stats_update (_Serial,_Stats,State) ->
-	io:format("GOT MQTT STATS: ->republishing changes~n"),
+	%% io:format("GOT MQTT STATS: ->republishing changes~n"),
 	ovsdb_ap_monitor:refresh_publications(State#ap_state.store),
 	State.
 	

@@ -52,6 +52,14 @@ configure (#cfg{ca_name=CAName, id=ID, redirector=R}=Config) ->
 		_ ->
 			<<"TipWlan-cloud-wifi">>
 	end,
+
+	HW = case hardware:get_by_id(Info#client_info.id) of
+		{ok,[HardwareInfo]} ->
+			HardwareInfo;
+		_ ->
+			#hardware_info{}
+	end,
+
 	APC = [
 		{serial,Info#client_info.serial},
 		{type,Info#client_info.type},
@@ -63,7 +71,9 @@ configure (#cfg{ca_name=CAName, id=ID, redirector=R}=Config) ->
 		{wifi_clients,get_all_wifi_macs(Info#client_info.wifi_clients)},
 		{name,Info#client_info.name},
 		{ssid,SSID},
-		{bands,Info#client_info.bands}
+		{bands,Info#client_info.bands},
+		{hardware,HW}
+
 		% {serial,<<"21P10C69717951">>},
 		% {type,<<"EA8300">>},
 		% {wan_addr,<<"10.20.0.113">>},
@@ -530,10 +540,11 @@ create_table ('Wifi_VIF_State',APC,Store) ->
 		ssid = proplists:get_value(ssid,APC)
 	});
 
-create_table ('AWLAN_Node',APC,Store) -> 
+create_table ('AWLAN_Node',APC,Store) ->
+	HW = proplists:get_value(hardware,APC),
 	ets:insert(Store, #'AWLAN_Node'{
 		'**key_id**' = utils:uuid_b(),
-		redirector_addr = proplists:get_value(tip_redirector,APC),									
+		redirector_addr = proplists:get_value(tip_redirector,APC),
 		serial_number = proplists:get_value(serial,APC),
 		id = proplists:get_value(serial,APC),
 		model = proplists:get_value(type,APC),
@@ -541,18 +552,18 @@ create_table ('AWLAN_Node',APC,Store) ->
 		platform_version = <<"OPENWRT_EA8300">>,
 		firmware_version = <<"0.1.0">>,
 		version_matrix = [<<"map">>,[
-							[<<"DATE">>,<<"Mon Nov  2 09">>],
-							[<<"FIRMWARE">>,<<"0.1.0-0-notgit-development">>],
-							[<<"FW_BUILD">>,<<"0">>],
-							[<<"FW_COMMIT">>,<<"notgit">>],
-							[<<"FW_IMAGE_ACTIVE">>,<<"ea8300-2020-11-02-pending-97ebe9d">>],
-							[<<"FW_IMAGE_INACTIVE">>,<<"unknown">>],
-							[<<"FW_PROFILE">>,<<"development">>],
-							[<<"FW_VERSION">>,<<"0.1.0">>],
-							[<<"HOST">>,<<"runner@72477083da86">>],
-							[<<"OPENSYNC">>,<<"2.0.5.0">>],
-							[<<"core">>,<<"2.0.5.0/0/notgit">>],
-							[<<"vendor/tip">>,<<"0.1.0/0/notgit">>]
+							[<<"DATE">>,HW#hardware_info.firmware_date],
+							[<<"FIRMWARE">>,HW#hardware_info.firmware],
+							[<<"FW_BUILD">>,HW#hardware_info.firmware_build],
+							[<<"FW_COMMIT">>,HW#hardware_info.firmware_commit],
+							[<<"FW_IMAGE_ACTIVE">>,HW#hardware_info.firmware],
+							[<<"FW_IMAGE_INACTIVE">>,HW#hardware_info.firmware_image_inactive],
+							[<<"FW_PROFILE">>,HW#hardware_info.firmware_profile],
+							[<<"FW_VERSION">>,HW#hardware_info.firmware_version],
+							[<<"HOST">>,HW#hardware_info.firmware_host],
+							[<<"OPENSYNC">>,HW#hardware_info.opensync],
+							[<<"core">>,HW#hardware_info.core],
+							[<<"vendor/tip">>,HW#hardware_info.vendor_tip]
 						 ]]
 	}).
 

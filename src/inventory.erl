@@ -690,13 +690,6 @@ create_client(CAInfo,Attributes)->
 			{ error , cannot_create_client }
 	end.
 
-gen_bands()->
-	case rand:uniform(3) of
-		1 -> ['BAND2G'];
-		2 -> ['BAND2G','BAND5GL'];
-		3 -> ['BAND2G','BAND5GL','BAND5GU']
-	end.
-
 gen_client(OUI)->
 	[A1,A2,A3,A4,A5,A6] = OUI,
 	[X1,X2,X3,X4,X5,X6] = lists:flatten(string:pad(integer_to_list(rand:uniform(1 bsl 24),16),6,leading,$0)),

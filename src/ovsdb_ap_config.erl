@@ -106,7 +106,7 @@ make_ip_addr(_ID) ->
 -spec initialize_ap_tables (Store :: ets:tid(), Config :: proplists:proplist()) -> true.
 initialize_ap_tables (Store, APC) ->
 	create_radio_tables(APC,Store),
-	create_VIF_tables(APC,Store),
+%	create_VIF_tables(APC,Store),
 	create_table('AWLAN_Node',APC,Store),
 %	create_table('Wifi_Radio_Config',APC,Store),
 %	create_table('Wifi_Radio_State',APC,Store),
@@ -115,8 +115,8 @@ initialize_ap_tables (Store, APC) ->
 %	create_table('Wifi_RRM_Config',APC,Store),
 %	create_table('Wifi_Stats_Config',APC,Store),
 	create_table('DHCP_leased_IP',APC,Store),
-%	create_table('Wifi_VIF_Config',APC,Store),
-%	create_table('Wifi_VIF_State',APC,Store),
+	create_table('Wifi_VIF_Config',APC,Store),
+	create_table('Wifi_VIF_State',APC,Store),
 	create_table('Wifi_Associated_Clients',APC,Store).
 	
 %%------------------------------------------------------------------------------

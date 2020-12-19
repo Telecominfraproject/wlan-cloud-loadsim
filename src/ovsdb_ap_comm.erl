@@ -175,7 +175,7 @@ start_connection (#c_state{options=Opts}=State) ->
 	Cert = proplists:get_value(cert,Opts),
 	Key = proplists:get_value(key,Opts),
 	State#c_state{
-		socket = connect_to_server(H,P,CAs,Cert,Key),
+		socket = connect_to_server(H,P,CAs,Cert,Key,State#c_state.ap),
 		status = active
 	}.
 
@@ -197,8 +197,8 @@ try_reconnect (#c_state{restart=R, ap=AP}=State) ->
 %% Cert :: public_key:der_encoded(),	%% client certificate
 %% Key :: {atom(),public_key:der_encoded()},	%% private key for client cert
 %% Socket :: ssl:sslsocket().
--spec connect_to_server(Host::string(), Port::integer(), CAs::binary(), Cert::binary(), Key::{atom(),binary()}) -> Socket::ssl:sslsocket().
-connect_to_server (Host, Port, CAs, Cert, Key) ->
+-spec connect_to_server(Host::string(), Port::integer(), CAs::binary(), Cert::binary(), Key::{atom(),binary()},AP::binary()) -> Socket::ssl:sslsocket().
+connect_to_server (Host, Port, CAs, Cert, Key,AP) ->
 	Opts = [{cacerts, [CAs]},
 					{cert,Cert},
 					{key,Key},
@@ -210,11 +210,13 @@ connect_to_server (Host, Port, CAs, Cert, Key) ->
 					{active,once},
 					{recbuf, 250000},
     				{sndbuf, 250000}],
-	?L_I(?DBGSTR("AP connecting to ~s:~B",[Host,Port])),
+	io:format(">>>~p: Trying to connect.",[AP]),
+	?L_I(?DBGSTR("~p: AP connecting to ~s:~B",[AP,Host,Port])),
 	case ssl:connect(Host, Port, Opts) of
-		{ok, Socket} -> Socket;
+		{ok, Socket} ->
+			Socket;
 		{error, Reason} -> 
-			?L_E(?DBGSTR("connecting to ~s:~B failed with reason: ~p",[Host,Port,Reason])),
+			?L_E(?DBGSTR("~p: Connecting to ~s:~B failed with reason: ~p",[AP,Host,Port,Reason])),
 			exit(Reason)
 	end.
 

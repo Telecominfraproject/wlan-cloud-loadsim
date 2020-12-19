@@ -183,6 +183,8 @@ convert_entry([{"Firmware",Value}|Tail],R)->
 	convert_entry(Tail,R#hardware_info{firmware=list_to_binary(Value)});
 convert_entry([{"Capabilities",Value}|Tail],R)->
 	convert_entry(Tail,R#hardware_info{capabilities = convert_list(Value,[])});
+convert_entry([{"Bands",Value}|Tail],R)->
+	convert_entry(Tail,R#hardware_info{bands = convert_list(Value,[])});
 convert_entry([_|Tail],R)->
 	convert_entry(Tail,R).
 
@@ -192,6 +194,12 @@ convert_list(["mqtt_client" | Tail], R)->
 	convert_list(Tail,[mqtt_client|R]);
 convert_list(["ovsdb_client" | Tail], R)->
 	convert_list(Tail,[ovsdb_client|R]);
+convert_list(["BAND2G" | Tail], R)->
+	convert_list(Tail,['BAND2G'|R]);
+convert_list(["BAND5GL" | Tail], R)->
+	convert_list(Tail,['BAND5GL'|R]);
+convert_list(["BAND5GU" | Tail], R)->
+	convert_list(Tail,['BAND5GU'|R]);
 convert_list([ _ | Tail], R)->
 	convert_list(Tail,R).
 

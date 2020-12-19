@@ -641,7 +641,7 @@ create_servers(CAInfo,[H|T],Type,State,Pid)->
 			ok | { error , Reason :: term()}.
 create_client(CAInfo,Attributes)->
 	try
-		#{ mac := Mac, serial := Serial, name := _Name , id := HardwareId } = Attributes,
+		#{ mac := Mac, serial := Serial, name := _Name , id := HardwareId, bands:= Bands} = Attributes,
 		BaseFileName = filename:join( [ binary_to_list(CAInfo#ca_info.clients_dir_name),binary_to_list(Serial)]),
 		ClientKeyPem = BaseFileName ++ "-key.pem",
 		ClientKeyDec = BaseFileName ++  "-key_dec.pem",
@@ -662,8 +662,6 @@ create_client(CAInfo,Attributes)->
 		{ok,ClientKeyDecData} = utils:pem_to_key(ClientKeyDec),
 		{ok,ClientKeyPemData} = utils:pem_to_key(ClientKeyPem),
 		{ok,ClientCertPemData} = utils:pem_to_cert(ClientCertPem),
-
-		Bands = gen_bands(),
 
 		[X1a,X1b,$:,X2a,X2b,$:,X3a,X3b,$:,X4a,X4b,$:,X5a,X5b,$:,X6a,_X6b] = string:to_lower(binary_to_list(Mac)),
 		Client = #client_info{
@@ -744,7 +742,7 @@ generate_single_client(HardwareId,CAInfo,Index,Attributes)->
 			Mac = Prefix ++ [X1,X2,$:,X3,X4,$:,X5,$0],
 			RealSerial = binary_to_list(Serial) ++ [A,B,C,D,E,F] ++ [X1,X2,X3,X4,X5,$0],
 			RealName = binary_to_list(Name) ++ "-" ++ [X1,X2,X3,X4,X5,$0],
-			_ = create_client(CAInfo, Attributes#{ name => list_to_binary(RealName), mac => list_to_binary(Mac) , serial => list_to_binary(RealSerial) });
+			_ = create_client(CAInfo, Attributes#{ id => HardwareId, bands => HardwareInfo#hardware_info.bands, name => list_to_binary(RealName), mac => list_to_binary(Mac) , serial => list_to_binary(RealSerial) });
 		{error,_Reason} = Error ->
 			Error
 	end.

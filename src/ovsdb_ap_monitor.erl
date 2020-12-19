@@ -91,7 +91,10 @@ monitor_result (T,NewRows,OldRows) ->
 	#{T => maps:from_list(L)}.
 
 
-
+dump_data(FileName,Data)->
+	{ok,IoDev}=file:open(FileName,[append]),
+	io:fwrite(IoDev,"~p~n~n~n",[Data]),
+	_=file:close(IoDev).
 
 -spec publish_monitor (NameSpace :: binary(), Data :: #{binary()=>term()}) -> ok.
 publish_monitor (NameSpace,Data) ->
@@ -101,7 +104,13 @@ publish_monitor (NameSpace,Data) ->
 		<<"params">> => [NameSpace,Data]
 	},
 	Json = iolist_to_binary(jiffy:encode(RPC)),
-	%io:format("PUBLISHING: ~s~n~s~n",[NameSpace,Json]),
+	case binary:match(NameSpace,<<"DHCP_leased">>) of
+		{_,_} ->
+			dump_data("dhcp_lease_traces.txt",Json);
+		_ ->
+			ok
+	end,
+	io:format("PUBLISHING: ~s~n~s~n",[NameSpace,Json]),
 	?L_IA("PUBLISHING: ~s~n~s",[NameSpace,Json]),
 	ovsdb_ap:rpc_request(self(),RPC).
 

@@ -199,10 +199,13 @@ create_radio_tables(APC,Store)->
 								ets:insert(Store, #'Wifi_Radio_Config'{
 							    '**key_id**' = RadioConfigUUID,
 							    '_uuid' = [<<"uuid">>, RadioConfigUUID],
+							    '_version' = [<<"uuid">>,utils:uuid_b()],
 							    freq_band = Band,
-							    if_name = IFName}),
+							    if_name = IFName
+								}),
 		            ets:insert(Store, #'Wifi_Radio_State'{
 									'**key_id**' = utils:uuid_b(),
+									'_version' = [<<"uuid">>,utils:uuid_b()],
 									if_name = IFName,
 									mac = modify_mac(proplists:get_value(wan_mac,APC),0),
 									bcn_int = 100,
@@ -217,7 +220,6 @@ create_radio_tables(APC,Store)->
 									ht_mode = <<"HT80">>,
 									hw_mode = <<"11ac">>,
 									enabled = true,
-									'_version' = [<<"uuid">>,utils:uuid_b()],
 									freq_band = Band
 								}), N+1
 		end,0,proplists:get_value(bands,APC)).
@@ -226,14 +228,16 @@ create_VIF_tables(APC,Store)->
 	Wifi_VIF_ConfigUUID = utils:uuid_b(),
 	ets:insert(Store,#'Wifi_VIF_Config'{
 		'**key_id**' = Wifi_VIF_ConfigUUID,
-		ssid = proplists:get_value(ssid,APC)
+		ssid = proplists:get_value(ssid,APC),
+		'_version' = [<<"uuid">>,utils:uuid_b()]
 	}),
 	ets:insert(Store,#'Wifi_VIF_State'{
 		'**key_id**' = utils:uuid_b(),
 		mac = proplists:get_value(wan_mac,APC),
 		associated_clients = [<<"set">>,proplists:get_value(wifi_clients,APC)],
 		vif_config = [<<"uuid">>,Wifi_VIF_ConfigUUID],
-		ssid = proplists:get_value(ssid,APC)
+		ssid = proplists:get_value(ssid,APC),
+		'_version' = [<<"uuid">>,utils:uuid_b()]
 	}).
 
 %%------------------------------------------------------------------------------

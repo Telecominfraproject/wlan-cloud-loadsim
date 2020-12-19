@@ -93,7 +93,7 @@ monitor_result (T,NewRows,OldRows) ->
 
 dump_data(FileName,Data)->
 	{ok,IoDev}=file:open(FileName,[append]),
-	io:fwrite(IoDev,"~p~n~n~n",[Data]),
+	io:fwrite(IoDev,"~s~n~n~n",[Data]),
 	_=file:close(IoDev).
 
 -spec publish_monitor (NameSpace :: binary(), Data :: #{binary()=>term()}) -> ok.

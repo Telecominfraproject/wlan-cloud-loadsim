@@ -810,7 +810,7 @@ sim_action_to_json(SimAction)->
 			parameters => [Parameters],
 			done_count => SimAction#sim_action.done_count,
 			target_count => SimAction#sim_action.target_count,
-			execution_ms => (SimAction#sim_action.end_os_time-SimAction#sim_action.end_os_time) div 1000000
+			execution_ms => (SimAction#sim_action.end_os_time-SimAction#sim_action.start_os_time) div 1000000
 	}).
 
 

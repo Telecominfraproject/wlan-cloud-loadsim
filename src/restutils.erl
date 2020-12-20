@@ -12,21 +12,20 @@
 -include("../include/common.hrl").
 
 %% API
--export([ create_paginated_return/3,create_paginated_return/4,dump_string_array/1,get_access_token/1,
+-export([ create_paginated_return/4,dump_string_array/1,get_access_token/1,
           add_CORS/1,generate_error/2,get_pagination_parameters/1,paginate/2,validate_token/1,
-					get_access_token_not_secure/1,get_parameter/3,paginate_record_list/2]).
+					get_access_token_not_secure/1,get_parameter/3,paginate_record_list/2,create_json_string_array/2]).
 
 -record(pagination_info,{limit=0, offset=0, previous_offset=0,
 	next_offset=0, current_page=0, page_count=0, total_count=0}).
 
 %%% create paginated return
-create_paginated_return(Header,List,PaginationInfo )->
+create_paginated_return(Header,List,PaginationInfo,stringlist )->
 	binary:list_to_bin(
 		[ "{ \"Data\": { \"" ++ Header ++ "\" : [ ",
 			dump_string_array(List),
 				" ] }, " ++
-				dump_pagination_info(PaginationInfo),"} "]).
-
+				dump_pagination_info(PaginationInfo),"} "]);
 create_paginated_return(Header,List,PaginationInfo,nodes )->
 	binary:list_to_bin(
 		[ "{ \"Data\": { \"" ++ Header ++ "\" : [ ",
@@ -51,6 +50,12 @@ create_paginated_return(Header,List,PaginationInfo,Type )->
 		  dump_record_array(List,Type),
 		  " ] }, " ++
 		  dump_pagination_info(PaginationInfo),"} "]).
+
+create_json_string_array(Header,List)->
+	binary:list_to_bin(
+		[ "{ \"Data\": { \"" ++ Header ++ "\" : [ ",
+		  dump_string_array(List),
+		  " ] }" ]).
 
 dump_record_list(_,[],Acc)->
 	Acc;

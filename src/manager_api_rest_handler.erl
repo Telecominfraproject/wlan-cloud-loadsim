@@ -327,12 +327,21 @@ do( ?HTTP_GET ,Req,#request_state{resource = <<"cas">>}=State)->
 %%%===================================================================
 do( ?HTTP_GET , Req , #request_state{ resource = <<"nodes">> , id = nothing } = State ) ->
 	PaginationParameters = restutils:get_pagination_parameters(Req),
-	{ok,AllNodes}=manager:connected_nodes(),
-	{ SubList, PaginationInfo }  = restutils:paginate(PaginationParameters,[{node(),manager}|AllNodes]),
-	JSON = case restutils:get_parameter(details,0,Req) of
-		0 -> NamesOnly = [ atom_to_list(X) || {X,Role} <- SubList, Role == node  ],
-				 restutils:create_paginated_return( "Nodes" , NamesOnly, PaginationInfo);
-		1 -> restutils:create_paginated_return( "Nodes" , SubList, PaginationInfo,nodes)
+	QsVals = cowboy_req:parse_qs(Req),
+	{ok,SomeNodes}=manager:connected_nodes(),
+	AllNodes = [ {node(),manager} | SomeNodes ],
+	JSON = case proplists:get_value(<<"format">>, QsVals,<<"nodes">>) of
+		<<"nodes">> ->
+			{SubList,PaginationInfo} = restutils:paginate_record_list(PaginationParameters,AllNodes),
+			NamesOnly = [ atom_to_list(X) || {X,Role} <- SubList, Role == node ],
+			restutils:create_paginated_return("Nodes",NamesOnly,PaginationInfo,stringlist);
+		<<"detailed">> ->
+			{SubList,PaginationInfo} = restutils:paginate_record_list(PaginationParameters,AllNodes),
+			restutils:create_paginated_return("HardwareDefinitions",SubList,PaginationInfo,nodes);
+		<<"simple">> ->
+			{SubList,PaginationInfo} = restutils:paginate_record_list(PaginationParameters,AllNodes),
+			NamesOnly = [ atom_to_list(X) || {X,Role} <- SubList, Role == node ],
+			restutils:create_paginated_return("Nodes",NamesOnly,PaginationInfo,stringlist)
 	end,
 	create_response(JSON,Req,State);
 

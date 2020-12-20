@@ -681,7 +681,59 @@ components:
           type: array
           items:
             type: string
-        
+        vendor_tip:
+          type: string
+        opensync:
+          type: string
+        number_of_radios:
+          type: integer
+        firmware_version:
+          type: string
+        firmware_profile:
+          type: string
+        firmware_image_inactive:
+          type: string
+        firmware_image_active:
+          type: string
+        firmware_host:
+          type: string
+        firmware_date:
+          type: string
+        firmware_commit:
+          type: string
+        firmware_build:
+          type: string
+        core:
+          type: string
+        channels_5GU:
+          type: array
+          items:
+            type: integer
+        channels_5GL:
+          type: array
+          items:
+            type: integer
+        channels_2G:
+          type: array
+          items:
+            type: integer
+        channel_default_5GU:
+          type: integer
+        channel_default_5GL:
+          type: integer
+        channel_default_2G:
+          type: integer
+        channel_backup_5GU:
+          type: integer
+        channel_backup_5GL:
+          type: integer
+        channel_backup_2G:
+          type: integer
+        bands:
+          type: array
+          items:
+            type: string
+
     PaginationInfo:
       description: Optional information about pagination during bulk operations
       readOnly: true
@@ -851,5 +903,7 @@ components:
         done_count:
           type: integer
         target_count:
+          type: integer
+        execution_ms:
           type: integer
 

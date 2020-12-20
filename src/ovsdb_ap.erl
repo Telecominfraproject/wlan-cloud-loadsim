@@ -32,10 +32,7 @@
 %% gen_server callbacks
 -export([init/1, handle_cast/2, handle_call/3, handle_info/2, terminate/2, code_change/3]).
 
-
-
 %% data structures
-
 -type ap_status() :: init | ready | running | paused.
 -export_type([ap_status/0]).
 
@@ -53,7 +50,6 @@
 	updates = none :: none | timer:tref()		% timer reference for periodic updates from MQTT while running
 }).
 
-
 -record (ap_events, {
 	stamp :: {Time :: integer(), UMI :: integer()},
 	event :: atom(),
@@ -67,64 +63,35 @@
 	stats_count = 0 :: integer()
 }).
 
-
-
-
-
-
-
 %%%============================================================================
 %%% API
 %%%============================================================================
-
-
--spec launch (CAName, Id, Options) -> {ok, Pid} | {error, Reason} when
-		CAName :: string() | binary(),
-		Id :: UUID::binary(),
-		Options :: [{atom(),term()}],
-		Pid :: pid(),
-		Reason :: term().
-
+-spec launch (CAName :: string() | binary(), Id::binary(), Options :: [{atom(),term()}]) -> {ok, Pid :: pid()} | generic_error().
 launch (CAName, Id, Options) ->
 	gen_server:start_link(?MODULE, {CAName, Id, Options}, []).
-
-
-
 
 %%%============================================================================
 %%% HANDLER API Implementation
 %%%============================================================================
-
 -spec start_ap (Node :: pid()) -> ok.
-
-start_ap (Node) -> 
+start_ap (Node) ->
 	gen_server:cast(Node,ap_start).
 
-
 -spec stop_ap (Node :: pid()) -> ok.
-
-stop_ap (Node) -> 
+stop_ap (Node) ->
 	gen_server:cast(Node,ap_stop).
 
-
 -spec pause_ap (Node :: pid()) -> ok.
-
-pause_ap (Node) -> 
+pause_ap (Node) ->
 	gen_server:cast(Node,ap_pause).
 
-
 -spec cancel_ap (Node :: pid()) -> ok.
-
-cancel_ap (Node) -> 
+cancel_ap (Node) ->
 	gen_server:cast(Node,ap_cancel).
-
-
 
 %%%============================================================================
 %%% Internal module API
 %%%============================================================================
-
-
 -spec rpc_cmd (Node :: pid(), Rpc :: term()) -> ok.
 rpc_cmd (Node,Rpc) ->
 	gen_server:cast(Node,{exec_rpc,Rpc}).
@@ -161,35 +128,17 @@ check_for_mqtt_updates (Node) ->
 set_ssid (Node,SSID) ->
 	gen_server:cast(Node,{set_ssid,SSID}).
 
-
-
-
-
 %%%============================================================================
 %%% GEN_SERVER callbacks
 %%%============================================================================
-
--spec init ({CAName, Id, Options}) -> {ok, State}  when
-		CAName :: string() | binary(),
-		Id :: UUID::binary(),
-		Options :: [{atom(),term()}],
-		State :: #ap_state{}.
-
+-spec init ({CAName :: string() | binary(), Id::binary(), Options :: [{atom(),term()}]}) -> {ok, State :: #ap_state{}}.
 init ({CAName, Id, Options}) ->
 	process_flag(trap_exit, true),
 	InitialState = prepare_state(CAName,Id,Options),
 	gen_server:cast(self(),start_up),
 	{ok, InitialState}.
 
-
-
-
--spec handle_cast (Request, State) -> {noreply, NewState} | {stop, Reason, NewState} when
-		Request :: term(),
-		State :: #ap_state{},
-		NewState :: #ap_state{},
-		Reason :: string().
-
+-spec handle_cast (Request :: term(), State :: #ap_state{}) -> {noreply, NewState :: #ap_state{}} | {stop, Reason :: string(), NewState :: #ap_state{}}.
 handle_cast (start_up, #ap_state{status=init}=State) ->
 	{noreply, startup_ap(State)};
 
@@ -331,33 +280,12 @@ handle_cast (R,State) ->
 	?L_E(?DBGSTR("got unknown request: ~p",[R])),
 	{noreply, State}.
 
-
-
-
--spec handle_call (Request, From, State) -> {reply, Reply, NewState} | {stop, Reason, Reply, NewState} when
-		Request :: term(),
-		From :: {pid(),Tag::term()},
-		State :: #ap_state{},
-		Reply :: ok | invalid | ignored,
-		Reason :: term(),
-		NewState :: #ap_state{}.
-
-
-
+-spec handle_call (Request :: term(), From :: {pid(),Tag::term()}, State :: #ap_state{}) -> {reply, Reply :: ok | invalid | ignored, NewState :: #ap_state{}} | {stop, Reason :: term(), Reply :: ok | invalid | ignored, NewState :: #ap_state{}}.
 handle_call (Request, From, State) ->
 	?L_E(?DBGSTR("got unknow request ~p from ~p",[Request,From])),
 	{reply, invalid, State}.
 
-
-
-
--spec handle_info (Msg, State) -> {noreply, NewState} | {stop, Reason, NewState} when
-		Msg :: term(),
-		State :: #ap_state{},
-		Reason :: term(),
-		NewState :: #ap_state{}.
-
-
+-spec handle_info (Msg :: term(), State :: #ap_state{}) -> {noreply, NewState :: #ap_state{}} | {stop, Reason :: term(), NewState :: #ap_state{}}.
 handle_info({'EXIT', _Pid, normal}, State) ->
 	{noreply, State};
 
@@ -373,46 +301,22 @@ handle_info (Msg,State) ->
 	?L_E(?DBGSTR("got unexpected info message ~p",[Msg])),
 	{noreply, State}.
 
-
-
-
--spec terminate (Reason, State) -> ok when
-		Reason :: shutdown | normal,
-		State :: #ap_state{}.
-
+-spec terminate (Reason :: shutdown | normal, State :: #ap_state{}) -> ok.
 terminate (_Reason, #ap_state{stats_ets=Tab}) ->
 	ets:delete(Tab),
 	ok.
 
-
-
-
--spec code_change (OldVersion, OldState, Extra) -> {ok, NewState} when
-		OldVersion :: term(),
-		OldState ::#ap_state{},
-		Extra :: term(),
-		NewState :: #ap_state{}.
-
+-spec code_change (OldVersion :: term(), OldState ::#ap_state{}, Extra :: term()) -> {ok, NewState :: #ap_state{}}.
 code_change (_,OldState,_) ->
 	?L_E(?DBGSTR("code change requested")),
 	{ok, OldState}.
 
-
-
-
 %%%============================================================================
 %%% internal functions
 %%%============================================================================
+%---------prepare_state/2----------------convert Spec proplist into internal state
 
-
-%---------prepare_state/2----------------convert Spec proplist into internal state 
-
--spec prepare_state (CAName, ID, Options) -> State when
-		CAName :: string() | binary(),
-		ID :: UUID::binary(),
-		Options :: [{atom(),term()}],
-		State :: #ap_state{}.
-
+-spec prepare_state (CAName :: string() | binary(), ID :: binary(), Options :: [{atom(),term()}]) -> State :: #ap_state{}.
 prepare_state (CAName, ID, Options) ->
 	Store = ets:new(ovsdb_ap,[bag,private,{keypos, 1}]),
 	Stats = ets:new(ovsdb_ap_stats,[ordered_set,private,{keypos, 2}]),
@@ -432,16 +336,8 @@ prepare_state (CAName, ID, Options) ->
 		stats_ets = Stats
 	}.
 
-
-
-
 %--------set_status/1--------------------sets internal status + broadcast status to handler
-
--spec set_status (Status, State) -> NewState when
-		Status :: ap_status(),
-		State :: #ap_state{},
-		NewState :: #ap_state{}.
-
+-spec set_status (Status :: ap_status(), State :: #ap_state{}) -> NewState :: #ap_state{}.
 set_status (Status, #ap_state{status=OldStatus, config=Cfg}=State) ->
 	ovsdb_client_handler:ap_status(Status,ovsdb_ap_config:id(Cfg)),
 	post_event(status_change,{OldStatus,Status},io_lib:format("status change := ~p -> ~p",[OldStatus,Status])),
@@ -460,26 +356,14 @@ start_stop_mqtt_updates(#ap_state{updates=U}=State) when U =/= none->
 start_stop_mqtt_updates(State) ->
 	State.
 
-	
-
-
-
-
 %--------startup_ap/1--------------------initiate startup sequence
-
 -spec startup_ap (State :: #ap_state{}) -> NewState :: #ap_state{}.
-
 startup_ap (#ap_state{status=init, config=Cfg}=State) ->
 	NewCfg =  ovsdb_ap_config:configure(Cfg),
 	set_status(ready,State#ap_state{config=NewCfg, comm=none}).
 
-
-
-
 %--------run_simulation/1----------------start or resume simulation
-
 -spec run_simulation (State :: #ap_state{}) -> NewState :: #ap_state{}.
-
 run_simulation (#ap_state{status=ready}=State) ->
 	NewState = ctrl_connect(State),
 	set_status(running,NewState);
@@ -487,45 +371,25 @@ run_simulation (#ap_state{status=ready}=State) ->
 run_simulation (#ap_state{status=paused}=State) ->
 	set_status(running,State).
 	
-
-
-
 %--------stop_simulation/1----------------stops a simulation (clears internal state to ready)
-
 -spec stop_simulation (State :: #ap_state{}) -> NewState :: #ap_state{}.
-
 stop_simulation (State) ->
 	NewState = ctrl_disconnect(State),
 	set_status(ready, NewState).
 
-
-
-
 %--------pause_simulation/1----------------halts simulation (tear down of connections) but keeps internal state
-
 -spec pause_simulation (State :: #ap_state{}) -> NewState :: #ap_state{}.
-
 pause_simulation (State) ->
 	set_status(paused, State).
 
-
-
-
 %--------cancel_simulation/1----------------shutdown and exit simulation (AP exits)
-
 -spec cancel_simulation (State :: #ap_state{}) -> NewState :: #ap_state{}.
-
 cancel_simulation (State) ->
 	_ = timer:cancel(State#ap_state.reporting),
 	State.
 
-
-
-
 %--------ctrl_connect/1------------------connect to either the tip redirector or manager based on state / old connections are closed if open
-
 -spec ctrl_connect (State :: #ap_state{}) -> NewState :: #ap_state{}.
-
 ctrl_connect (#ap_state{comm=none, status=ready, config=Cfg, id=ID}=State) ->
 	Opts = [
 		{host, ovsdb_ap_config:tip_redirector(host,Cfg)},
@@ -567,13 +431,8 @@ ctrl_connect (#ap_state{comm=Comm}=State) ->
 	post_event(tip_connect,{<<"down">>},<<"TIP contoller connection relinquished">>),
 	ctrl_connect (State#ap_state{comm=none}).
 
-
-
-
 %--------ctrl_disconnect/1---------------disconnect and closes communication port but otherwise does not chenge status
-
 -spec ctrl_disconnect (State :: #ap_state{}) -> NewState :: #ap_state{}.
-
 ctrl_disconnect (#ap_state{comm=none}=State) ->
 	State;
 
@@ -582,12 +441,8 @@ ctrl_disconnect (#ap_state{comm=Comm}=State) ->
 	post_event(tip_connect,{<<"down">>},<<"TIP contoller connection relinquished">>),
 	stop_mqtt(State#ap_state{comm=none}).
 
-
-
 %--------ctlr_start_comm/1---------------asychrounously starts the connection after comm is created
-
 -spec ctlr_start_comm (State :: #ap_state{}) -> NewState :: #ap_state{}.
-
 ctlr_start_comm (#ap_state{comm=Comm, store=Store}=State) ->
 	ovsdb_ap_comm:start_comm(Comm),
 	post_event(tip_connect,{<<"start_comm">>},<<"TIP contoller start communication">>),
@@ -599,11 +454,8 @@ ctlr_start_comm (#ap_state{comm=Comm, store=Store}=State) ->
 			State
 	end.
 
-
-
 %%==============================================================================
 %% managing mqtt
-
 -spec check_mqtt (Config :: #{binary():=binary()}, #ap_state{}) -> NewState :: #ap_state{}.
 check_mqtt (Cfg,#ap_state{ca_name=CAName, id=ID}=State) ->
 	?L_I(?DBGSTR("AP->MQTT check configuration")),
@@ -636,7 +488,6 @@ start_mqtt (_,State) ->
 	?L_E(?DBGSTR("MQTT client already running!")),
 	State.
 
-
 -spec stop_mqtt (State::#ap_state{}) -> NewState::#ap_state{}.
 stop_mqtt(#ap_state{mqtt=idle}=State) ->
 	State;
@@ -658,12 +509,8 @@ handle_mqtt_stats_update (_Serial,_Stats,State) ->
 	ovsdb_ap_monitor:refresh_publications(State#ap_state.store),
 	State.
 	
-	
-
-
 %%==============================================================================
 %% managing statistics of access point
-
 -spec update_statistics (Event :: tuple(), Stats :: ets:tid()) -> true.
 update_statistics ({Event,Args,Comment},Stats) ->
 	ETag = {erlang:system_time(),erlang:unique_integer([monotonic])},
@@ -677,11 +524,8 @@ update_statistics ({Event,Args,Comment},Stats) ->
 						_ -> <<>>
 					end
 		}).
-	
-
 
 %--------report_statistics/1-------------generate an AP specific statistics report and send it to the handler
-
 -spec report_statistics (State :: #ap_state{}) -> NewState :: #ap_state{}.
 report_statistics (#ap_state{status=ready}=State) ->
 	State;
@@ -707,8 +551,6 @@ report_statistics (#ap_state{stats_ets=S,id=ID}=State) ->
 	update_statistics({report_mark,{},<<>>},S),
 	State.
 
-
-
 -spec report_interval(S :: ets:tid()) -> IntervalInMs :: integer().
 report_interval (S) ->
 	case ets:match(S,{ap_events,{'$1','_'},report_mark,'_','_'}) of
@@ -733,6 +575,3 @@ comm_dropped (S) ->
 -spec comm_restart(S::ets:tid()) -> RestartCount::integer().
 comm_restart(S) ->
 	length(ets:match_object(S,{ap_events,'_',tip_connect,{<<"start_comm">>},'_'})). 
-
-
-		

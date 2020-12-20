@@ -92,9 +92,14 @@ monitor_result (T,NewRows,OldRows) ->
 
 
 dump_data(FileName,Data)->
-	{ok,IoDev}=file:open(FileName,[append]),
-	io:fwrite(IoDev,"~s~n~n~n",[Data]),
-	_=file:close(IoDev).
+	case filelib:is_file("keep-dhcp-traces") of
+		true ->
+			{ok,IoDev}=file:open(FileName,[append]),
+			io:fwrite(IoDev,"~s~n~n~n",[Data]),
+			_=file:close(IoDev);
+		false ->
+			ok
+	end.
 
 -spec publish_monitor (NameSpace :: binary(), Data :: #{binary()=>term()}) -> ok.
 publish_monitor (NameSpace,Data) ->
@@ -110,8 +115,8 @@ publish_monitor (NameSpace,Data) ->
 		_ ->
 			ok
 	end,
-	io:format("PUBLISHING: ~s~n~s~n",[NameSpace,Json]),
-	?L_IA("PUBLISHING: ~s~n~s",[NameSpace,Json]),
+%%	io:format("PUBLISHING: ~s~n~s~n",[NameSpace,Json]),
+	?L_IA("PUBLISHING: ~s",[NameSpace]),
 	ovsdb_ap:rpc_request(self(),RPC).
 
 -spec maybe_publish_data (NameSpace :: binary(), 

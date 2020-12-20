@@ -26,11 +26,9 @@
 
 -export_type ([selspec/0]).
 
-
 %%-----------------------------------------------------------------------------
 %% API: table / database access
 %%-----------------------------------------------------------------------------
-
 
 -spec select (TableName :: binary(), Where :: selspec(), Store :: ets:tid()) -> Rows :: db_records().
 select (T,W,S) ->
@@ -44,8 +42,6 @@ select_with_key(T,W,S) ->
     MSpec = create_match_spec(T,W),
     R = ets:select(S,MSpec),
     [ maps:take(<<"**key_id**">>,X) || X <- [ maps:from_list(lists:zip(rec_fields(T),X)) || X <- R ]].
-
-
 
 -spec delete (TableName :: binary(), Where :: selspec(), Store :: ets:tid()) -> NumDeleted :: integer().
 delete (T,W,S) ->
@@ -97,7 +93,6 @@ mutate_table (Table,Mut,Where,Store) ->
 %%-----------------------------------------------------------------------------
 %% internal DB access functions
 %%-----------------------------------------------------------------------------
-
 
 -spec make_row_uuid (TableName :: binary(), Record :: db_record()) -> {UUID :: binary(), ModRecord :: tuple()}.
 make_row_uuid (T,R) ->
@@ -190,7 +185,6 @@ map_to_record (T,M) ->
     List = [ maps:get(X,M,<<"###CRASH###">>) || X <- Fields],
     list_to_tuple([binary_to_atom(T) | List]).
 
-
 %%------------------------------------------------------------------------------
 %% record convertion helpers
 -spec rec_fields (RecordName :: binary()) -> Fieldnames :: [binary()].
@@ -261,4 +255,3 @@ default_record (<<"AWLAN_Node">>) ->
 default_values(T) ->
     [_|R] = tuple_to_list(default_record(T)),
     R.
-    

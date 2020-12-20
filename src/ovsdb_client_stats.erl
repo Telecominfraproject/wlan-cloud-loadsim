@@ -20,9 +20,6 @@
 %%---------internal API---------------------------------------------------------
 -export ([prepare_statistics/0,update_statistics/2,close/0]).
 
-
-
-
 -record (statistics, {
 	seq :: ets_dont_care() | non_neg_integer(),				%% sequence number of record
 	stamp :: ets_dont_care() | integer(), 					%% os timestmap
@@ -37,11 +34,9 @@
 	peak_rx :: ets_dont_care() | non_neg_integer()			%% maximum bytes received
 }).
 
-
 %%------------------------------------------------------------------------------
 %% external API
 %%------------------------------------------------------------------------------
-
 -spec show_statistics(NumberOfRecords :: non_neg_integer()) -> ok | {error, not_available}.
 show_statistics(N) ->
 	case ets:whereis(?MODULE) of
@@ -52,21 +47,16 @@ show_statistics(N) ->
 			print_statistics(max(0,Seq-N))
 	end.
 
-
 %%------------------------------------------------------------------------------
 %% internal API
 %%------------------------------------------------------------------------------
-
--spec prepare_statistics () -> ok | {error, Reason::term()}.
+-spec prepare_statistics () -> ok | generic_error().
 prepare_statistics () ->
 	_ = ets:new(?MODULE,[ordered_set,protected,{keypos, 2},named_table]),
 	ets:insert(?MODULE,{seq,seq,0}),
 	ok.
 
-
--spec update_statistics (Clients, Stats) -> ok  when
-		Clients :: ets:tid(),
-		Stats :: [#ap_statistics{}].
+-spec update_statistics (Clients :: ets:tid(), Stats :: [#ap_statistics{}]) -> ok.
 update_statistics (CRef, Stats) ->
 	[{_,_,Seq}] = ets:lookup(?MODULE,seq),
 	Clients = ets:match_object(CRef,#ap_client{_='_'}),
@@ -75,14 +65,8 @@ update_statistics (CRef, Stats) ->
 	ets:insert(?MODULE,[{seq,seq,Seq+1},Entry]),
 	post_statistics(Entry),
 	ok.
-	
 
-
--spec create_stats_entry (Seq,Clients,Stats) -> Entry when
-		Seq :: non_neg_integer(),	% the key in the DETS must be unique
-		Clients :: [#ap_client{}],
-		Stats :: [#ap_statistics{}],
-		Entry :: #statistics{}.
+-spec create_stats_entry (Seq :: non_neg_integer(),Clients :: [#ap_client{}],Stats :: [#ap_statistics{}]) ->Entry :: #statistics{}.
 create_stats_entry (Seq,Clients,Stats) when length(Stats) > 0 andalso length(Clients) > 0->
 	#statistics{
 			seq=Seq,
@@ -126,17 +110,14 @@ create_stats_entry (Seq,_,_) ->
 			peak_rx = 0
 		}.
 
-
 -spec close() -> ok.
 close () ->
 	ets:delete(?MODULE),
 	ok.
 
-
 %%------------------------------------------------------------------------------
 %% internal functions
 %%------------------------------------------------------------------------------
-
 -spec print_statistics (StartSequence :: non_neg_integer()) -> ok.
 print_statistics (Seq) ->
 	Rec = ets:select(?MODULE,[{#statistics{seq='$1',_='_'},[{'<',Seq,'$1'}],['$_']}]),
@@ -152,8 +133,6 @@ format_row (Entry) ->
 	{{Y,M,D},{H,I,S}} = calendar:system_time_to_universal_time(Entry#statistics.stamp,native),
 	#statistics{configured=CF, running=RN, paused=PS, dropped=DR, recon=RC, avg_rx=ARX, peak_rx=PRX, avg_tx=ATX, peak_tx=PTX} = Entry,
 	io:format("| ~4B-~2..0B-~2..0B ~2..0B:~2..0B:~2..0B | ~6B | ~6B | ~6B | ~6B | ~6B | ~6B | ~6B | ~6B | ~6B |~n",[Y,M,D,H,I,S,CF,RN,PS,DR,RC,ATX,ARX,PTX,PRX]).
-
-
 
 -spec post_statistics(Entry::#statistics{}) -> ok.
 post_statistics(E) ->

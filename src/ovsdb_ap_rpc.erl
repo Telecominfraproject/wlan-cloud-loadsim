@@ -96,7 +96,6 @@ run_transactions (Id,[Trans|More],Store,Acc) when is_map(Trans) ->
 %% handling OVSDB tables
 
 -spec table_query (P :: map(), Store :: ets:tid()) -> map().
-
 table_query (#{<<"table">>:=T, <<"op">>:= <<"select">>, <<"columns">>:=C, <<"where">>:=W},S) ->
 	Res = ovsdb_dba:select(T,W,S),
 	#{ <<"rows">> => make_res_rows(Res,C,[])};

@@ -55,17 +55,13 @@
 }).
 
 
-
-
 %%%============================================================================
 %%% HANDLER - API
 %%%============================================================================
 
-
 -spec start_link () -> {ok, Pid :: pid()} | generic_error().
 start_link () ->
 	gen_server:start_link({local, ?SERVER},?MODULE, [], []).
-
 
 creation_info() ->
 	[	#{	id => ?MODULE ,
@@ -75,9 +71,6 @@ creation_info() ->
 	       type => worker,
 	       modules => [?MODULE]} ].
 
-
-%% CLI debug functions, will be removed
-
 dump_clients () ->
 	gen_server:call(?SERVER,dump_clients).
 
@@ -86,7 +79,6 @@ list_ids() ->
 
 all_ready() ->
 	gen_server:call(?SERVER,all_ready).
-
 
 %%% gen_sim_clients behaviour
 -spec restart( all | [UUID::binary()], Attributes::#{ atom() => term() }) -> ok | generic_error().
@@ -136,12 +128,9 @@ report () ->
 resume (_) ->
 	ok.
 
-
-
 %%%============================================================================
 %%% CLIENT CALLBACK API
 %%%============================================================================
-
 -spec ap_status (Status :: ovsdb_ap:ap_status(), Status :: ovsdb_ap:ap_status()) -> ok.
 ap_status (Status, Id) ->
 	gen_server:cast(?SERVER,{status,Status,Id}).
@@ -154,7 +143,6 @@ push_ap_stats (Stats, Id) ->
 %%%============================================================================
 %%% GEN_SERVER callbacks
 %%%============================================================================
-
 -spec init (Args :: term()) -> {ok, State :: #hdl_state{}} | {stop, Reason :: term()}.
 init (_) ->
 	process_flag(trap_exit, true),
@@ -172,7 +160,6 @@ handle_cast ({ap_stats,NewStats,_Id},#hdl_state{ap_statistics=ApStats}=State) ->
 	{noreply, State#hdl_state{ap_statistics=[NewStats|ApStats]}};
 handle_cast (_,State) ->
 	{noreply, State}.
-
 
 -spec handle_call (Request :: term(), From :: {pid(),Tag::term()}, State :: #hdl_state{}) -> {reply, Reply :: term(), NewState :: #hdl_state{}} | {stop, Reason :: term(), Reply :: term(), NewState :: #hdl_state{}}.
 handle_call ({set_config, Cfg},_,State) ->
@@ -258,7 +245,6 @@ handle_info({'EXIT',From,Reason}, #hdl_state{clients=CTid}=State) ->
 handle_info(_, State) ->
 	{noreply, State}.
 
-
 -spec terminate (Reason :: shutdown | {shutdown, term()} | norma, State :: #hdl_state{}) -> ok.
 terminate (_Reason, _State) ->
 	ovsdb_client_stats:close().
@@ -266,7 +252,6 @@ terminate (_Reason, _State) ->
 -spec code_change (OldVersion :: term(), OldState ::#hdl_state{}, Extra :: term()) -> {ok, Extra :: term()}.
 code_change (_,OldState,_) ->
 	{ok, OldState}.
-
 
 %%%============================================================================
 %%% internal functions
@@ -295,7 +280,6 @@ queue_command (Where,Cmd,Refs,#hdl_state{cmd_queue=Q}=State) ->
 -spec queue_command (Command :: clients_start | clients_stop | clients_pause | clients_resume | clients_cancel, Refs :: all | [UUID::binary()], State :: #hdl_state{}) -> NewState :: #hdl_state{}.
 queue_command (Command, Refs, State) ->
 	queue_command (back,Command, Refs, State).
-
 
 %--------apply_config/2------------------translates configuration into state
 -spec apply_config (Cfg :: #{any() => any()}, State :: #hdl_state{}) -> NewState :: #hdl_state{}.
@@ -361,7 +345,6 @@ apply_config (_,State) ->
 	io:format("GOT CONFIG I DON'T UNDERSTAND~n"),
 	State.
 
-
 %--------update_client_status/3-----------update the state of a client in the clients map
 -spec update_client_status (ClientState :: available | dead | ovsdb_ap:ap_status(), ClientId :: string(), HandlerState :: #hdl_state{}) -> NewHandlerSate :: #hdl_state{}.
 update_client_status (ClS, Id, #hdl_state{clients=Clients}=State) ->
@@ -384,12 +367,8 @@ maybe_notify_simnode (#hdl_state{clients=Clients, simnode_callback={SN,Msg}, cal
 			State
 	end.
 	
-
-
-
 %--------get_clients_in_state/3----------filter all clients with state
-
--spec get_client_ids_in_state (Clients :: ets:tid(), State :: client_status() | tuple(), Refs :: all | [UUID::binary()]) ->  [UUID::binary()].					
+-spec get_client_ids_in_state (Clients :: ets:tid(), State :: client_status() | tuple(), Refs :: all | [UUID::binary()]) ->  [UUID::binary()].
 get_client_ids_in_state (Tid, State, Refs) when is_atom(State) ->
 	get_client_ids_in_state (Tid,{State},Refs);
 get_client_ids_in_state (Tid, States, Refs) ->
@@ -402,7 +381,6 @@ get_client_ids_in_state (Tid, States, Refs) ->
 		Cand when is_list(Cand) ->
 			[ID || ID <- Cids, lists:member(ID,Cand)]
 	end.
-
 
 -spec get_clients_with_ids (Clients::ets:tid(),Ids::[UUID::binary()]) -> [#ap_client{}].
 get_clients_with_ids (CTid, Ids) ->
@@ -458,8 +436,6 @@ cmd_startup_sim (#hdl_state{timer=T, clients=Clients}=State, Which, _) ->
 	T2 = owls_timers:mark("startup",T),
 	ToStart = get_client_ids_in_state (Clients, ready, Which),
 	trigger_execute (0, queue_command(front,clients_start,ToStart,State#hdl_state{timer=T2})).
-	
-
 
 %--------cmd_launch_clients/2--------------------lauch processes for clients (synchrounsly)
 -spec cmd_launch_clients (ToLauch :: [UUID::binary()],State :: #hdl_state{}) -> State :: #hdl_state{}.
@@ -478,7 +454,6 @@ cmd_launch_clients (ToLauch, #hdl_state{clients=Clients}=State) ->
 %% command queue handling
 
 %--------execute_cmd/1-------------------executes the first command in queue
-
 -spec execute_cmd (State :: #hdl_state{}) -> NewState :: #hdl_state{}.
 execute_cmd (#hdl_state{cmd_queue=[]}=State) ->
 	State;
@@ -488,25 +463,17 @@ execute_cmd (#hdl_state{cmd_queue=Q}=State) ->
 	case Cmd of	
 		#command{cmd=clients_start, refs=R} ->
 			clients_start(R, AltState);
-		
 		#command{cmd=clients_pause, refs=R} ->
 			clients_pause(R, AltState);
-		
 		#command{cmd=clients_resume, refs=R} ->
 			clients_resume(R, AltState);
-
 		#command{cmd=clients_stop, refs=R} ->
 			clients_stop(R, AltState);
-
 		#command{cmd=clients_cancel, refs=R} ->
 			clients_cancel(R, AltState)
 	end.
 
-
-
-
 %--------clients_start/2-------------starts the simulation of the cliens (in ready state)
-
 -spec clients_start (Refs :: [UUID::binary()], State :: #hdl_state{}) -> NewState :: #hdl_state{}.
 clients_start (Refs, #hdl_state{clients=Clients, timer=T}=State) ->	 
 	Ready = get_client_ids_in_state (Clients,ready,Refs),
@@ -536,7 +503,6 @@ clients_resume (Refs, #hdl_state{clients=Clients, timer=T}=State) ->
 	ToResume = get_clients_with_ids(Clients,get_client_ids_in_state(Clients,paused,Refs)),
 	[ovsdb_ap:start_ap(P) || #ap_client{process=P} <- ToResume],
 	State#hdl_state{timer=owls_timers:mark("resume_executed",T2)}.
-
 
 %--------clients_cancel/2-------------cancel clients regardless of state
 -spec clients_cancel (Refs :: [UUID::binary()], State :: #hdl_state{}) -> NNewState :: #hdl_state{}.

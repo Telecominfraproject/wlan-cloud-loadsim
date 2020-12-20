@@ -216,7 +216,8 @@ handle_call({prepare,SimName,Attributes,Notification},_From,State = #simengine_s
 								status = <<"started">>,
 								completed = <<>>,
 								target_count = 1,
-								done_count = 0
+								done_count = 0,
+								start_os_time = os:system_time()
 								},
 							NewActions = maps:put(JobId,SimAction,State#simengine_state.sim_actions),
 							{reply,{ok,JobId},State#simengine_state{ sim_states = maps:put(SimName,
@@ -256,6 +257,7 @@ handle_call({push,SimName,Attributes,Notification}, _From, State = #simengine_st
 										status = <<"started">>,
 										completed = <<>>,
 										target_count = length(SimInfo#simulation.nodes),
+										start_os_time = os:system_time(),
 										done_count = 0
 									},
 									NewActions = maps:put(JobId,SimAction,State#simengine_state.sim_actions),
@@ -302,7 +304,8 @@ handle_call({start,SimName,Attributes,Notification}, _From, State = #simengine_s
 												status = <<"started">>,
 												completed = <<>>,
 												target_count = length(SimInfo#simulation.nodes),
-												done_count = 0
+												done_count = 0,
+												start_os_time = os:system_time()
 											},
 											NewActions = maps:put(JobId,SimAction,State#simengine_state.sim_actions),
 											{reply,{ok,JobId},State#simengine_state{ sim_states = maps:put(SimName,
@@ -347,7 +350,8 @@ handle_call({stop,SimName,Attributes,Notification}, _From, State = #simengine_st
 												status = <<"started">>,
 												completed = <<>>,
 												target_count = length(SimInfo#simulation.nodes),
-												done_count = 0
+												done_count = 0,
+												start_os_time = os:system_time()
 											},
 											NewActions = maps:put(JobId,SimAction,State#simengine_state.sim_actions),
 											{reply,{ok,JobId},State#simengine_state{ sim_states = maps:put(SimName,
@@ -395,7 +399,8 @@ handle_call({pause,SimName,Attributes,Notification}, _From, State = #simengine_s
 												status = <<"started">>,
 												completed = <<>>,
 												target_count = length(SimInfo#simulation.nodes),
-												done_count = 0
+												done_count = 0,
+												start_os_time = os:system_time()
 											},
 											NewActions = maps:put(JobId,SimAction,State#simengine_state.sim_actions),
 											{reply,{ok,JobId},State#simengine_state{ sim_states = maps:put(SimName,
@@ -443,7 +448,8 @@ handle_call({cancel,SimName,Attributes,Notification}, _From, State = #simengine_
 												status = <<"started">>,
 												completed = <<>>,
 												target_count = length(SimInfo#simulation.nodes),
-												done_count = 0
+												done_count = 0,
+												start_os_time = os:system_time()
 											},
 											NewActions = maps:put(JobId,SimAction,State#simengine_state.sim_actions),
 											{reply,{ok,JobId},State#simengine_state{ sim_states = maps:put(SimName,
@@ -491,7 +497,8 @@ handle_call({restart,SimName,Attributes,Notification}, _From, State = #simengine
 												status = <<"started">>,
 												completed = <<>>,
 												target_count = length(SimInfo#simulation.nodes),
-												done_count = 0
+												done_count = 0,
+												start_os_time = os:system_time()
 											},
 											NewActions = maps:put(JobId,SimAction,State#simengine_state.sim_actions),
 											{reply,{ok,JobId},State#simengine_state{ sim_states = maps:put(SimName,
@@ -570,7 +577,8 @@ handle_info({ SimName,Node,MsgType,TimeStamp,JobId}=_Msg, State = #simengine_sta
 					SimAction#sim_action{ target_count = NewCount,
 					                      done_count = NewCount,
 					                      completed = list_to_binary(calendar:system_time_to_rfc3339(erlang:system_time(second))) ,
-					                      status = <<"completed">> };
+					                      status = <<"completed">>,
+																end_os_time = os:system_time()};
 				false ->
 					SimAction#sim_action{ done_count = NewCount}
 			end,
@@ -801,7 +809,8 @@ sim_action_to_json(SimAction)->
 			completed => SimAction#sim_action.completed,
 			parameters => [Parameters],
 			done_count => SimAction#sim_action.done_count,
-			target_count => SimAction#sim_action.target_count
+			target_count => SimAction#sim_action.target_count,
+			execution_ms => (SimAction#sim_action.end_os_time-SimAction#sim_action.end_os_time) div 1000000
 	}).
 
 

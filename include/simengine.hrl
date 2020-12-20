@@ -30,7 +30,9 @@
 	created = <<>> :: binary(),
 	done_count = 0 :: integer(),
 	target_count :: integer(),
-	completed = <<>>}).
+	completed = <<>> :: binary(),
+	start_os_time = 1 :: pos_integer(),
+	end_os_time = 1 :: pos_integer()}).
 
 -type simulation()::#simulation{}.
 -type sim_action()::#sim_action{}.

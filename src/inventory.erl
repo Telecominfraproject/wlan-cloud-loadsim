@@ -674,7 +674,7 @@ create_client(CAInfo,Attributes)->
 			serial = Serial,
 			bands = Bands,
 			wifi_clients = gen_wlan_clients(Bands),
-			lan_clients = gen_lan_clients(),
+			lan_clients = gen_lan_clients([<<"eth0">>,<<"eth1">>]),
 			key = ClientKeyPemData,
 			cert = ClientCertPemData,
 			decrypt = ClientKeyDecData,
@@ -695,11 +695,11 @@ gen_client(OUI)->
 	[X1,X2,X3,X4,X5,X6] = lists:flatten(string:pad(integer_to_list(rand:uniform(1 bsl 24),16),6,leading,$0)),
 	list_to_binary(string:to_lower([A1,A2,$:,A3,A4,$:,A5,A6,$:,X1,X2,$:,X3,X4,$:,X5,X6])).
 
-gen_lan_clients() ->
-	gen_lan_clients([<<"eth0">>,<<"eth1">>],1,[]).
+gen_lan_clients(Ports) ->
+	gen_lan_clients(Ports,1,[]).
 
 gen_lan_clients([],_,Acc)->
-	lists:sort(Acc);
+	Acc;
 gen_lan_clients([Port|T],Index,Acc)->
 	Count = rand:uniform(4)+2,
 	gen_lan_clients(T,Index+Count,[generate_lan_tuples(Index,Count,Port,[])|Acc]).
@@ -715,7 +715,7 @@ generate_lan_tuples(Index,Count,Port,Acc)->
 gen_wlan_clients(Bands)->
 	gen_wlan_clients(Bands,1,[]).
 gen_wlan_clients([],_,Acc)->
-	lists:sort(Acc);
+	Acc;
 gen_wlan_clients([Band|T],Index,Acc)->
 	FakeSSID = list_to_binary(animals:get_an_animal()),
 	Count = rand:uniform(6)+2,

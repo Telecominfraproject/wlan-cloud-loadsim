@@ -88,17 +88,6 @@ monitor_result (T,NewRows,OldRows) ->
 	L = [F(X) || X <- NewRows],
 	#{T => maps:from_list(L)}.
 
-
-dump_data(FileName,Data)->
-	case filelib:is_file("keep-dhcp-traces") of
-		true ->
-			{ok,IoDev}=file:open(FileName,[append]),
-			io:fwrite(IoDev,"~s~n~n~n",[Data]),
-			_=file:close(IoDev);
-		false ->
-			ok
-	end.
-
 -spec publish_monitor (NameSpace :: binary(), Data :: #{binary()=>term()}) -> ok.
 publish_monitor (NameSpace,Data) ->
 	RPC = #{
@@ -147,7 +136,6 @@ publish_unpublished (Store) ->
 	[ets:delete_object(Store,X) || X <- ToPublish],
 	ets:insert(Store,N).
 
-
 -spec refresh_publications (Store::ets:tid()) -> ok.
 refresh_publications (Store) ->
 	ToPublish = ets:match_object(Store,#monitors{modify=true, _='_'}),
@@ -157,6 +145,19 @@ refresh_publications (Store) ->
 			P#monitors{published=true}
 		end,
 	[F(X) || X <- ToPublish].
+
+-spec dump_data(FileName::string(),Data::binary())->ok.
+dump_data(FileName,Data)->
+	case filelib:is_file("keep-dhcp-traces") of
+		true ->
+			{ok,IoDev}=file:open(FileName,[append]),
+			io:fwrite(IoDev,"~s~n~n~n",[Data]),
+			_=file:close(IoDev),
+			ok;
+		false ->
+			ok
+	end.
+
 
 
 

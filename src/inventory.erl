@@ -699,7 +699,7 @@ gen_lan_clients() ->
 	gen_lan_clients([<<"eth0">>,<<"eth1">>],1,[]).
 
 gen_lan_clients([],_,Acc)->
-	Acc;
+	lists:sort(Acc);
 gen_lan_clients([Port|T],Index,Acc)->
 	Count = rand:uniform(4)+2,
 	gen_lan_clients(T,Index+Count,[generate_lan_tuples(Index,Count,Port,[])|Acc]).
@@ -715,7 +715,7 @@ generate_lan_tuples(Index,Count,Port,Acc)->
 gen_wlan_clients(Bands)->
 	gen_wlan_clients(Bands,1,[]).
 gen_wlan_clients([],_,Acc)->
-	Acc;
+	lists:sort(Acc);
 gen_wlan_clients([Band|T],Index,Acc)->
 	FakeSSID = list_to_binary(animals:get_an_animal()),
 	Count = rand:uniform(6)+2,

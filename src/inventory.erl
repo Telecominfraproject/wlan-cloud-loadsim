@@ -699,13 +699,13 @@ gen_lan_clients(Ports) ->
 	gen_lan_clients(Ports,1,[]).
 
 gen_lan_clients([],_,Acc)->
-	Acc;
+	lists:flatten(Acc);
 gen_lan_clients([Port|T],Index,Acc)->
 	Count = rand:uniform(4)+2,
 	gen_lan_clients(T,Index+Count,[generate_lan_tuples(Index,Count,Port,[])|Acc]).
 
 generate_lan_tuples(_Index,0,_Port,Acc)->
-	Acc;
+	lists:flatten(Acc);
 generate_lan_tuples(Index,Count,Port,Acc)->
 	OUI = oui_server:get_an_oui(),
 	FakeMAC = gen_client(binary_to_list(OUI)),
@@ -715,14 +715,14 @@ generate_lan_tuples(Index,Count,Port,Acc)->
 gen_wlan_clients(Bands)->
 	gen_wlan_clients(Bands,1,[]).
 gen_wlan_clients([],_,Acc)->
-	Acc;
+	lists:flatten(Acc);
 gen_wlan_clients([Band|T],Index,Acc)->
 	FakeSSID = list_to_binary(animals:get_an_animal()),
 	Count = rand:uniform(6)+2,
 	gen_wlan_clients(T,Index+Count,[generate_wlan_tuples(Index,Count,Band,FakeSSID,[])|Acc]).
 
 generate_wlan_tuples(_Index,0,_Band,_FakeSSID,Acc)->
-	Acc;
+	lists:flatten(Acc);
 generate_wlan_tuples(Index,Count,Band,FakeSSID,Acc)->
 	OUI = oui_server:get_an_oui(),
 	FakeMAC = gen_client(binary_to_list(OUI)),

@@ -91,34 +91,17 @@ paths:
       operationId: getNodeList
       parameters:
         - in: query
-          description: Pagination start (starts at 1. If not specified, 1 is assumed)
-          name: offset
+          description: Detailed version. This includes all the nodes and all the parameters.
+          name: format
           schema:
-            type: integer
-          required: false
-        - in: query
-          description: Maximum number of entries to return (if absent, no limit is assumed) 
-          name: limit
-          schema:
-            type: integer
-          required: false
-        - in: query
-          description: Filter the results
-          name: filter
-          schema:
-            type: string
-          required: false
-        - in: query
-          description: Detailed version
-          name: details
-          schema:
-            type: integer
-          required: false
-        - in: query
-          description: Detailed version
-          name: types
-          schema:
-            type: integer
+            oneOf:
+              - detailed
+                description: Show all nodes and all information about each node.
+              - nodes
+                description: Show only the nodes that are simulation nodes (exclude managers and monitors)
+                default: true
+              - simple
+                description: Show all the node names
           required: false
       responses:
         200:

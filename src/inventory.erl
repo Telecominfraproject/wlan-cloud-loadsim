@@ -665,8 +665,7 @@ create_client(CAInfo,Attributes)->
 
 		WiFiClients = lists:sort(lists:flatten(gen_wlan_clients(Bands))),
 		LanClients = lists:sort(lists:flatten(gen_lan_clients([<<"eth0">>,<<"eth1">>]))),
-
-		io:format(">>>~p~n",[WiFiClients]),
+		%% io:format(">>>~p~n",[WiFiClients]),
 
 		[X1a,X1b,$:,X2a,X2b,$:,X3a,X3b,$:,X4a,X4b,$:,X5a,X5b,$:,X6a,_X6b] = string:to_lower(binary_to_list(Mac)),
 		Client = #client_info{

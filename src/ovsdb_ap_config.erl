@@ -17,10 +17,10 @@
 %% types and specifications
 
 -record (cfg, {
-	ca_name :: string() | binary(),
-	redirector :: binary(),
-	serial :: binary(),
-	id :: binary(),
+	ca_name   = <<>> :: string() | binary(),
+	redirector= <<>> :: binary(),
+	serial    = <<>> :: binary(),
+	id        = <<>> :: binary(),
 	store_ref :: ets:tid(),
 	cacert    = <<>> :: binary(),		% pem file (in memory) of the server certificate chain
 	cert      = <<>> :: binary(),
@@ -228,7 +228,7 @@ create_radio_tables(APC,Store)->
 									channel = get_default_channel(Band),
 									tx_power = 18,
 									ht_mode = <<"HT80">>,
-									hw_mode = <<"11ac">>,
+									hw_mode = get_hw_mode(Band),
 									enabled = true,
 									freq_band = Band
 								}), N+1
@@ -250,91 +250,7 @@ create_VIF_tables(APC,Store)->
 		'_version' = [<<"uuid">>,utils:uuid_b()]
 	}).
 
-%%------------------------------------------------------------------------------
-%% table creation
--spec create_table (Table :: atom(), AP_Config :: [{atom(),term()}], Store :: ets:tid()) -> true.
-create_table ('Wifi_Radio_State',APC,Store) ->
-	ets:insert(Store, #'Wifi_Radio_State'{
-		'**key_id**' = utils:uuid_b(),
-		if_name = <<"radio0">>,
-		mac = modify_mac(proplists:get_value(wan_mac,APC),0),
-		bcn_int = 100,
-		allowed_channels = [<<"set">>,get_allowed_channels(<<"5GU">>)],
-		radio_config = [<<"uuid">>,<<"830bd195-7114-4e99-9b51-5622e47ce221">>],
-		vif_states = [<<"set">>,[]], % [<<"uuid">>,<<"87f75538-67d0-408a-9c8b-018665754d48">>],
-		country = <<"US">>,
-		radar = [<<"map">>,[]],
-		tx_chainmask = 3,
-		channel = get_default_channel(<<"5GU">>),
-		tx_power = 18,
-		ht_mode = <<"HT80">>,
-		hw_mode = get_hw_mode(<<"5GU">>),
-		enabled = true,
-		'_version' = [<<"uuid">>,<<"c325d603-ac42-43b5-a2e0-0b65c73888c6">>],
-		freq_band = <<"5GU">>
-	}),
-	ets:insert(Store, #'Wifi_Radio_State' {
-		'**key_id**' = utils:uuid_b(),
-		if_name = <<"radio1">>,
-		mac = modify_mac(proplists:get_value(wan_mac,APC),1),
-		bcn_int = 100,
-		allowed_channels = [<<"set">>,get_allowed_channels(<<"2.4G">>)],
-		radio_config = [<<"uuid">>,<<"fb11d840-cbe9-4e32-9744-ebcda9162e52">>],
-		vif_states = [<<"set">>,[]],
-		hw_config = [<<"map">>,[]],
-		country = <<"US">>,
-		radar = [<<"map">>,[]],
-		tx_chainmask = 3,
-		channel = get_default_channel(<<"2.4G">>),
-		tx_power = 18,
-		ht_mode = <<"HT80">>,
-		hw_mode = get_hw_mode(<<"2.4G">>),
-		enabled = true,
-		'_version' = [<<"uuid">>,<<"0b76545e-c106-41d4-aed2-3d89812f3a11">>],
-		freq_band = <<"2.4G">>
-	}),
-	ets:insert(Store, #'Wifi_Radio_State'{
-		'**key_id**' = utils:uuid_b(),
-		if_name = <<"radio2">>,
-		mac = modify_mac(proplists:get_value(wan_mac,APC),2),
-		bcn_int = 100,
-		allowed_channels = [<<"set">>,get_allowed_channels(<<"5GL">>)],
-		radio_config = [<<"uuid">>,<<"94f9b810-8c71-4961-a9c0-7f3a96869368">>],
-		vif_states = [<<"set">>,[]],
-		country = <<"US">>,
-		radar = [<<"map">>,[]],
-		tx_chainmask = 3,
-		channel = get_default_channel(<<"5GL">>),
-		tx_power = 18,
-		ht_mode = <<"HT80">>,
-		hw_mode = get_hw_mode(<<"5GL">>),
-		enabled = true,
-		'_version' = [<<"uuid">>,<<"86116d0d-19fc-47db-be17-8eac2ff9bda7">>],
-		freq_band = <<"5GL">>
-	});
-
-create_table ('Wifi_Radio_Config',_APC,Store) ->
-	ets:insert(Store, #'Wifi_Radio_Config'{
-		'**key_id**' = <<"830bd195-7114-4e99-9b51-5622e47ce221">>,
-		'_uuid' = [<<"uuid">>, <<"830bd195-7114-4e99-9b51-5622e47ce221">>],
-		freq_band = <<"5GU">>,
-		if_name = <<"radio0">>
-
-	}),
-	ets:insert(Store, #'Wifi_Radio_Config'{
-		'**key_id**' = <<"94f9b810-8c71-4961-a9c0-7f3a96869368">>,
-		'_uuid' = [<<"uuid">>, <<"94f9b810-8c71-4961-a9c0-7f3a96869368">>],
-		freq_band = <<"5GL">>,
-		if_name = <<"radio2">>
-	}),
-	ets:insert(Store, #'Wifi_Radio_Config'{
-		'**key_id**' = <<"fb11d840-cbe9-4e32-9744-ebcda9162e52">>,
-		'_uuid' = [<<"uuid">>, <<"fb11d840-cbe9-4e32-9744-ebcda9162e52">>],
-		freq_band = <<"2.4G">>,
-		if_name = <<"radio1">>
-	});
-
-create_table ('Wifi_Inet_State',APC,Store) -> 
+create_table ('Wifi_Inet_State',APC,Store) ->
 	ets:insert(Store, #'Wifi_Inet_State'{
 		'**key_id**' = utils:uuid_b(),
 		if_name= <<"wwan">>,
@@ -440,36 +356,7 @@ create_table ('Wifi_Inet_Config',APC,Store) ->
 		inet_addr = proplists:get_value(lan_addr,APC)
 	});
 
-create_table ('Wifi_RRM_Config',_APC,Store) ->
-	ets:insert(Store,#'Wifi_RRM_Config'{
-		'**key_id**' = <<"d1f9874c-d8e7-4426-9d70-c856c4dc6126">>,
-		'_version' = [<<"uuid">>,<<"9bbd18e7-ed7e-4ff3-b89d-a54c12b27ed7">>],
-		freq_band = <<"2.4G">>,
-		min_load = 50,
-		'_uuid' = [<<"uuid">>,<<"d1f9874c-d8e7-4426-9d70-c856c4dc6126">>],
-		backup_channel = 11,
-		snr_percentage_drop = 20
-	}),
-	ets:insert(Store,#'Wifi_RRM_Config'{
-		'**key_id**' = <<"8cf973a6-a268-4de4-9bf2-5f7d9222f806">>,
-		'_version' = [<<"uuid">>,<<"9bbd18e7-ed7e-4ff3-b89d-a54c12b27ed7">>],
-		freq_band = <<"5GL">>,
-		min_load = 40,
-		'_uuid' = [<<"uuid">>,<<"8cf973a6-a268-4de4-9bf2-5f7d9222f806">>],
-		backup_channel = 44,
-		snr_percentage_drop = 30
-	}),
-	ets:insert(Store,#'Wifi_RRM_Config'{
-		'**key_id**' = <<"844deb01a-a2a8-4b5b-a2be-0bdf04050b97">>,
-		'_version' = [<<"uuid">>,<<"9bbd18e7-ed7e-4ff3-b89d-a54c12b27ed7">>],
-		freq_band = <<"5GU">>,
-		min_load = 40,
-		'_uuid' = [<<"uuid">>,<<"844deb01a-a2a8-4b5b-a2be-0bdf04050b97">>],
-		backup_channel = 154,
-		snr_percentage_drop = 30
-	});
-
-create_table ('Wifi_Associated_Clients',APC,Store) -> 
+create_table ('Wifi_Associated_Clients',APC,Store) ->
 	%io:format("CONFIGURED WIFI CLIENTS:~n~p~n",[proplists:get_value(wifi_clients,APC)]),
 	lists:foldl( fun(MAC,A)->
 									ets:insert(Store, #'Wifi_Associated_Clients'{
@@ -512,39 +399,6 @@ create_table ('DHCP_leased_IP',APC,Store) ->
 									N+1
 								end,1,proplists:get_value(wifi_clients,APC));
 
-create_table ('Wifi_Stats_Config',_APC,Store) ->
-	ets:insert(Store, #'Wifi_Stats_Config'{
-		'**key_id**' = <<"f84b6834-80d6-4fd6-af73-98e3f4f96033">>,
-		'_uuid' = [<<"uuid">>,<<"f84b6834-80d6-4fd6-af73-98e3f4f96033">>],
-		radio_type = <<"2.4G">>
-
-	}),
-	ets:insert(Store, #'Wifi_Stats_Config'{
-		'**key_id**' = <<"682166f4-8d40-47b9-8ddc-827940cae8ef">>,
-		'_uuid' = [<<"uuid">>,<<"682166f4-8d40-47b9-8ddc-827940cae8ef">>],
-		radio_type = <<"5GL">>
-
-	}),
-	ets:insert(Store, #'Wifi_Stats_Config'{
-		'**key_id**' = <<"21b32c56-5011-455c-9c7c-c58b9d43d583">>,
-		'_uuid' = [<<"uuid">>,<<"21b32c56-5011-455c-9c7c-c58b9d43d583">>],
-		radio_type = <<"5GU">>
-	});
-
-create_table ('Wifi_VIF_Config',APC,Store) ->
-	ets:insert(Store,#'Wifi_VIF_Config'{
-		'**key_id**' = <<"21b32c56-5011-455c-9c7c-c58b9d43d583">>,
-		ssid = proplists:get_value(ssid,APC)
-	});
-
-create_table ('Wifi_VIF_State',APC,Store) ->
-	ets:insert(Store,#'Wifi_VIF_State'{
-		'**key_id**' = utils:uuid_b(),
-		mac = proplists:get_value(wan_mac,APC),
-		associated_clients = [<<"set">>,proplists:get_value(wifi_clients,APC)],
-		vif_config = [<<"uuid">>,<<"21b32c56-5011-455c-9c7c-c58b9d43d583">>],
-		ssid = proplists:get_value(ssid,APC)
-	});
 
 create_table ('AWLAN_Node',APC,Store) ->
 	HW = proplists:get_value(hardware,APC),

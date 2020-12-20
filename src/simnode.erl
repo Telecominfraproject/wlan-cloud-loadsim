@@ -110,11 +110,10 @@ start_link(Config) ->
 
 %% @private
 %% @doc Initializes the server
--spec init(Args :: proplists:proplist()) -> {ok, State :: #simnode_state{}}.
-	%%| {ok, State :: #simnode_state{}, timeout() | hibernate} |
-	%%{stop, Reason :: term()} | ignore).
+-spec init(Args :: proplists:proplist()) -> {ok, State :: #simnode_state{}} |
+	{ok, State :: #simnode_state{}, timeout() | hibernate} |
+	{stop, Reason :: term()} | ignore.
 init([Config]) ->
-	_=utils:priv_dir(),
 	{ ok, #simnode_state{ node_id = utils:app_env(node_id,1),
 		                    ap_client_handler = proplists:get_value(ap_client,Config,undefined),
 		                    mqtt_server_handler = proplists:get_value(mqtt_server,Config,undefined),

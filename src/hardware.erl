@@ -203,5 +203,6 @@ convert_list(["BAND5GU" | Tail], R)->
 convert_list([ _ | Tail], R)->
 	convert_list(Tail,R).
 
+%% hardware_to_json(HW) ->
 
 

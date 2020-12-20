@@ -92,6 +92,8 @@ resource_exists(Req, #request_state{ method = ?HTTP_GET, resource = <<"vendors">
 	{ true , Req , State };
 resource_exists(Req, #request_state{ method = ?HTTP_GET, resource = <<"actions">>, id=nothing }=State) ->
 	{ true , Req , State };
+resource_exists(Req, #request_state{ method = ?HTTP_GET, resource = <<"hardware_definitions">>, id=nothing }=State) ->
+	{ true , Req , State };
 resource_exists(Req, #request_state{ method = ?HTTP_GET, resource = <<"simulations">>, id=nothing, subres = nothing }=State) ->
 	{ true , Req , State };
 

@@ -35,6 +35,7 @@ gen_report(RawStartTime,ClientInfo,MacStats)->
 	                neighbors = gen('Neighbor',TimeStamp),
 	                clients = gen('ClientReport',ClientInfo#client_info.wan_mac0,
 	                              ClientInfo#client_info.lan_clients,
+		                            ClientInfo#client_info.bands,
 	                              ClientInfo#client_info.wifi_clients,TimeStamp,StartTime,MacStats),
 	                survey = gen('Survey',TimeStamp)
 	},
@@ -150,21 +151,29 @@ gen('Survey',TimeStamp)->
 		undefined,undefined,undefined,14007260,undefined,154}],
 		[],'RAW'}].
 
--spec gen(atom(),binary(),[binary()],[{atom(),[binary()]}],integer(),integer(), #{ MAC::binary() => #'Client.Stats'{} })->any().
-gen('ClientReport',_MAC,_LANClients,MACSSIDList,TimeStamp,StartTime,MacStats)->
-	WanClients = lists:foldl(fun({Band,SSID,WiFiMACs},A) ->
-		[gen_client_report_for_band(TimeStamp,Band,WiFiMACs,SSID,StartTime,MacStats)|A]
-	            end,[],MACSSIDList),
+-spec gen(ReportType::atom(),
+          WANMac::binary(),
+          LANClients::[lan_client()],
+					Bands::[atom()],
+          WiFiClients::[wifi_client()],
+          TimeStamp::integer(),
+          StartTime::integer(),
+          #{ MAC::binary() => #'Client.Stats'{} })->any().
+gen('ClientReport',_WanMAC,_LANClients,Bands,WiFiClients,TimeStamp,StartTime,MacStats)->
+	WanClients = lists:foldl(fun(CurrentBand,A) ->
+															BandMacs = [ {MAC,SSID} || {_Index,Band,SSID,MAC,_Vendor} <- WiFiClients, Band == CurrentBand ],
+															[gen_client_report_for_band(TimeStamp,CurrentBand,BandMacs,StartTime,MacStats)|A]
+	            end,[],Bands),
 	WanClients.
 
-gen_client_report_for_band(TimeStamp,Band,MACs,SSID,StartTime,MacStats)->
+gen_client_report_for_band(TimeStamp,Band,BandMACs,StartTime,MacStats)->
  #'ClientReport'{
 	'band' = Band,
 	timestamp_ms = TimeStamp,
 	channel = rand:uniform(16),
-	client_list = lists:foldl(fun(E,A) ->
-			[gen_client_report_unique_client(E,SSID,TimeStamp,StartTime,MacStats)|A]
-		end,[],MACs)}.
+	client_list = lists:foldl(fun({MAC,SSID},A) ->
+			[gen_client_report_unique_client(MAC,SSID,TimeStamp,StartTime,MacStats)|A]
+		end,[],BandMACs)}.
 
 gen_client_report_unique_client(Mac,SSID,TimeStamp,StartTime,MacStats)->
 	#'Client'{
@@ -177,17 +186,4 @@ gen_client_report_unique_client(Mac,SSID,TimeStamp,StartTime,MacStats)->
 		stats = maps:get(Mac,MacStats)
 	}.
 
-%%get_stats(TimeStamp,StartTime,MacStats)->
-%%	Up = ((TimeStamp-StartTime) div 1000),  %% this give me the number of seconds this device has been up...
-%%	#'Client.Stats'{
-%%		rx_bytes = Up * (rand:uniform(20000)+10000) ,
-%%		tx_bytes = Up * (rand:uniform(10000)+5000) ,
-%%		rx_frames = (Up * (rand:uniform(100)+20)),
-%%		tx_frames = (Up * (rand:uniform(30)+10)),
-%%		tx_retries = rand:uniform(50),
-%%		rx_retries = rand:uniform(20),
-%%		rx_rate = (rand:uniform(40) / rand:uniform(30)) * 20000.0,
-%%		tx_rate = (rand:uniform(40) / rand:uniform(30)) * 5000.0,
-%%		rssi = -1 * (rand:uniform(20)+15)
-%%	}.
 

@@ -304,7 +304,7 @@
 	module,           %% where should I get the functions: ssl or gen_tcp
 	socket,
 	stats = #mqtt_connection_stats{} :: mqtt_connection_stats(),
-	version = undefined :: undefined | integer() }).
+	version = ?MQTT_PROTOCOL_VERSION_3_11 :: ?MQTT_PROTOCOL_VERSION_3_11 | ?MQTT_PROTOCOL_VERSION_5 }).
 
 -record( mqtt_pingreq_variable_header_v4, { time }).
 -record( mqtt_pingreq_variable_header_v5, { time }).

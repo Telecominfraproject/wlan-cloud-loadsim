@@ -16,7 +16,7 @@
 simple_test() ->
 	?assert(true).
 
-connection_packet_encoding_decoding_test() ->
+connection_packet_encoding_decodingV5_test() ->
 	?DBGTRC("Starting"),
 	PacketVariableHeader = #mqtt_connect_variable_header{
 		protocol_version = ?MQTT_PROTOCOL_VERSION_5,
@@ -42,6 +42,28 @@ connection_packet_encoding_decoding_test() ->
 	Msg = #mqtt_msg{ packet_type = ?MQTT_CONNECT , variable_header = PacketVariableHeader },
 	Blob = mqtt_message:encode(Msg),
 	{ ok, Decoded } = mqtt_message:decode(Blob,?MQTT_PROTOCOL_VERSION_5),
+	?assert( Decoded#mqtt_msg.variable_header == PacketVariableHeader ).
+
+connection_packet_encoding_decodingV4_test() ->
+	?DBGTRC("Starting"),
+	PacketVariableHeader = #mqtt_connect_variable_header{
+		protocol_version = ?MQTT_PROTOCOL_VERSION_3_11,
+		username_flag = 1 ,
+		password_flag = 1,
+		username = <<"Stephb">>,
+		password = <<"1234567890">>,
+		will_flag = 1,
+		will_qos_flag = 1,
+		keep_alive = 60,
+		client_identifier = <<"test_device_1">>,
+		will_topic = <<"topics/a">>,
+		will_message = <<>>,
+		clean_start_flag = 1,
+		will_payload = <<"will payload">>
+	},
+	Msg = #mqtt_msg{ packet_type = ?MQTT_CONNECT , variable_header = PacketVariableHeader },
+	Blob = mqtt_message:encode(Msg),
+	{ ok, Decoded } = mqtt_message:decode(Blob,?MQTT_PROTOCOL_VERSION_3_11),
 	?assert( Decoded#mqtt_msg.variable_header == PacketVariableHeader ).
 
 connack_packet_encoding_decoding_test()->

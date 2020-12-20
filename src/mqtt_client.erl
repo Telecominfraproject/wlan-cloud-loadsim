@@ -159,7 +159,7 @@ manage_connection(Socket,CS) ->
 			CI = CS#client_state.details,
 			?L_IA("MQTT(~p): Setting SSID to ~p.",[CI#client_info.serial,SSID]),
 			WifiClients = CI#client_info.wifi_clients,
-			NewWifiClients = [{Band,SSID,Clients} || {Band,_,Clients} <- WifiClients],
+			NewWifiClients = [{Index,Band,SSID,MAC,Vendor} || {Index,Band,_,MAC,Vendor} <- WifiClients],
 			NewCI = CI#client_info{ wifi_clients = NewWifiClients},
 			manage_connection(Socket,CS#client_state{ details = NewCI });
 		{dump_client,all}->
@@ -245,8 +245,8 @@ t2()->
 
 -spec prepare_mac_stats( CI::client_info()) -> #{ MAC::binary() => Stats::#'Client.Stats'{} }.
 prepare_mac_stats(CI)->
-	M1 = [ X || { _Port, X } <- CI#client_info.lan_clients],
-	M2 = [ X || { _,_,X } <- CI#client_info.wifi_clients],
+	M1 = [ MAC || { _Index, _Port,MAC } <- CI#client_info.lan_clients],
+	M2 = [ MAC || { _,_Band,_SSID,MAC,_Vendor } <- CI#client_info.wifi_clients],
 	M = lists:flatten(M1 ++ M2),
 	MacStats = lists:foldl( fun(E,A)->
 														maps:put(E,#'Client.Stats'{		rx_bytes = 0 ,

@@ -673,8 +673,8 @@ create_client(CAInfo,Attributes)->
 			id = HardwareId,
 			serial = Serial,
 			bands = Bands,
-			wifi_clients = gen_wan_clients(Bands),
-			lan_clients = [{<<"lan0">>,gen_lan_clients()}],
+			wifi_clients = gen_wlan_clients(Bands),
+			lan_clients = gen_lan_clients(),
 			key = ClientKeyPemData,
 			cert = ClientCertPemData,
 			decrypt = ClientKeyDecData,
@@ -694,19 +694,40 @@ gen_client(OUI)->
 	[A1,A2,A3,A4,A5,A6] = OUI,
 	[X1,X2,X3,X4,X5,X6] = lists:flatten(string:pad(integer_to_list(rand:uniform(1 bsl 24),16),6,leading,$0)),
 	list_to_binary(string:to_lower([A1,A2,$:,A3,A4,$:,A5,A6,$:,X1,X2,$:,X3,X4,$:,X5,X6])).
-gen_clients(0,Acc)->
-	Acc;
-gen_clients(Number,Acc)->
-	OUI=binary_to_list(oui_server:get_an_oui()),
-	gen_clients(Number-1,[gen_client(OUI)|Acc]).
+
 gen_lan_clients() ->
-	gen_clients(rand:uniform(8),[]).
-gen_wan_clients(Bands)->
-	gen_wlan_clients(Bands,[]).
-gen_wlan_clients([],Acc)->
+	gen_lan_clients([<<"eth0">>,<<"eth1">>],1,[]).
+
+gen_lan_clients([],_,Acc)->
 	Acc;
-gen_wlan_clients([Band|T],Acc)->
-	gen_wlan_clients(T,[{Band,list_to_binary(animals:get_an_animal()),gen_lan_clients()}|Acc]).
+gen_lan_clients([Port|T],Index,Acc)->
+	Count = rand:uniform(4)+2,
+	gen_lan_clients(T,Index+Count,[generate_lan_tuples(Index,Count,Port,[])|Acc]).
+
+generate_lan_tuples(_Index,0,_Port,Acc)->
+	Acc;
+generate_lan_tuples(Index,Count,Port,Acc)->
+	OUI = oui_server:get_an_oui(),
+	FakeMAC = gen_client(binary_to_list(OUI)),
+	{ ok, FakeVendor } = oui_server:lookup_oui(OUI),
+	generate_lan_tuples(Index+1,Count-1,Port,[{Index,Port,FakeMAC,FakeVendor}|Acc]).
+
+gen_wlan_clients(Bands)->
+	gen_wlan_clients(Bands,1,[]).
+gen_wlan_clients([],_,Acc)->
+	Acc;
+gen_wlan_clients([Band|T],Index,Acc)->
+	FakeSSID = list_to_binary(animals:get_an_animal()),
+	Count = rand:uniform(6)+2,
+	gen_wlan_clients(T,Index+Count,[generate_wlan_tuples(Index,Count,Band,FakeSSID,[])|Acc]).
+
+generate_wlan_tuples(_Index,0,_Band,_FakeSSID,Acc)->
+	Acc;
+generate_wlan_tuples(Index,Count,Band,FakeSSID,Acc)->
+	OUI = oui_server:get_an_oui(),
+	FakeMAC = gen_client(binary_to_list(OUI)),
+  { ok, FakeVendor } = oui_server:lookup_oui(OUI),
+	generate_wlan_tuples(Index+1,Count-1,Band,FakeSSID,[{Index,Band,FakeSSID,FakeMAC,FakeVendor}|Acc]).
 
 generate_client_batch(CAInfo,Start,HowMany,Attributes,Notification,State)->
 	#{ id := HardwareId } = Attributes,

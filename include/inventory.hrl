@@ -36,8 +36,8 @@
 -type client_role() :: none | mqtt_client | ovsdb_client.
 
 -type wifi_band() :: 'BAND2G' | 'BAND5G' | 'BAND5GL' | 'BAND5GU' | undefined.
--type wifi_client() :: { Band::wifi_band(), SSID::binary(), [ MAC::binary()] }. %% MAC is XX:XX:XX:XX:XX:XX lowercase
--type lan_client() :: { Port::binary(), [ MAC::binary() ]}.  %% MAC is XX:XX:XX:XX:XX:XX lowercase
+-type wifi_client() :: { Index::non_neg_integer(), Band::wifi_band(), SSID::binary(), MAC::binary(), VendorClass:: binary() }. %% MAC is XX:XX:XX:XX:XX:XX lowercase
+-type lan_client() :: { Index::non_neg_integer(), Port::binary(), MAC::binary(), VendorClass::binary() }.  %% MAC is XX:XX:XX:XX:XX:XX lowercase
 
 -record( client_info, {
 	name = <<>> :: binary(),

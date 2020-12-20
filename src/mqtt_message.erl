@@ -331,7 +331,7 @@ encode(#mqtt_msg{}=Msg)->
 	<<Command:4,Flags:4,Length/binary,Blob/binary>>.
 
 -spec inner_encode( Msg::mqtt_msg_any() ) ->  { integer(), integer(), binary() }.
-inner_encode( #mqtt_connect_variable_header{} = Header )->
+inner_encode( #mqtt_connect_variable_header{ protocol_version = ?MQTT_PROTOCOL_VERSION_3_11 } = Header )->
 	Flags = <<(Header#mqtt_connect_variable_header.username_flag):1,
 		(Header#mqtt_connect_variable_header.password_flag):1,
 		(Header#mqtt_connect_variable_header.will_retain_flag):1,
@@ -352,20 +352,40 @@ inner_encode( #mqtt_connect_variable_header{} = Header )->
 								          (mqttlib:enc_binary(Header#mqtt_connect_variable_header.will_message))/binary>>;
 								false -> <<>>
 	            end,
-	Payload = case Header#mqtt_connect_variable_header.protocol_version of
-		          ?MQTT_PROTOCOL_VERSION_5 ->
-			          << (mqttlib:enc_string(Header#mqtt_connect_variable_header.client_identifier))/binary,
+	Payload = << (mqttlib:enc_string(Header#mqtt_connect_variable_header.client_identifier))/binary,
+	             WillTopic/binary,
+	             UserNamePayload/binary,
+	             UserPasswordPayload/binary>>,
+	Blob = <<0:8,4:8,$M,$Q,$T,$T,?MQTT_PROTOCOL_VERSION_3_11,Flags/binary,(Header#mqtt_connect_variable_header.keep_alive):16,Payload/binary>>,
+	{?MQTT_CONNECT, 0, Blob};
+
+inner_encode( #mqtt_connect_variable_header{ protocol_version = ?MQTT_PROTOCOL_VERSION_5 } = Header )->
+	Flags = <<(Header#mqtt_connect_variable_header.username_flag):1,
+	          (Header#mqtt_connect_variable_header.password_flag):1,
+	          (Header#mqtt_connect_variable_header.will_retain_flag):1,
+	          (Header#mqtt_connect_variable_header.will_qos_flag):2,
+	          (Header#mqtt_connect_variable_header.will_flag):1,
+	          (Header#mqtt_connect_variable_header.clean_start_flag):1,
+	          0:1>>,
+	UserNamePayload = case Header#mqtt_connect_variable_header.username_flag == 1 of
+		                  true -> mqttlib:enc_string(Header#mqtt_connect_variable_header.username);
+		                  false -> <<>>
+	                  end,
+	UserPasswordPayload = case Header#mqtt_connect_variable_header.password_flag==1 of
+		                      true -> mqttlib:enc_binary(Header#mqtt_connect_variable_header.password);
+		                      false -> <<>>
+	                      end,
+	WillTopic = case Header#mqtt_connect_variable_header.will_flag == 1 of
+		            true -> <<(mqttlib:enc_string(Header#mqtt_connect_variable_header.will_topic))/binary,
+		                      (mqttlib:enc_binary(Header#mqtt_connect_variable_header.will_message))/binary>>;
+		            false -> <<>>
+	            end,
+	Payload = << (mqttlib:enc_string(Header#mqtt_connect_variable_header.client_identifier))/binary,
 			             (set_properties_section((Header#mqtt_connect_variable_header.will_properties)))/binary,
 			             WillTopic/binary,
 			             UserNamePayload/binary,
-			             UserPasswordPayload/binary>>;
-		          ?MQTT_PROTOCOL_VERSION_3_11 ->
-			          << (mqttlib:enc_string(Header#mqtt_connect_variable_header.client_identifier))/binary,
-			             WillTopic/binary,
-			             UserNamePayload/binary,
-			             UserPasswordPayload/binary>>
-	          end,
-	Blob = <<0:8,4:8,$M,$Q,$T,$T,(Header#mqtt_connect_variable_header.protocol_version):8,Flags/binary,(Header#mqtt_connect_variable_header.keep_alive):16,Payload/binary>>,
+			             UserPasswordPayload/binary>>,
+	Blob = <<0:8,4:8,$M,$Q,$T,$T,?MQTT_PROTOCOL_VERSION_5,Flags/binary,(Header#mqtt_connect_variable_header.keep_alive):16,Payload/binary>>,
 	{?MQTT_CONNECT, 0, Blob};
 
 inner_encode( #mqtt_connack_variable_header_v4{} = Header )->

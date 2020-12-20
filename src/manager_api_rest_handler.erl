@@ -64,19 +64,20 @@ content_types_accepted(Req, State) ->
 is_authorized(Req,#request_state{ method = <<"OPTIONS">> }=State)->
 	{true,Req,State};
 is_authorized(Req, State) ->
-	case restutils:get_access_token_not_secure(Req) of
-		{ok,Token} ->
-			case restutils:validate_token(Token) of
-				true ->
-					{true, Req, State };
-				false ->
-					io:format("Access not granted: token=~p~n",[Token]),
-					{{false, <<"Bearer">>}, Req, State}
-			end;
-    _ ->
-	    io:format("No access.~n"),
-	    {{false, <<"Bearer">>}, Req, State}
-	end.
+	{true,Req,State}.
+%	case restutils:get_access_token_not_secure(Req) of
+%		{ok,Token} ->
+%			case restutils:validate_token(Token) of
+%				true ->
+%					{true, Req, State };
+%				false ->
+%					io:format("Access not granted: token=~p~n",[Token]),
+%					{{false, <<"Bearer">>}, Req, State}
+%			end;
+%   _ ->
+%	    io:format("No access.~n"),
+%	    {{false, <<"Bearer">>}, Req, State}
+%	end.
 
 delete_resource(Req, State) ->
 	{ true , Req , State }.

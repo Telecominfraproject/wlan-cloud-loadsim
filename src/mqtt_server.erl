@@ -64,7 +64,7 @@ listen_loop(Id,ListenSock,ParentPid)->
 		                                                 bytes_left = <<>>,
 		                                                 module = ssl,
 		                                                 socket = Socket,
-		                                                 version = undefined
+		                                                 version = ?MQTT_PROTOCOL_VERSION_3_11
 		                }]),
 		    _=gen_tcp:controlling_process(Socket,Pid),
 		    listen_loop(Id,ListenSock,ParentPid);
@@ -89,7 +89,7 @@ listen_loop_secure(Id,ListenSock,ParentPid)->
                            bytes_left = <<>>,
                            module = ssl,
                            socket = SslSocket,
-                           version = undefined
+                           version = ?MQTT_PROTOCOL_VERSION_3_11
 					    }]),
 					    _=ssl:controlling_process(SslSocket,Pid),
 							listen_loop_secure(Id,ListenSock,ParentPid);

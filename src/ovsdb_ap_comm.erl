@@ -210,7 +210,7 @@ connect_to_server (Host, Port, CAs, Cert, Key,AP) ->
 					{active,once},
 					{recbuf, 250000},
     				{sndbuf, 250000}],
-	io:format(">>>~p: Trying to connect.",[AP]),
+	%% io:format(">>>~p: Trying to connect.",[AP]),
 	?L_I(?DBGSTR("~p: AP connecting to ~s:~B",[AP,Host,Port])),
 	case ssl:connect(Host, Port, Opts) of
 		{ok, Socket} ->

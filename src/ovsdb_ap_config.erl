@@ -47,7 +47,7 @@ new (CAName,Id,Store,Redirector) ->
 configure (#cfg{ca_name=CAName, id=ID, redirector=R}=Config) ->
 	{ok,Info} = inventory:get_client(CAName,ID),
 	SSID = case Info#client_info.wifi_clients of
-		[{_,S,_}|_] ->
+		[{_,_,_,S,_}|_] ->
 			S;
 		_ ->
 			<<"TipWlan-cloud-wifi">>
@@ -428,12 +428,9 @@ create_table ('AWLAN_Node',APC,Store) ->
 	}).
 
 get_all_wifi_macs(Clients)->
-	get_all_wifi_macs(Clients,[]).
-get_all_wifi_macs([],All)->
-	lists:flatten(All);
-get_all_wifi_macs([{_Band,_SSID,Macs}|T],Acc)->
-	get_all_wifi_macs(T,Acc ++ Macs).
-
+	Fl = lists:flatten(Clients),
+	[MAC || {_,_,_,MAC,_} <- Fl].
+	
 convert_band('BAND2G')-> <<"2.4G">>;
 convert_band('BAND5GL')-> <<"5GL">>;
 convert_band('BAND5GU')-> <<"5GU">>.

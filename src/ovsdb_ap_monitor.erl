@@ -12,9 +12,7 @@
 -include("../include/common.hrl").
 -include("../include/ovsdb_ap_tables.hrl").
 
-
- -export ([req_monitor/3,maybe_publish_data/6,publish_unpublished/1,refresh_publications/1]).
-
+-export ([req_monitor/3,maybe_publish_data/6,publish_unpublished/1,refresh_publications/1]).
 
 -spec req_monitor (NameSpace :: binary(), ToMonitor :: [#{binary()=>term()}], Store :: ets:tid()) -> Result :: #{binary()=>term()}.
 req_monitor (NameSpace,[{Table,Operations}|_],Store) ->

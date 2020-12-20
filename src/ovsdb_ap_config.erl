@@ -507,7 +507,6 @@ create_table ('DHCP_leased_IP',APC,Store) ->
 										inet_addr = iolist_to_binary(["192.168.1.",integer_to_list(N+1)]),
 										hwaddr = MAC,
 										vendor_class = Vendor,
-										secondary_dns =
 										device_name = iolist_to_binary([NM,".SimClient_",integer_to_list(N+1)])
 									}),
 									N+1

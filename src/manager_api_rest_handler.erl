@@ -482,19 +482,20 @@ validate_name(nodes,[H|T])->
 	end.
 
 make_lan_clients(Clients)->
-	make_lan_clients(Clients,#{}).
+	make_lan_clients(Clients,[]).
 make_lan_clients([],Acc)->
-	Acc;
-make_lan_clients([{Port,Clients}|T],Acc) ->
-	make_lan_clients(T,maps:put(Port,Clients,Acc)).
+	lists:reverse(Acc);
+make_lan_clients([{Index,Port,MAC,Vendor}|T],Acc) ->
+	M = #{ index => Index, port => Port, mac => MAC, vendor => Vendor },
+	make_lan_clients(T,[M|Acc]).
 
 make_wan_clients(Clients)->
-	make_wan_clients(Clients,#{}).
-
+	make_wan_clients(Clients,[]).
 make_wan_clients([],Acc)->
-	Acc;
-make_wan_clients([{Band,_SSID,Clients}|T],Acc)->
-	make_wan_clients(T,maps:put(Band,Clients,Acc)).
+	lists:reverse(Acc);
+make_wan_clients([{Index,Band,SSID,MAC,Vendor}|T],Acc)->
+	M = #{ index => Index, wifiband => Band, ssid => SSID, mac => MAC, vendor => Vendor},
+	make_wan_clients(T,[M|Acc]).
 
 
 

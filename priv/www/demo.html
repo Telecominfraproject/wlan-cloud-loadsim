@@ -62,7 +62,7 @@
 
             <div class="actions">
                 <button class="btn btn-sm btn-secondary"
-                        v-on:click="getCas()">Import CA</button>
+                        v-on:click="loadImportCasForm()">Import CA</button>
                 <button class="btn btn-sm btn-secondary"
                         v-on:click="newSimulation()">Create Simulation</button>
                 <button class="btn btn-sm btn-secondary"
@@ -78,37 +78,79 @@
 
         <div class="col">
 
-            <h2 class="h5">API</h2>
+            <div v-if="importCA">
 
-            <fieldset class="form-grid p-3">
+                <h2 class="h5">Import CA</h2>
 
-                <label class="form-label">Current Simulation</label>
-                <div><select class="form-select form-select-sm" v-model="simulation" v-on:change="selectSimulation()">
-                    <option value=""></option>
-                    <option v-for="(simulation, index) in simulations" :key="index" v-bind:value="simulation">{{ simulation }}</option>
-                </select></div>
+                <fieldset class="form-grid border border-secondary p-3">
 
-            </fieldset>
-            <fieldset class="form-grid border border-secondary p-3">
+                    <label class="form-label">Name</label>
+                    <div><input type="text" class="form-control form-control-sm" v-model="casForm.name"/></div>
 
-                <label class="form-label">Name</label>
-                <div><input type="text" class="form-control form-control-sm" v-model="form.name"/></div>
+                    <label class="form-label">Key File</label>
+                    <div>
+                        <input class="form-control form-control-sm" type="file" ref="keyFile" @change="loadText($event, 'key')">
+                    </div>
 
-                <label class="form-label">CA</label>
-                <div><select class="form-select form-select-sm" v-model="form.caname"><option v-for="(ca, index) in cas" :key="index" v-bind:value="ca">{{ ca }}</option></select></div>
+                    <label class="form-label">Cert File</label>
+                    <div>
+                        <input class="form-control form-control-sm" type="file" ref="certFile" @change="loadText($event, 'cert')">
+                    </div>
 
-                <label class="form-label">Number of Devices</label>
-                <div><input type="number" class="form-control form-control-sm" v-model="form.num_devices" /></div>
+                    <label class="form-label">Password</label>
+                    <div><input type="text" class="form-control form-control-sm" v-model="casForm.password"/></div>
 
-                <label class="form-label">Server Name</label>
-                <div><input type="text" class="form-control form-control-sm" v-model="form.server"/></div>
+                    <div></div>
+                    <div>
+                        <button class="btn btn-secondary btn-sm" v-on:click="saveCA()">Import CA</button>
+                        <button class="btn btn-light btn-sm" v-on:click="loadImportCasForm()">Cancel</button>
+                    </div>
+                    
 
-                <label class="form-label">Port</label>
-                <div><input type="number" class="form-control form-control-sm" v-model="form.port" /></div>
+                </fieldset>
 
-                <button class="btn btn-secondary btn-sm" v-on:click="saveSimulation()">Save</button>
+            </div>
+            <div v-else>
 
-            </fieldset>
+                <h2 class="h5">Simulation</h2>
+
+                <fieldset class="form-grid p-3">
+
+                    <label class="form-label">Current Simulation</label>
+                    <div><select class="form-select form-select-sm" v-model="simulation" v-on:change="selectSimulation()">
+                        <option value=""></option>
+                        <option v-for="(simulation, index) in simulations" :key="index" v-bind:value="simulation">{{ simulation }}</option>
+                    </select></div>
+
+                </fieldset>
+                <fieldset class="form-grid border border-secondary p-3">
+
+                    <label class="form-label">Name</label>
+                    <div><input type="text" class="form-control form-control-sm" v-model="form.name"/></div>
+
+                    <label class="form-label">CA</label>
+                    <div><select class="form-select form-select-sm" v-model="form.caname"><option v-for="(ca, index) in cas" :key="index" v-bind:value="ca">{{ ca }}</option></select></div>
+
+                    <label class="form-label">Number of Devices</label>
+                    <div><input type="number" class="form-control form-control-sm" v-model="form.num_devices" /></div>
+
+                    <label class="form-label">Nodes</label>
+                    <div class="d-grid">
+                        <label class="" v-for="(node, index) in nodesNodes" :key="index">
+                            <input type="checkbox" v-model="form.nodes" :value="node" /> {{ node }}
+                        </label>
+                    </div>
+
+                    <label class="form-label">Server Name</label>
+                    <div><input type="text" class="form-control form-control-sm" v-model="form.server"/></div>
+
+                    <label class="form-label">Port</label>
+                    <div><input type="number" class="form-control form-control-sm" v-model="form.port" /></div>
+
+                    <button class="btn btn-secondary btn-sm" v-on:click="saveSimulation()">Save</button>
+
+                </fieldset>
+            </div>
 
         </div>
 
@@ -172,6 +214,13 @@
                 socketOpen: false,
                 wss: 'ws://localhost:9090/ws',
                 msg: 'Hello World',
+                importCA: false,
+                casForm: {
+                    name: null,
+                    key: null,
+                    cert: null,
+                    password: null,
+                },
                 nodes: null,
                 cas: [],
                 simulations: [],
@@ -267,10 +316,15 @@
                 this.socket.send(this.msg)
             },
 
+            loadImportCasForm: function() {
+                this.importCA = !this.importCA;
+            },
+
             getCas: function() {
                 this.cas = [];
                 this.apiGet('/cas')
-                    .then((data) => {
+                    .then((response) => {
+                        const data = response.data;
                         if( data.Data && data.Data.CAs ) {
                             this.cas = data.Data.CAs;
                         }
@@ -280,7 +334,8 @@
             getNodes: function() {
                 this.nodes = [];
                 this.apiGet('/nodes')
-                    .then((data) => {
+                    .then((response) => {
+                        const data = response.data;
                         if(data.Data && data.Data.HardwareDefinitions) {
                             // expecting array of objects
                             this.nodes = data.Data.HardwareDefinitions[0];
@@ -304,9 +359,7 @@
             newSimulation() {
                 this.simulation = '';
                 this.simulationNew = true;
-                Object.keys(this.form).forEach((k) => {
-                    this.form[k] = null;
-                });
+                this.resetProps( this.form );
             },
 
             selectSimulation() {
@@ -338,10 +391,6 @@
                     console.log('Missing simulation name');
                     return;
                 }
-                // [temp] need node selector
-                // if( !this.form.nodes ) {
-                //     this.form.nodes = [this.nodes[0]];
-                // }
                 this.apiPost( `/simulations/${id}`, this.form )
                     .then(response => {
                         console.log(response)
@@ -353,6 +402,40 @@
                             }
                         }
                     });
+            },
+
+            saveCA: function() {
+                console.log(JSON.stringify(this.casForm));
+                // block if name exists
+                if( this.cas.includes( this.casForm.name ) ) {
+                    console.log(`CA name ${this.casForm.name} already exists!`);
+                    return false;
+                }
+                // basic validation
+                if( this.casForm.name && this.casForm.key && this.casForm.cert ) {
+                    this.apiPost( `/cas/${this.casForm.name}`, this.casForm )
+                        .then(response => {
+                            console.log(response);
+                            this.resetCasForm();
+                            this.getCas();
+                        });
+                } else {
+                    console.log(`Missing parameters`);
+                }
+            },
+
+            resetCasForm: function() {
+                this.resetProps( this.casForm );
+                this.$refs.keyFile.value = null;
+                this.$refs.certFile.value = null;
+            },
+
+            // simple helper to reset props of an object
+            resetProps: function( obj, val ) {
+                if( val === undefined ) val = null;
+                Object.keys( obj ).forEach( k => {
+                    obj[k] = null;
+                } );
             },
 
             // prepare assets
@@ -384,6 +467,28 @@
                     });
             },
 
+            // basic helper to read files
+            // event, name is the key to store data after in casForm
+            loadText( event, name ) {
+                const file = event.target.files[0];
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    console.log(event.target.result);
+                    this.casForm[name] = event.target.result;
+                }
+                reader.readAsText(file);
+            },
+
+            // generic get
+            apiGet: async function( path ) {
+                const url = `${this.apiBase}${this.apiPrefix}${path}?format=detailed`;
+                const response = await fetch( url );
+                return {
+                    status: response.status,
+                    data: await response.json()
+                }
+            },
+
             apiPost: async function( path, payload ) {
                 const url = `${this.apiBase}${this.apiPrefix}${path}`;
                 const response = await fetch( url, {
@@ -393,14 +498,10 @@
                     },
                     body: JSON.stringify( payload )
                 } );
-                return response.json();
-            },
-
-            // generic get
-            apiGet: async function( path ) {
-                const url = `${this.apiBase}${this.apiPrefix}${path}?format=detailed`;
-                const response = await fetch( url );
-                return response.json();
+                return {
+                    status: response.status,
+                    data: await response.json()
+                }
             },
 
             fakeStream: function() {
@@ -466,8 +567,9 @@
                 return this.streamOn ? 'Stop Fake Stream' : 'Start Fake Stream'
             },
             nodesNodes: function() {
-                if( this.nodes )
-                    return this.nodes.filter( n => n.type === 'node' );
+                if( this.nodes ) {
+                    return this.nodes.filter( n => n.type === 'node' ).map( n => n.node );
+                }
                 return [];
             },
         },

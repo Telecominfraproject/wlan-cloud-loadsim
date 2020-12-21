@@ -363,7 +363,7 @@ create_table ('Wifi_Associated_Clients',APC,Store) ->
 										'**key_id**' = utils:uuid_b(),
 										'_version' = [<<"uuid">>, utils:uuid_b()],
 										mac = MAC,
-										state = <<"active">>
+										state = <<"active">>,
 									}), A
 								end,[],proplists:get_value(wifi_clients,APC));
 	%%end,

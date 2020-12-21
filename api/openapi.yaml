@@ -408,6 +408,76 @@ paths:
         404:
           $ref: '#/components/responses/NotFound'
 
+  /simulations/{id}/devices:
+    get:
+      tags: [ Devices ]
+      summary: Get the list of all devices for a simulation.
+      operationId: getSimulationDevicess
+      description: test
+      parameters:
+        - in: path
+          description: The name of the simulation we are interested in.
+          name: id
+          schema:
+            type: string
+          required: true
+        - in: query
+          description: Pagination start (starts at 1. If not specified, 1 is assumed)
+          name: offset
+          schema:
+            type: integer
+          required: false
+        - in: query
+          description: Maximum number of entries to return (if absent, no limit is assumed)
+          name: limit
+          schema:
+            type: integer
+          required: false
+        - in: query
+          description: Filter the results
+          name: filter
+          schema:
+            type: string
+          required: false
+      responses:
+        200:
+          description: Successful retrieval of OUI array.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimulationDeviceList'
+        403:
+          $ref: '#/components/responses/Unauthorized'
+
+  /simulations/{id}/devices/{serial}:
+    get:
+      tags: [ Devices ]
+      operationId: getSimulationDevice
+      description: Get the details of a single device.
+      parameters:
+        - in: path
+          description: The name of the simulation we are interested in.
+          name: id
+          schema:
+            type: string
+          required: true
+        - in: path
+          description: The name of the simulation we are interested in.
+          name: serial
+          schema:
+            type: string
+          required: true
+      responses:
+        200:
+          description: Successful retrieval of OUI array.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimulationDeviceDetails'
+        403:
+          $ref: '#/components/responses/Unauthorized'
+
+
   /hardware_definitions:
     get:
       tags: [ Hardware ]
@@ -607,7 +677,65 @@ components:
         Manufacturer:
             type: 
               string
-              
+
+    SimulationDeviceList:
+      description: Manufacturer associated with an OUI.
+      properties:
+        SerialNumbers:
+          type: array
+          items:
+            type: string
+
+    SimulationDeviceDetails:
+      description: Details of a specific device
+      properties:
+        simulation:
+          type: string
+        serial:
+          type: string
+        ca:
+          type: string
+        bands:
+          type: array
+          items:
+            type: string
+        wan_mac:
+          type: string
+        lan_mac:
+          type: string
+        key:
+          type: string
+          format: byte
+        cert:
+          type: string
+          format: byte
+        wan_clients:
+          type: array
+          items:
+            properties:
+              index:
+                type: integer
+              band:
+                type: string
+              ssid:
+                type: string
+              mac:
+                type: string
+              vendor:
+                type: string
+        lan_clients:
+          type: array
+          items:
+            properties:
+              index:
+                type: integer
+              port:
+                type: string
+              mac:
+                type: string
+              vendor:
+                type: string
+
     CAList:
       description: A list of CAs
       properties:

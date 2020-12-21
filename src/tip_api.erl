@@ -54,7 +54,7 @@ create_pagination_context(Cursor)->
 	uri_string:compose_query([{"paginationContext","{ \"model_type\": \"PaginationContext\", \"cursor\" : \"" ++ Cursor ++ "\" , \"maxItemsPerPage\": 10 }"}]).
 
 get_all(BaseURI)->
-	get_all(BaseURI,#{},0).
+	get_all(BaseURI,"",0).
 
 get_all(BaseURI,Context,Acc)->
 	PC = create_pagination_context(Context),

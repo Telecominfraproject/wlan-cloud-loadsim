@@ -211,7 +211,6 @@ do( ?HTTP_GET ,Req,#request_state{ resource = <<"simulations">>, subres = <<"dev
 			key => list_to_binary(base64:encode_to_string(Key)),
 			cert => list_to_binary(base64:encode_to_string(ClientInfo#client_info.cert))
 		},
-			io:format(">>>>>MAP: ~n~p~n",[Map]),
 		create_response(jiffy:encode( Map ),Req,State)
 	catch
 		_:_ ->

@@ -13,7 +13,7 @@
 -include("../include/ovsdb_ap_tables.hrl").
 -include("../include/inventory.hrl").
 
--export ([create_ap_node/2,create_radios/2,create_clients/2]).
+-export ([create_ap_node/2,create_radios/2,create_clients/2,update_wifi_clients/1,update_dhcp_leases/1]).
 
 
 
@@ -260,10 +260,6 @@ create_ap_wifi_clients (APC,Store) ->
     
 create_wifi_client ({Idx,_Band,_SSID,MAC,Vendor},APC,Store) ->
     NM = proplists:get_value(name,APC),
-    % VendorClass = case oui_server:lookup_oui_from_mac(MAC) of
-    %         {ok,X} -> X;
-    %         _ -> <<"unknown">>
-    % end,
 	AssKey = utils:uuid_b(),
 	DhcpKey = utils:uuid_b(),
     ets:insert(Store, #'Wifi_Associated_Clients'{
@@ -279,12 +275,30 @@ create_wifi_client ({Idx,_Band,_SSID,MAC,Vendor},APC,Store) ->
         inet_addr = iolist_to_binary(["192.168.1.",integer_to_list(Idx+1)]),
         hwaddr = MAC,
         vendor_class = Vendor,
+		fingerprint = get_dhcp_fingerprint(),
         device_name = iolist_to_binary([NM,".SimClient_",integer_to_list(Idx+1)])
     }),
 	ovsdb_ap_monitor:create_pub_entry(<<"Wifi_Associated_Clients">>,AssKey,Store),
 	ovsdb_ap_monitor:create_pub_entry(<<"DHCP_leased_IP">>,DhcpKey,Store).
 
+update_wifi_clients (Store) ->
+	F = fun ({Key,Old}) ->
+			New = Old#{<<"_version">>=>[<<"uuid">>,utils:uuid_b()],
+					   <<"state">>=>get_random_wifi_state()},
+			{Key,Old,New}
+	end,
+	Cl = [ F(X) || X <- ovsdb_dba:select_with_key(<<"Wifi_Associated_Clients">>,[],Store) ],
+	[ ovsdb_ap_monitor:create_pub_entry(<<"Wifi_Associated_Clients">>,K,O,N,Store) || {K,O,N} <- Cl ],
+	?L_IA("Refreshing Wifi Clients N=~B",[length(Cl)]).
 
+update_dhcp_leases (Store) ->
+	F = fun ({Key,Old}) ->
+		New = Old#{<<"_version">>=>[<<"uuid">>,utils:uuid_b()]},
+		{Key,Old,New}
+	end,
+	Leases = [ F(X) || X <- ovsdb_dba:select_with_key(<<"DHCP_leased_IP">>,[],Store) ],
+	[ ovsdb_ap_monitor:create_pub_entry(<<"DHCP_leased_IP">>,K,O,N,Store) || {K,O,N} <- Leases ],
+	?L_IA("Refreshing DHCP leases N=~B",[length(Leases)]).
 
 %%-----------------------------------------------------------------------------
 %% helper functions
@@ -320,4 +334,23 @@ modify_mac(MAC,N) ->
 get_hw_mode(<<"5GU">>)-><<"11ac">>;
 get_hw_mode(<<"2.4G">>)-><<"11n">>;
 get_hw_mode(<<"5GL">>)-><<"11ac">>.
+
+get_random_wifi_state() ->
+	case rand:uniform(10) of
+		N when N > 4 ->
+			<<"active">>;
+		_ ->
+			<<"idle">>
+	end.
+
+get_dhcp_fingerprint () ->
+	FP = {<<"1,15,3,6,44,46,47,31,33,249,43">>,
+		  <<"1,15,3,6,44,46,47,31,33,249,43,252">>,
+		  <<"1,15,3,6,44,46,47,31,33,249,43,252,12">>,
+		  <<"15,3,6,44,46,47,31,33,249,43">>,
+		  <<"15,3,6,44,46,47,31,33,249,43,252">>,
+		  <<"28,2,3,15,6,12,44,47">>,
+		  <<"1,3,6,15,119,78,79,95,252">>,
+          <<"1,3,6,15,119,95,252,44,46,47">>},
+	element(rand:uniform(tuple_size(FP)),FP).
 

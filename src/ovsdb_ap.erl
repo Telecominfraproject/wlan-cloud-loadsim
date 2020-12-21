@@ -197,7 +197,7 @@ handle_cast (check_mqtt_updates, State) ->
 handle_cast (check_publish_monitor, State) ->
 	case ovsdb_ap_monitor:publish_monitored(State#ap_state.store) of
 		{ok, more} ->
-			check_publish_monitor(self());
+			timer:apply_after(500,?MODULE,check_publish_monitor,[self()]);
 		{ok, done} ->
 			ok
 	end,
@@ -351,7 +351,7 @@ set_status (Status, #ap_state{status=OldStatus, config=Cfg}=State) ->
 
 -spec start_stop_mqtt_updates (State :: #ap_state{}) -> NewState :: #ap_state{}.
 start_stop_mqtt_updates(#ap_state{status=running, updates=none}=State) ->
-	{ok, Ref} = timer:apply_interval(15000,?MODULE,check_for_mqtt_updates,[self()]),
+	{ok, Ref} = timer:apply_interval(60000,?MODULE,check_for_mqtt_updates,[self()]),
 	State#ap_state{updates=Ref};
 start_stop_mqtt_updates(#ap_state{status=running}=State) ->
 	State;
@@ -489,8 +489,7 @@ start_mqtt (Cfg,#ap_state{ca_name=CAName, id=ID, mqtt=idle}=State) ->
 	_ = mqtt_client_manager:start_client(CAName,ID,Cfg),
 	State#ap_state{mqtt=running};
 start_mqtt (_,State) ->
-	io:format("MQTT start request, but already running ...~n"),
-	?L_E(?DBGSTR("MQTT client already running!")),
+	?L_E(?DBGSTR("MQTT start request, but client already running!")),
 	State.
 
 -spec stop_mqtt (State::#ap_state{}) -> NewState::#ap_state{}.
@@ -511,7 +510,10 @@ request_mqtt_updates (#ap_state{config=Cfg} = State) ->
 -spec handle_mqtt_stats_update (Serial :: binary(), Stats :: #{binary() => #'Client.Stats'{}}, State :: #ap_state{}) -> NewState :: #ap_state{}.
 handle_mqtt_stats_update (_Serial,_Stats,State) ->
 	%% io:format("GOT MQTT STATS: ->republishing changes~n"),
-	ovsdb_ap_monitor:refresh_publications(State#ap_state.store),
+	%%ovsdb_ap_monitor:refresh_publications(State#ap_state.store),
+	ovsdb_ap_simop:update_wifi_clients(State#ap_state.store),
+	ovsdb_ap_simop:update_dhcp_leases(State#ap_state.store),
+	check_publish_monitor(self()),
 	State.
 	
 %%==============================================================================

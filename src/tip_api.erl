@@ -49,9 +49,9 @@ tip_locations()->
 	LocationId.
 
 create_pagination_context("")->
-	uri_string:compose_query([{"paginationContext","{ \"model_type\": \"PaginationContext\", \"maxItemsPerPage\": 100 }"}]);
+	uri_string:compose_query([{"paginationContext","{ \"model_type\": \"PaginationContext\", \"maxItemsPerPage\": 5000 }"}]);
 create_pagination_context(Cursor)->
-	uri_string:compose_query([{"paginationContext","{ \"model_type\": \"PaginationContext\", \"cursor\" : \"" ++ Cursor ++ "\" , \"maxItemsPerPage\": 100 }"}]).
+	uri_string:compose_query([{"paginationContext","{ \"model_type\": \"PaginationContext\", \"cursor\" : \"" ++ Cursor ++ "\" , \"maxItemsPerPage\": 5000 }"}]).
 
 get_all(BaseURI)->
 	get_all(BaseURI,"",0).

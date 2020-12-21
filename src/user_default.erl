@@ -376,17 +376,17 @@ tip_locations()->
 	io:format(">>>LocationId: ~p~n",[LocationId]).
 
 tip_equipment()->
-	PC = uri_string:compose_query([{"paginationContext","{ \"model_type\": \"PaginationContext\", \"maxItemsPerPage\": 100 }"}]),
+	PC = uri_string:compose_query([{"paginationContext","{ \"model_type\": \"PaginationContext\", \"maxItemsPerPage\": 500 }"}]),
 	URI = tip_uri_base() ++ "/portal/equipment/forCustomer?customerId=2&" ++ PC,
 	{ok,{{_,200,_},_Headers,Body}} = httpc:request(get,{URI,[{"Authorization","Bearer " ++ tip_token()}]},[],[]),
 	M = jiffy:decode(Body,[return_maps]),
 	Array = maps:get(<<"items">>,M),
 	Res = lists:foldl(fun(E,A)->
-											Details = maps:get(<<"details">>,E),
+											%% Details = maps:get(<<"details">>,E),
 											InventoryID = maps:get( <<"inventoryId">>,E),
 											[InventoryID|A]
 										end,[],Array),
-	io:format("Equipment List(~p): ~p~n",[length(Res),Res]).
+	Res.
 
 t1_key_hz() ->
 	import_ca("sim1","mypassword","tip2-cakey.pem","tip2-cacert.pem").

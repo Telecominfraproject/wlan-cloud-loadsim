@@ -56,9 +56,9 @@ create_pagination_context(Cursor)->
 get_all(BaseURI)->
 	get_all(BaseURI,"",0).
 
-get_all(BaseURI,Context,Acc)->
-	PC = create_pagination_context(Context),
-	io:format("Context: ~s~n",[Context]),
+get_all(BaseURI,Cursor,Acc)->
+	PC = create_pagination_context(Cursor),
+	io:format("Context: ~s~n",[PC]),
 	URI = uri_base() ++ BaseURI ++ PC,
 	{ok,{{_,200,_},_Headers,Body}} = httpc:request(get,{URI,[{"Authorization","Bearer " ++ token()}]},[],[]),
 	M = jiffy:decode(Body,[return_maps]),
@@ -69,10 +69,10 @@ get_all(BaseURI,Context,Acc)->
 		true ->
 			io:format("Total elements: ~p~n",[Acc+length(Array)]);
 		false ->
-			Cursor = binary_to_list(maps:get(<<"cursor">>,NewContext)),
-			io:format("New cursor: ~p~n",[Cursor]),
+			NewCursor = binary_to_list(maps:get(<<"cursor">>,NewContext)),
+			io:format("New cursor: ~p~n",[NewCursor]),
 			io:format("Just got ~p elements so far ~p ~n",[L,Acc+L]),
-			get_all(BaseURI,Cursor,Acc+L)
+			get_all(BaseURI,NewCursor,Acc+L)
 	end.
 
 equipments()->

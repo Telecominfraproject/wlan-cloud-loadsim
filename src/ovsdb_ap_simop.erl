@@ -254,10 +254,9 @@ create_ap_lan_clients (_APC,_Store) ->
 create_ap_wifi_clients (APC,Store) ->
     % Cl = proplists:get_value(wifi_clients,APC),
     % io:format("Wifi Clients:~n~p~n",[Cl]).
-    [ create_wifi_client(Cl,APC,Store) || {_,_,_,MAC,_}=Cl <- proplists:get_value(wifi_clients,APC), MAC =/= <<"f8:e5:cf:ef:bf:fa">>].
-	% [Cl,Cl2|_] = proplists:get_value(wifi_clients,APC),
-	% create_wifi_client(Cl,APC,Store),
-	% create_wifi_client(Cl2,APC,Store).
+    %[ create_wifi_client(Cl,APC,Store) || {_,_,_,MAC,_}=Cl <- proplists:get_value(wifi_clients,APC), MAC =/= <<"f8:e5:cf:ef:bf:fa">>].
+	[ create_wifi_client(Cl,APC,Store) || Cl <- proplists:get_value(wifi_clients,APC) ].
+	
     
 create_wifi_client ({Idx,_Band,_SSID,MAC,Vendor},APC,Store) ->
     NM = proplists:get_value(name,APC),

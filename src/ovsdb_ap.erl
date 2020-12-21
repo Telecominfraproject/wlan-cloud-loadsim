@@ -195,7 +195,12 @@ handle_cast (check_mqtt_updates, State) ->
 	{noreply, S};
 
 handle_cast (check_publish_monitor, State) ->
-	ovsdb_ap_monitor:publish_unpublished(State#ap_state.store),
+	case ovsdb_ap_monitor:publish_monitored(State#ap_state.store) of
+		{ok, more} ->
+			check_publish_monitor(self());
+		{ok, done} ->
+			ok
+	end,
 	{noreply, State};
 
 handle_cast (send_report,State) ->

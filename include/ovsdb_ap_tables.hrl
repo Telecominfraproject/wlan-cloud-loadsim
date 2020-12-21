@@ -363,6 +363,7 @@
 	table = <<>> :: binary()			| ets_dont_care(),
 	old_version = <<>> :: binary()		| ets_dont_care(),
 	new_version = <<>> :: binary()		| ets_dont_care(),
+	row_key = <<>> :: binary()			| ets_dont_care(),
 	old_values =  #{} :: #{binary()=>any}	| ets_dont_care(),
 	new_values =  #{} :: #{binary()=>any}	| ets_dont_care()
 }).

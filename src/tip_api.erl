@@ -48,17 +48,14 @@ tip_locations()->
 	LocationId = maps:get(<<"locationId">>,Auto),
 	LocationId.
 
-create_pagination_context(#{})->
+create_pagination_context("")->
 	uri_string:compose_query([{"paginationContext","{ \"model_type\": \"PaginationContext\", \"maxItemsPerPage\": 500 }"}]);
-create_pagination_context(Context)->
-	JSON=jiffy:encode(Context),
-	uri_string:compose_query([{"paginationContext",binary_to_list(JSON)}]).
+create_pagination_context(Cursor)->
+	uri_string:compose_query([{"paginationContext","{ \"model_type\": \"PaginationContext\", \"cursor\" : \"" ++ Cursor ++ "\" , \"maxItemsPerPage\": 500 }"}]).
 
 get_all(BaseURI)->
 	get_all(BaseURI,#{},0).
 
-get_all(_BaseURI,#{ <<"lastPage">> := LastPage } = _Context, Acc) when LastPage == true ->
-	Acc;
 get_all(BaseURI,Context,Acc)->
 	PC = create_pagination_context(Context),
 	URI = uri_base() ++ BaseURI ++ PC,
@@ -66,8 +63,14 @@ get_all(BaseURI,Context,Acc)->
 	M = jiffy:decode(Body,[return_maps]),
 	Array = maps:get(<<"items">>,M),
 	NewContext = maps:get(<<"context">>,M),
-	io:format("Returned ~p items NewContext = ~p.~n",[length(Array),NewContext]),
-	get_all(BaseURI,NewContext,length(Array)+Acc).
+	case  maps:get(<<"lastPage">>,NewContext) of
+		true ->
+			io:format("Total elements: ~p~n",[Acc+length(Array)]);
+		false ->
+			Cursor = binary_to_list(maps:get(<<"cursor">>,NewContext)),
+			io:format("Just got ~p elements~n",[length(Array)]),
+			get_all(BaseURI,Cursor,Acc+length(Array))
+	end.
 
 equipments()->
 	get_all("/portal/equipment/forCustomer?customerId=2&").

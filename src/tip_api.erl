@@ -61,7 +61,7 @@ get_all(_BaseURI,#{ <<"lastPage">> := LastPage } = _Context, Acc) when LastPage 
 	Acc;
 get_all(BaseURI,Context,Acc)->
 	PC = create_pagination_context(Context),
-	URI = uri_base() ++ "/portal/equipment/forCustomer?customerId=2&" ++ PC,
+	URI = uri_base() ++ BaseURI ++ PC,
 	{ok,{{_,200,_},_Headers,Body}} = httpc:request(get,{URI,[{"Authorization","Bearer " ++ token()}]},[],[]),
 	M = jiffy:decode(Body,[return_maps]),
 	Array = maps:get(<<"items">>,M),

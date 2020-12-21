@@ -94,14 +94,8 @@ paths:
           description: Detailed version. This includes all the nodes and all the parameters.
           name: format
           schema:
-            oneOf:
-              - detailed
-                description: Show all nodes and all information about each node.
-              - nodes
-                description: Show only the nodes that are simulation nodes (exclude managers and monitors)
-                default: true
-              - simple
-                description: Show all the node names
+            type: string
+            enum: [detailed,nodes,simple]
           required: false
       responses:
         200:

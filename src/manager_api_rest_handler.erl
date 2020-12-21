@@ -340,7 +340,7 @@ do( ?HTTP_GET , Req , #request_state{ resource = <<"nodes">> , id = nothing } = 
 			restutils:create_paginated_return("HardwareDefinitions",SubList,PaginationInfo,nodes);
 		<<"simple">> ->
 			{SubList,PaginationInfo} = restutils:paginate_record_list(PaginationParameters,AllNodes),
-			NamesOnly = [ atom_to_list(X) || {X,Role} <- SubList, Role == node ],
+			NamesOnly = [ atom_to_list(X) || {X,Role} <- SubList ],
 			restutils:create_paginated_return("Nodes",NamesOnly,PaginationInfo,stringlist)
 	end,
 	create_response(JSON,Req,State);

@@ -357,7 +357,12 @@ w(X)->
 number_of_clients()->
 	{ ok , AllClients } = list_clients("sim1"),
 	lists:foldl(fun(Client,A)->
-		A + length(Client#client_info.wifi_clients)
+								case inventory:get_client("sim1",Client) of
+									{ok,ClientInfo} ->
+										A + length(ClientInfo#client_info.wifi_clients);
+									_ ->
+										A
+								end
 							end,0,AllClients).
 
 

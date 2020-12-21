@@ -254,7 +254,10 @@ create_ap_lan_clients (_APC,_Store) ->
 create_ap_wifi_clients (APC,Store) ->
     % Cl = proplists:get_value(wifi_clients,APC),
     % io:format("Wifi Clients:~n~p~n",[Cl]).
-    [ create_wifi_client(Cl,APC,Store) || Cl <- proplists:get_value(wifi_clients,APC)].
+    [ create_wifi_client(Cl,APC,Store) || {_,_,_,MAC,_}=Cl <- proplists:get_value(wifi_clients,APC), MAC =/= <<"f8:e5:cf:ef:bf:fa">>].
+	% [Cl,Cl2|_] = proplists:get_value(wifi_clients,APC),
+	% create_wifi_client(Cl,APC,Store),
+	% create_wifi_client(Cl2,APC,Store).
     
 create_wifi_client ({Idx,_Band,_SSID,MAC,Vendor},APC,Store) ->
     NM = proplists:get_value(name,APC),
@@ -262,21 +265,25 @@ create_wifi_client ({Idx,_Band,_SSID,MAC,Vendor},APC,Store) ->
     %         {ok,X} -> X;
     %         _ -> <<"unknown">>
     % end,
+	AssKey = utils:uuid_b(),
+	DhcpKey = utils:uuid_b(),
     ets:insert(Store, #'Wifi_Associated_Clients'{
-        '**key_id**' = utils:uuid_b(),
+        '**key_id**' = AssKey,
         '_version' = [<<"uuid">>, utils:uuid_b()],
         mac = MAC,
         state = <<"active">>
     }),
     ets:insert(Store, #'DHCP_leased_IP'{
-        '**key_id**' = utils:uuid_b(),
+        '**key_id**' = DhcpKey,
         '_version' = [<<"uuid">>, utils:uuid_b()],
         hostname = iolist_to_binary(["H_",NM,"_",integer_to_list(Idx)]),
         inet_addr = iolist_to_binary(["192.168.1.",integer_to_list(Idx+1)]),
         hwaddr = MAC,
         vendor_class = Vendor,
         device_name = iolist_to_binary([NM,".SimClient_",integer_to_list(Idx+1)])
-    }).
+    }),
+	ovsdb_ap_monitor:create_pub_entry(<<"Wifi_Associated_Clients">>,AssKey,Store),
+	ovsdb_ap_monitor:create_pub_entry(<<"DHCP_leased_IP">>,DhcpKey,Store).
 
 
 

@@ -346,7 +346,7 @@ set_status (Status, #ap_state{status=OldStatus, config=Cfg}=State) ->
 
 -spec start_stop_mqtt_updates (State :: #ap_state{}) -> NewState :: #ap_state{}.
 start_stop_mqtt_updates(#ap_state{status=running, updates=none}=State) ->
-	{ok, Ref} = timer:apply_interval(60000,?MODULE,check_for_mqtt_updates,[self()]),
+	{ok, Ref} = timer:apply_interval(15000,?MODULE,check_for_mqtt_updates,[self()]),
 	State#ap_state{updates=Ref};
 start_stop_mqtt_updates(#ap_state{status=running}=State) ->
 	State;

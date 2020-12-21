@@ -12,7 +12,7 @@
 -include("../include/common.hrl").
 -include("../include/ovsdb_ap_tables.hrl").
 
--export ([req_monitor/3,maybe_publish_data/6,publish_unpublished/1,refresh_publications/1]).
+-export ([req_monitor/3,maybe_publish_data/6,publish_unpublished/1,refresh_publications/1,create_pub_entry/3]).
 
 -spec req_monitor (NameSpace :: binary(), ToMonitor :: [#{binary()=>term()}], Store :: ets:tid()) -> Result :: #{binary()=>term()}.
 req_monitor (NameSpace,[{Table,Operations}|_],Store) ->
@@ -102,7 +102,13 @@ publish_monitor (NameSpace,Data) ->
 		_ ->
 			ok
 	end,
-%%	io:format("PUBLISHING: ~s~n~s~n",[NameSpace,Json]),
+	case maps:keys(Data) of
+		[<<"DHCP_leased_IP">>] ->
+			Pr = iolist_to_binary(jiffy:encode(RPC,[pretty])),
+			io:format("PUBLISHING: ~s/~s~n~s~n",[NameSpace,"DHCP",Pr]);   %% Json
+		_ ->
+			io:format("PUBLISHING: ~s~n",[NameSpace])   %% Json
+	end,
 	?L_IA("PUBLISHING: ~s",[NameSpace]),
 	ovsdb_ap:rpc_request(self(),RPC).
 
@@ -141,10 +147,22 @@ refresh_publications (Store) ->
 	ToPublish = ets:match_object(Store,#monitors{modify=true, _='_'}),
 	F = fun (#monitors{namespace=NS, table=T}=P) when is_binary(T) ->
 			QRes = ovsdb_dba:select_with_key(T,[],Store),
-			publish_monitor(NS,monitor_result(T,QRes,[])),
+			QRes2 = [{K,M#{<<"_version">>=>[<<"uuid">>,utils:uuid_b()]}} || {K,M} <- QRes],
+			publish_monitor(NS,monitor_result(T,QRes2,[])),
 			P#monitors{published=true}
 		end,
 	[F(X) || X <- ToPublish].
+
+
+
+-spec create_pub_entry (TableName :: binary(), RowKey :: binary(), Store :: ets:tid()) -> ok.
+create_pub_entry (Table, Key, Store) ->
+	QRes = ovsdb_dba:select_with_key(Table,[[<<"**key_id**">>,<<"=">>,Key]],Store),
+	io:format ("CBE -> Qres = ~p~n",[QRes]).
+
+
+
+
 
 -spec dump_data(FileName::string(),Data::binary())->ok.
 dump_data(FileName,Data)->

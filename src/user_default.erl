@@ -395,12 +395,20 @@ tip_clients()->
 	M = jiffy:decode(Body,[return_maps]),
 	Array = maps:get(<<"items">>,M),
 	Context = maps:get(<<"context">>,M),
-	Res = lists:foldl(fun(E,A)->
-											EquipmentId = maps:get( <<"equipmentId">>,E),
-											[EquipmentId|A]
-	                  end,[],Array),
-	Res,
-	io:format("CONTEXT: ~p~n",[Context]).
+	Cursor = maps:get(<<"cursor">>,Context),
+	LastPage = maps:get(<<"lastPage">>,Context),
+	io:format("Got ~p sessions last=~p context=~p ~n",[length(Array),LastPage,Context]),
+	PC2 = uri_string:compose_query([
+		                               {"paginationContext","{ \"cursor\" : \"" ++ Cursor ++ "\", \"model_type\": \"PaginationContext\", \"maxItemsPerPage\": 500 }"}]),
+	URI2 = tip_uri_base() ++ "/portal/client/session/forCustomer?customerId=2&" ++ PC2,
+	{ok,{{_,200,_},_Headers2,Body2}} = httpc:request(get,{URI2,[{"Authorization","Bearer " ++ tip_token()}]},[],[]),
+	M2 = jiffy:decode(Body2,[return_maps]),
+	Array2 = maps:get(<<"items">>,M2),
+	Context2 = maps:get(<<"context">>,M2),
+	% Cursor2 = maps:get(<<"cursor">>,Context2),
+	LastPage2 = maps:get(<<"lastPage">>,Context2),
+	io:format("Got ~p sessions last=~p context=~p~n",[length(Array2),LastPage2,Context2]),
+	io:format("CONTEXT: ~p~n",[Context2]).
 
 t1_key_hz() ->
 	import_ca("sim1","mypassword","tip2-cakey.pem","tip2-cacert.pem").

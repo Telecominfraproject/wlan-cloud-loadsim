@@ -176,9 +176,9 @@ handle_call(_Request, _From, State = #oui_server_state{}) ->
 
 %% This will generate OUIs that never include the first nibble greater than 7
 valid_oui(List)->
-	valid_oui(List,lists:nth(rand:uniform(List),List)).
+	valid_oui(List,lists:nth(rand:uniform(length(List)),List)).
 valid_oui(List,<<X,_,_,_,_,_>>) when X>$7 ->
-	valid_oui(List,lists:nth(rand:uniform(List),List));
+	valid_oui(List,lists:nth(rand:uniform(length(List)),List));
 valid_oui(_List,OUI)->
 	OUI.
 

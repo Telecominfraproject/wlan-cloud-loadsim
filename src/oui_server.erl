@@ -145,7 +145,7 @@ handle_call(get_vendors, _From, State = #oui_server_state{}) ->
 handle_call(get_ouis, _From, State = #oui_server_state{}) ->
 	{reply, {ok,State#oui_server_state.all_ouis}, State};
 handle_call(get_an_oui, _From, State = #oui_server_state{}) ->
-	OUI = lists:nth(rand:uniform(State#oui_server_state.oui_length),State#oui_server_state.all_ouis),
+	OUI = valid_oui(State#oui_server_state.all_ouis),
 	{reply, OUI, State};
 handle_call(get_all, _From, State = #oui_server_state{}) ->
 	{reply, {ok,State#oui_server_state.all_ouis,State#oui_server_state.all_makers}, State};
@@ -173,6 +173,14 @@ handle_call({refresh,Pid}, _From, State = #oui_server_state{}) ->
 	{reply, ok, State#oui_server_state{transfer_process_pid = ProcessingPid}};
 handle_call(_Request, _From, State = #oui_server_state{}) ->
 	{reply, ok, State}.
+
+%% This will generate OUIs that never include the first nibble greater than 7
+valid_oui(List)->
+	valid_oui(List,lists:nth(rand:uniform(List),List)).
+valid_oui(List,<<X,_,_,_,_,_>>) when X>$7 ->
+	valid_oui(List,lists:nth(rand:uniform(List),List));
+valid_oui(_List,OUI)->
+	OUI.
 
 %% @private
 %% @doc Handling cast messages

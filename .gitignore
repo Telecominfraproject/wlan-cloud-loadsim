@@ -36,3 +36,4 @@ inventory/*
 sample_ids.cfg
 priv/mnesia/
 priv/data/
+gen/

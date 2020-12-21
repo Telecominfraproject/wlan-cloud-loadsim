@@ -354,6 +354,12 @@ w(X)->
 		_ -> timer:sleep(1000), w(X)
 	end.
 
+number_of_clients()->
+	{ ok , AllClients } = list_clients("sim1"),
+	lists:foldl(fun(Client,A)->
+		A + length(Client#client_info.wifi_clients)
+							end,0,AllClients).
+
 
 
 

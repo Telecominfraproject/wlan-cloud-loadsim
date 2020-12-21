@@ -394,11 +394,13 @@ tip_clients()->
 	{ok,{{_,200,_},_Headers,Body}} = httpc:request(get,{URI,[{"Authorization","Bearer " ++ tip_token()}]},[],[]),
 	M = jiffy:decode(Body,[return_maps]),
 	Array = maps:get(<<"items">>,M),
+	Context = maps:get(<<"context">>,M),
 	Res = lists:foldl(fun(E,A)->
 											EquipmentId = maps:get( <<"equipmentId">>,E),
 											[EquipmentId|A]
 	                  end,[],Array),
-	Res.
+	Res,
+	io:format("CONTEXT: ~p~n",[Context]).
 
 t1_key_hz() ->
 	import_ca("sim1","mypassword","tip2-cakey.pem","tip2-cacert.pem").

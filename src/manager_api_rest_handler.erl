@@ -169,7 +169,7 @@ do( ?HTTP_GET , Req , #request_state{ resource = <<"ouis">> , id = nothing } = S
 	PaginationParameters = restutils:get_pagination_parameters(Req),
 	{ok,OUIs}=oui_server:get_ouis(),
 	{ SubList, PaginationInfo }  = restutils:paginate(PaginationParameters,OUIs),
-	{restutils:create_paginated_return( "OUIs" , SubList, PaginationInfo),Req,State};
+	{restutils:create_paginated_return( "OUIs" , SubList, PaginationInfo,stringlist),Req,State};
 do( ?HTTP_GET , Req , #request_state{ resource = <<"ouis">> } = State ) ->
 	Maker = State#request_state.looked_up,
 	create_response( binary:list_to_bin([<<"{ \"OUI\" : \"">> , State#request_state.id, <<"\" , \"Vendor\" : \"">>, Maker, <<"\" }">>]),Req,State);
@@ -181,7 +181,7 @@ do( ?HTTP_GET , Req , #request_state{ resource = <<"vendors">> , id = nothing } 
 	PaginationParameters = restutils:get_pagination_parameters(Req),
 	{ok,Vendors}=oui_server:get_vendors(),
 	{ SubList , PaginationInfo } = restutils:paginate(PaginationParameters,Vendors),
-	create_response(restutils:create_paginated_return("Vendors",SubList,PaginationInfo),Req,State);
+	create_response(restutils:create_paginated_return("Vendors",SubList,PaginationInfo,stringlist),Req,State);
 do( ?HTTP_GET , Req , #request_state{ resource = <<"vendors">> } = State ) ->
 	Maker = State#request_state.id,
 	create_response( binary:list_to_bin([<<"{ \"Vendor\" : \"">> , Maker, <<"\" , \"OUIs\" : [ ">>,
@@ -194,7 +194,7 @@ do( ?HTTP_GET ,Req,#request_state{ resource = <<"simulations">>, subres = <<"dev
 	PaginationParameters = restutils:get_pagination_parameters(Req),
 	{ok,DeviceList}=inventory:list_clients(State#request_state.id),
 	{SubList,PaginationInfo} = restutils:paginate(PaginationParameters,DeviceList),
-	create_response(restutils:create_paginated_return("SerialNumbers",SubList,PaginationInfo),Req,State);
+	create_response(restutils:create_paginated_return("SerialNumbers",SubList,PaginationInfo,stringlist),Req,State);
 do( ?HTTP_GET ,Req,#request_state{ resource = <<"simulations">>, subres = <<"devices">>  }=State)->
 	try
 		ClientInfo = State#request_state.looked_up,
@@ -224,7 +224,7 @@ do( ?HTTP_GET ,Req,#request_state{resource = <<"simulations">>,id=nothing}=State
 	PaginationParameters = restutils:get_pagination_parameters(Req),
 	{ok,Simulations}=simengine:list_simulations(),
 	{SubList,PaginationInfo} = restutils:paginate(PaginationParameters,Simulations),
-	JSON = restutils:create_paginated_return("Simulations",SubList,PaginationInfo),
+	JSON = restutils:create_paginated_return("Simulations",SubList,PaginationInfo,stringlist),
 	create_response(JSON,Req,State);
 
 do( ?HTTP_GET , Req , #request_state{ resource = <<"simulations">> } = State ) ->
@@ -289,7 +289,7 @@ do( ?HTTP_GET ,Req,#request_state{resource = <<"cas">>,id=nothing}=State)->
 	PaginationParameters = restutils:get_pagination_parameters(Req),
 	{ok,CAs}=inventory:get_cas(),
 	{SubList,PaginationInfo} = restutils:paginate(PaginationParameters,CAs),
-	create_response(restutils:create_paginated_return("CAs",SubList,PaginationInfo),Req,State);
+	create_response(restutils:create_paginated_return("CAs",SubList,PaginationInfo,stringlist),Req,State);
 do( ?HTTP_POST ,Req,#request_state{resource = <<"cas">>}=State)->
 	try
 		{ok,RawData,Req1} = cowboy_req:read_body(Req),

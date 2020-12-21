@@ -49,9 +49,9 @@ tip_locations()->
 	LocationId.
 
 create_pagination_context("")->
-	uri_string:compose_query([{"paginationContext","{ \"model_type\": \"PaginationContext\", \"maxItemsPerPage\": 10 }"}]);
+	uri_string:compose_query([{"paginationContext","{ \"model_type\": \"PaginationContext\", \"maxItemsPerPage\": 100 }"}]);
 create_pagination_context(Cursor)->
-	uri_string:compose_query([{"paginationContext","{ \"model_type\": \"PaginationContext\", \"cursor\" : \"" ++ Cursor ++ "\" , \"maxItemsPerPage\": 10 }"}]).
+	uri_string:compose_query([{"paginationContext","{ \"model_type\": \"PaginationContext\", \"cursor\" : \"" ++ Cursor ++ "\" , \"maxItemsPerPage\": 100 }"}]).
 
 get_all(BaseURI)->
 	get_all(BaseURI,"",0).
@@ -63,13 +63,15 @@ get_all(BaseURI,Context,Acc)->
 	M = jiffy:decode(Body,[return_maps]),
 	Array = maps:get(<<"items">>,M),
 	NewContext = maps:get(<<"context">>,M),
+	L = length(Array),
 	case  maps:get(<<"lastPage">>,NewContext) of
 		true ->
 			io:format("Total elements: ~p~n",[Acc+length(Array)]);
 		false ->
 			Cursor = binary_to_list(maps:get(<<"cursor">>,NewContext)),
-			io:format("Just got ~p elements~n",[length(Array)]),
-			get_all(BaseURI,Cursor,Acc+length(Array))
+			io:format("New cursor: ~p~n",[Cursor]),
+			io:format("Just got ~p elements so far ~p ~n",[L,Acc+L]),
+			get_all(BaseURI,Cursor,Acc+L)
 	end.
 
 equipments()->

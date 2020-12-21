@@ -399,7 +399,7 @@ tip_clients()->
 	LastPage = maps:get(<<"lastPage">>,Context),
 	io:format("Got ~p sessions last=~p context=~p ~n",[length(Array),LastPage,Context]),
 	PC2 = uri_string:compose_query([
-		                               {"paginationContext","{ \"cursor\" : \"" ++ Cursor ++ "\", \"model_type\": \"PaginationContext\", \"maxItemsPerPage\": 500 }"}]),
+		                               {"paginationContext","{ \"cursor\" : \"" ++ binary_to_list(Cursor) ++ "\", \"model_type\": \"PaginationContext\", \"maxItemsPerPage\": 500 }"}]),
 	URI2 = tip_uri_base() ++ "/portal/client/session/forCustomer?customerId=2&" ++ PC2,
 	{ok,{{_,200,_},_Headers2,Body2}} = httpc:request(get,{URI2,[{"Authorization","Bearer " ++ tip_token()}]},[],[]),
 	M2 = jiffy:decode(Body2,[return_maps]),

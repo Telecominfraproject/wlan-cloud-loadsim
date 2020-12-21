@@ -388,6 +388,14 @@ tip_equipment()->
 										end,[],Array),
 	Res.
 
+tip_clients()->
+	PC = uri_string:compose_query([{"paginationContext","{ \"model_type\": \"PaginationContext\", \"maxItemsPerPage\": 500 }"}]),
+	URI = tip_uri_base() ++ "/portal/client/session/forCustomer?customerId=2&" ++ PC,
+	{ok,{{_,200,_},_Headers,Body}} = httpc:request(get,{URI,[{"Authorization","Bearer " ++ tip_token()}]},[],[]),
+	M = jiffy:decode(Body,[return_maps]),
+	Array = maps:get(<<"items">>,M),
+	Array.
+
 t1_key_hz() ->
 	import_ca("sim1","mypassword","tip2-cakey.pem","tip2-cacert.pem").
 

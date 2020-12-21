@@ -17,10 +17,13 @@
         }
         .controls {
             background: #e9ecef;
+            display: grid;
+            grid-template-columns: minmax(144px, 320px) 1fr 1.5fr;
+            grid-gap: 1rem;
         }
         .actions {
             display: grid;
-            grid-template-columns: minmax(96px, 144px);
+            grid-template-columns: minmax(96px, 50%);
             grid-gap: 0.5rem;
         }
         .form-grid {
@@ -28,6 +31,9 @@
             grid-template-columns: 40% 60%;
             grid-gap: 0.5rem;
             font-size: 0.875rem;
+        }
+        .table-sm {
+            font-size: 0.75rem;
         }
         .output {
             background: var(--bs-light);
@@ -43,14 +49,20 @@
 </head>
 <body>
 <div id="app">
-    <div class="controls d-flex p-3">
+    <div class="controls p-3">
 
-        <div class="col p-3">
+        <div class="col">
             <h1 class="h3">^(OvO)^ OWLS</h1>
+
+            <label class="form-label" for="apiBase">API base</label>
+            <div class="d-flex mb-3">
+                <input type="text" name="apiBase" v-model="apiBase" class="form-control form-control-sm w-75" />
+                <button class="btn btn-sm btn-secondary w-25" v-on:click="setup()">Set</button>
+            </div>
 
             <div class="actions">
                 <button class="btn btn-sm btn-secondary"
-                        v-on:click="loadCas()">Import CA</button>
+                        v-on:click="getCas()">Import CA</button>
                 <button class="btn btn-sm btn-secondary"
                         v-on:click="newSimulation()">Create Simulation</button>
                 <button class="btn btn-sm btn-secondary"
@@ -69,12 +81,6 @@
             <h2 class="h5">API</h2>
 
             <fieldset class="form-grid p-3">
-
-                <label class="form-label" for="apiBase">API base</label>
-                <div class="d-flex">
-                    <input type="text" name="apiBase" v-model="apiBase" class="form-control form-control-sm w-75" />
-                    <button class="btn btn-sm btn-secondary w-25" v-on:click="setup()">Set</button>
-                </div>
 
                 <label class="form-label">Current Simulation</label>
                 <div><select class="form-select form-select-sm" v-model="simulation" v-on:change="selectSimulation()">
@@ -106,12 +112,31 @@
 
         </div>
 
-        <div class="col p-3">
+        <div class="col">
 
-            <p>Nodes</p>
-            <ul>
-                <li v-for="(node, index) in nodes">{{ node }}</li>
-            </ul>
+            <h2 class="h5">Nodes</h2>
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Node Name</th>
+                        <th>Total</th>
+                        <th>Allocated</th>
+                        <th>Biggest</th>
+                        <th>Procs</th>
+                        <th>Type</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="(node, index) in nodes" :key="index">
+                        <td>{{ node.node }}</td>
+                        <td>{{ node.total }}</td>
+                        <td>{{ node.allocated }}</td>
+                        <td>{{ node.worst }}</td>
+                        <td>{{ node.processes }}</td>
+                        <td>{{ node.type }}</td>
+                    </tr>
+                </tbody>
+            </table>
 
         </div>
 
@@ -174,10 +199,15 @@
         created: function() {
             console.log('App loaded');
 
-            // default to server url
-            if( window.location.protocol !== 'file:' )
+            // apiBase
+            // check localStorage
+            if( localStorage.getItem('apiBase') ) {
+                this.apiBase = localStorage.getItem('apiBase');
+            } else if( window.location.protocol !== 'file:' ) {
                 this.apiBase = `${window.location.protocol}//${window.location.host}`;
+            }
 
+            // use a set for nodes
             this.nodes = new Set();
 
             this.setup();
@@ -186,8 +216,10 @@
         methods: {
 
             setup: function() {
-                this.loadCas();
-                this.loadNodes();
+                // save URL for future use
+                localStorage.setItem('apiBase', this.apiBase);
+                this.getCas();
+                this.getNodes();
                 this.getSimulations();
             },
 
@@ -235,19 +267,25 @@
                 this.socket.send(this.msg)
             },
 
-            loadCas: function() {
-                const location = `${this.apiBase}${this.apiPrefix}/cas`;
-                fetch( location )
-                    .then(response => response.json())
-                    .then(data => {
+            getCas: function() {
+                this.cas = [];
+                this.apiGet('/cas')
+                    .then((data) => {
                         if( data.Data && data.Data.CAs ) {
                             this.cas = data.Data.CAs;
                         }
                     });
             },
 
-            loadNodes: function() {
-
+            getNodes: function() {
+                this.nodes = [];
+                this.apiGet('/nodes')
+                    .then((data) => {
+                        if(data.Data && data.Data.HardwareDefinitions) {
+                            // expecting array of objects
+                            this.nodes = data.Data.HardwareDefinitions[0];
+                        }
+                    });
             },
 
             getSimulations: function() {
@@ -290,12 +328,6 @@
                                 if( data[k] !== undefined )
                                     this.form[k] = data[k];
                             });
-                            // rudimentary way to load nodes (/nodes empty)
-                            if(data.nodes) {
-                                data.nodes.forEach( n => {
-                                    this.nodes.add(n);
-                                });
-                            }
                         }
                     });
             },
@@ -306,10 +338,10 @@
                     console.log('Missing simulation name');
                     return;
                 }
-                // [temp] take first node if possible...
-                if( !this.form.nodes ) {
-                    this.form.nodes = [this.nodes[0]];
-                }
+                // [temp] need node selector
+                // if( !this.form.nodes ) {
+                //     this.form.nodes = [this.nodes[0]];
+                // }
                 this.apiPost( `/simulations/${id}`, this.form )
                     .then(response => {
                         console.log(response)
@@ -365,15 +397,10 @@
             },
 
             // generic get
-            apiGet: function(path) {
-                const location = this.apiBase + path + "?details=1";
-                fetch( location )
-                    .then(response => response.json())
-                    .then(data => {
-                        console.log(data);
-                        this.output = [];
-                        this.output.push(data);
-                    });
+            apiGet: async function( path ) {
+                const url = `${this.apiBase}${this.apiPrefix}${path}?format=detailed`;
+                const response = await fetch( url );
+                return response.json();
             },
 
             fakeStream: function() {
@@ -437,6 +464,11 @@
         computed: {
             fakeStreamLabel: function() {
                 return this.streamOn ? 'Stop Fake Stream' : 'Start Fake Stream'
+            },
+            nodesNodes: function() {
+                if( this.nodes )
+                    return this.nodes.filter( n => n.type === 'node' );
+                return [];
             },
         },
     };

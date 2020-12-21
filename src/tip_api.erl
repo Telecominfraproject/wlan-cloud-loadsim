@@ -12,8 +12,7 @@
 -include("../include/simengine.hrl").
 
 %% API
--export([login/1,tip_locations/0,clients/0,equipment/0,clients_old/0]).
-
+-export([login/1,tip_locations/0,clients/0,equipments/0]).
 
 login(SimName)->
 	_=inets:start(),
@@ -56,7 +55,7 @@ create_pagination_context(Context)->
 	uri_string:compose_query([{"paginationContext",binary_to_list(JSON)}]).
 
 get_all(BaseURI)->
-	get_all(BaseURI,#{},[]).
+	get_all(BaseURI,#{},0).
 
 get_all(_BaseURI,#{ <<"lastPage">> := LastPage } = _Context, Acc) when LastPage == true ->
 	Acc;
@@ -68,43 +67,10 @@ get_all(BaseURI,Context,Acc)->
 	Array = maps:get(<<"items">>,M),
 	NewContext = maps:get(<<"context">>,M),
 	io:format("Returned ~p items NewContext = ~p.~n",[length(Array),NewContext]),
-	get_all(BaseURI,NewContext,[length(Array)|Acc]).
+	get_all(BaseURI,NewContext,length(Array)+Acc).
 
-
-equipment()->
-	PC = uri_string:compose_query([{"paginationContext","{ \"model_type\": \"PaginationContext\", \"maxItemsPerPage\": 500 }"}]),
-	URI = uri_base() ++ "/portal/equipment/forCustomer?customerId=2&" ++ PC,
-	{ok,{{_,200,_},_Headers,Body}} = httpc:request(get,{URI,[{"Authorization","Bearer " ++ token()}]},[],[]),
-	M = jiffy:decode(Body,[return_maps]),
-	Array = maps:get(<<"items">>,M),
-	Res = lists:foldl(fun(E,A)->
-		%% Details = maps:get(<<"details">>,E),
-		InventoryID = maps:get( <<"inventoryId">>,E),
-		[InventoryID|A]
-	                  end,[],Array),
-	Res.
+equipments()->
+	get_all("/portal/equipment/forCustomer?customerId=2&").
 
 clients()->
 	get_all("/portal/client/session/forCustomer?customerId=2&").
-
-clients_old()->
-	PC = uri_string:compose_query([{"paginationContext","{ \"model_type\": \"PaginationContext\", \"maxItemsPerPage\": 500 }"}]),
-	URI = uri_base() ++ "/portal/client/session/forCustomer?customerId=2&" ++ PC,
-	{ok,{{_,200,_},_Headers,Body}} = httpc:request(get,{URI,[{"Authorization","Bearer " ++ token()}]},[],[]),
-	M = jiffy:decode(Body,[return_maps]),
-	Array = maps:get(<<"items">>,M),
-	Context = maps:get(<<"context">>,M),
-	Cursor = maps:get(<<"cursor">>,Context),
-	LastPage = maps:get(<<"lastPage">>,Context),
-	io:format("Got ~p sessions last=~p context=~p ~n",[length(Array),LastPage,Context]),
-	PC2 = uri_string:compose_query([
-		                               {"paginationContext","{ \"cursor\" : \"" ++ binary_to_list(Cursor) ++ "\", \"model_type\": \"PaginationContext\", \"maxItemsPerPage\": 500 }"}]),
-	URI2 = uri_base() ++ "/portal/client/session/forCustomer?customerId=2&" ++ PC2,
-	{ok,{{_,200,_},_Headers2,Body2}} = httpc:request(get,{URI2,[{"Authorization","Bearer " ++ token()}]},[],[]),
-	M2 = jiffy:decode(Body2,[return_maps]),
-	Array2 = maps:get(<<"items">>,M2),
-	Context2 = maps:get(<<"context">>,M2),
-	% Cursor2 = maps:get(<<"cursor">>,Context2),
-	LastPage2 = maps:get(<<"lastPage">>,Context2),
-	io:format("Got ~p sessions last=~p context=~p~n",[length(Array2),LastPage2,Context2]),
-	io:format("CONTEXT: ~p~n",[Context2]).

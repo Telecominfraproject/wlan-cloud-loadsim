@@ -67,7 +67,7 @@ get_all(BaseURI,Context,Acc)->
 	M = jiffy:decode(Body,[return_maps]),
 	Array = maps:get(<<"items">>,M),
 	NewContext = maps:get(<<"context">>,M),
-	io:format("Returned ~p items.~n",[length(Array)]),
+	io:format("Returned ~p items NewContext = ~p.~n",[length(Array),NewContext]),
 	get_all(BaseURI,NewContext,[length(Array)|Acc]).
 
 

@@ -340,8 +340,8 @@ prepare_state (CAName, ID, Options) ->
 -spec set_status (Status :: ap_status(), State :: #ap_state{}) -> NewState :: #ap_state{}.
 set_status (Status, #ap_state{status=OldStatus, config=Cfg}=State) ->
 	ovsdb_client_handler:ap_status(Status,ovsdb_ap_config:id(Cfg)),
-	post_event(status_change,{OldStatus,Status},io_lib:format("status change := ~p -> ~p",[OldStatus,Status])),
-	?L_I(?DBGSTR("AP ~p : status change := ~p -> ~p",[self(),OldStatus,Status])),
+	post_event(status_change,{OldStatus,Status},io_lib:format("status change (~s) := ~p -> ~p",[ovsdb_ap_config:id(Cfg),OldStatus,Status])),
+	?L_I(?DBGSTR("AP ~p : status change (~s) := ~p -> ~p",[self(),ovsdb_ap_config:id(Cfg),OldStatus,Status])),
 	start_stop_mqtt_updates(State#ap_state{status=Status}).
 
 -spec start_stop_mqtt_updates (State :: #ap_state{}) -> NewState :: #ap_state{}.

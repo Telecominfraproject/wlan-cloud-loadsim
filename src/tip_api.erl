@@ -58,6 +58,7 @@ get_all(BaseURI)->
 
 get_all(BaseURI,Context,Acc)->
 	PC = create_pagination_context(Context),
+	io:format("Context: ~s~n",[Context]),
 	URI = uri_base() ++ BaseURI ++ PC,
 	{ok,{{_,200,_},_Headers,Body}} = httpc:request(get,{URI,[{"Authorization","Bearer " ++ token()}]},[],[]),
 	M = jiffy:decode(Body,[return_maps]),

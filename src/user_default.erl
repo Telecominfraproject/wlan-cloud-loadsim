@@ -339,6 +339,55 @@ t1_key_h() ->
 	                          nodes = ['simnode1@hypatia.syramo.com'] },
 	simengine:create(Simulation).
 
+tl() -> tip_login("sim1").
+
+tip_login(SimName)->
+	_=inets:start(),
+	try
+		{ok,Sim} = simengine:get(SimName),
+		io:format("Trying to log into: ~p...~n",[Sim#simulation.opensync_server_name]),
+		ServerName = binary_to_list(Sim#simulation.opensync_server_name),
+		LoginURIBase = "https://" ++ ServerName ++ ":" ++ integer_to_list(9051),
+		LoginURI =  LoginURIBase ++ "/management/v1/oauth2/token",
+		LoginPassword = <<"{ \"userId\": \"support@example.com\", \"password\": \"support\" }">>,
+		{ ok, { {_,200,_},_Headers,Body}} = httpc:request(post, {LoginURI, [],["application/json"],LoginPassword}, [], []),
+		Map = jiffy:decode(Body,[return_maps]),
+		%% io:format("R=~p  ~p~n",[ResultCode,Map]),
+		persistent_term:put(tip_access_token,binary_to_list(maps:get(<<"access_token">>,Map))),
+		persistent_term:put(tip_uri_base,LoginURIBase),
+		io:format("TIP Logged in.~n")
+	catch
+		_:_ -> io:format("Could not log into TIP.~n")
+	end.
+
+tip_token()->
+	persistent_term:get(tip_access_token).
+
+tip_uri_base()->
+	persistent_term:get(tip_uri_base).
+
+tip_locations()->
+	URI = tip_uri_base() ++ "/portal/customer?customerId=2",
+	{ok,{{_,200,_},_Headers,Body}} = httpc:request(get,{URI,[{"Authorization","Bearer " ++ tip_token()}]},[],[]),
+	M = jiffy:decode(Body,[return_maps]),
+	Details = maps:get(<<"details">>,M),
+	Auto = maps:get(<<"autoProvisioning">>,Details),
+	LocationId = maps:get(<<"locationId">>,Auto),
+	io:format(">>>LocationId: ~p~n",[LocationId]).
+
+tip_equipment()->
+	PC = uri_string:compose_query([{"paginationContext","{ \"model_type\": \"PaginationContext\", \"maxItemsPerPage\": 100 }"}]),
+	URI = tip_uri_base() ++ "/portal/equipment/forCustomer?customerId=2&" ++ PC,
+	{ok,{{_,200,_},_Headers,Body}} = httpc:request(get,{URI,[{"Authorization","Bearer " ++ tip_token()}]},[],[]),
+	M = jiffy:decode(Body,[return_maps]),
+	Array = maps:get(<<"items">>,M),
+	Res = lists:foldl(fun(E,A)->
+											Details = maps:get(<<"details">>,E),
+											InventoryID = maps:get( <<"inventoryId">>,E),
+											[InventoryID|A]
+										end,[],Array),
+	io:format("Equipment List(~p): ~p~n",[length(Res),Res]).
+
 t1_key_hz() ->
 	import_ca("sim1","mypassword","tip2-cakey.pem","tip2-cacert.pem").
 

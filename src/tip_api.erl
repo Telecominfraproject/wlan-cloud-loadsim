@@ -54,7 +54,7 @@ create_pagination_context(Cursor)->
 	uri_string:compose_query([{"paginationContext","{ \"model_type\": \"PaginationContext\", \"cursor\" : \"" ++ Cursor ++ "\" , \"maxItemsPerPage\": 5000 }"}]).
 
 get_all(BaseURI)->
-	get_all(BaseURI,"",0).
+	get_all(BaseURI,"",[]).
 
 get_all(BaseURI,Cursor,Acc)->
 	PC = create_pagination_context(Cursor),
@@ -67,7 +67,8 @@ get_all(BaseURI,Cursor,Acc)->
 	L = length(Array),
 	case  maps:get(<<"lastPage">>,NewContext) of
 		true ->
-			io:format("Total elements: ~p~n",[Acc+length(Array)]);
+			io:format("Total elements: ~p~n",[Acc+length(Array)]),
+			Acc ++ Array;
 		false ->
 			NewCursor = binary_to_list(maps:get(<<"cursor">>,NewContext)),
 			io:format("New cursor: ~p~n",[NewCursor]),
@@ -76,7 +77,7 @@ get_all(BaseURI,Cursor,Acc)->
 	end.
 
 equipments()->
-	get_all("/portal/equipment/forCustomer?customerId=2&").
+	E = get_all("/portal/equipment/forCustomer?customerId=2&").
 
 clients()->
-	get_all("/portal/client/session/forCustomer?customerId=2&").
+	C = get_all("/portal/client/session/forCustomer?customerId=2&").

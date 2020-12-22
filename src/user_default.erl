@@ -365,6 +365,17 @@ number_of_clients()->
 								end
 							end,0,AllClients).
 
+compare_clients()->
+	tip_api:login("sim1"),
+	Equipments = tip_api:equipments(),
+	Clients = tip_api:clients(),
+	ClientMacs = lists:fold( fun(C,A) ->
+														MacEntry = maps:get(<<"macAddress">>,C),
+														Mac = maps:get(<<"addressAsString">>,MacEntry),
+														[Mac|A]
+													 end,[],Clients),
+	ClientMacs.
+
 
 
 

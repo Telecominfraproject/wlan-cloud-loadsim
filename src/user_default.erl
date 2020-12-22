@@ -369,7 +369,7 @@ compare_clients()->
 	tip_api:login("sim1"),
 	Equipments = tip_api:equipments(),
 	Clients = tip_api:clients(),
-	ClientMacs = lists:fold( fun(C,A) ->
+	ClientMacs = lists:foldl( fun(C,A) ->
 														MacEntry = maps:get(<<"macAddress">>,C),
 														Mac = maps:get(<<"addressAsString">>,MacEntry),
 														[Mac|A]

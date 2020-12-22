@@ -370,7 +370,7 @@ get_all_sim_clients_macs()->
 	lists:foldl(fun(Client,A)->
 								case inventory:get_client("sim1",Client) of
 									{ok,ClientInfo} ->
-										A ++ length(ClientInfo#client_info.wifi_clients);
+										A ++ [ MAC || {_Index,_Band,_SSID,MAC,_Vendor} <- ClientInfo#client_info.wifi_clients] ;
 									_ ->
 										A
 								end

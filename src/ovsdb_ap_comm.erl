@@ -98,7 +98,6 @@ comm_loop (#c_state{socket=S, rxb=Rx, ap=AP, id=ID, options=Opts}=State) ->
 		{ssl_closed, S} ->
 			ovsdb_ap:post_event(AP,comm_error,{<<"socket_closed">>},<<>>),
 			?L_E(?DBGSTR("~p: Socket closed by server.",[ID])),
-			io:format("~p: Socket closed by server.",[ID]),
 			comm_loop(try_reconnect(State));
 
 		{ssl_error, S, Reason} ->

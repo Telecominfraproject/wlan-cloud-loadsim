@@ -360,7 +360,7 @@ maybe_notify_simnode (#hdl_state{clients=Clients, simnode_callback={SN,Msg}, cal
 	IDs = [X||#ap_client{id=X}<-ets:match_object(Clients,#ap_client{_='_'})],
 	case length(get_client_ids_in_state(Clients,{Status},IDs)) == Num of
 		true ->
-			io:format("NOTIFY SIMNODE of ~s~n",[Status]),
+			?L_IA("NOTIFY SIMNODE of ~s",[Status]),
 			SN ! Msg,
 			State#hdl_state{simnode_callback=none, callback_state=none, state_num=0};
 		false ->
@@ -421,7 +421,7 @@ get_client_with_id (Tid, Id) ->
 cmd_startup_sim (#hdl_state{timer=T, clients=Clients}=State, Which, #{stagger:={N,Per}}=Options) ->	
 	case get_client_ids_in_state (Clients, ready, Which) of
 		[] ->
-			io:format("DONE STARTING CLIENTS~n"),
+			?L_I("DONE STARTING CLIENTS"),
 			T2 = owls_timers:mark("startup sequence end",T),
 			State#hdl_state{timer=T2};
 		Ready ->	
@@ -429,7 +429,7 @@ cmd_startup_sim (#hdl_state{timer=T, clients=Clients}=State, Which, #{stagger:={
 			Sp = min(N,length(Ready)),
 			{ToStart,_} = lists:split(Sp,Ready),
 			_=timer:apply_after(Per,gen_server,call,[self(),{api_cmd_start, Which, Options}]),
-			io:format("STARTED CLIENTS ~p, more to come in ~Bms~n",[ToStart,Per]),
+			%io:format("STARTED CLIENTS ~p, more to come in ~Bms~n",[ToStart,Per]),
 			trigger_execute (0, queue_command(front,clients_start,ToStart,State#hdl_state{timer=T2}))
 	end;	
 cmd_startup_sim (#hdl_state{timer=T, clients=Clients}=State, Which, _) ->

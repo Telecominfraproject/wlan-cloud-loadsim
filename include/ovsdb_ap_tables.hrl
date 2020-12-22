@@ -208,7 +208,7 @@
 	device_type = 0 :: term(),
 	dhcp_server = <<"192.168.1.1">> :: term(),
 	device_name = <<"Simulation">> :: term(),
-	fingerprint = <<"1,15">> :: term(),
+	fingerprint = <<"1,121,3,6,15,114,119,252">> :: term(),
 	primary_dns = <<"192.168.1.1">> :: term(),
 	gateway = <<"192.168.1.1">> :: term()
 }).
@@ -357,5 +357,14 @@
 	delete :: boolean() | ets_dont_care(),
 	modify :: boolean() | ets_dont_care(),
 	published = true :: boolean() | ets_dont_care()
+}).
+
+-record (to_publish, {
+	table = <<>> :: binary()			| ets_dont_care(),
+	old_version = <<>> :: binary()		| ets_dont_care(),
+	new_version = <<>> :: binary()		| ets_dont_care(),
+	row_key = <<>> :: binary()			| ets_dont_care(),
+	old_values =  #{} :: #{binary()=>any}	| ets_dont_care(),
+	new_values =  #{} :: #{binary()=>any}	| ets_dont_care()
 }).
 

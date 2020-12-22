@@ -195,7 +195,12 @@ handle_cast (check_mqtt_updates, State) ->
 	{noreply, S};
 
 handle_cast (check_publish_monitor, State) ->
-	ovsdb_ap_monitor:publish_unpublished(State#ap_state.store),
+	case ovsdb_ap_monitor:publish_monitored(State#ap_state.store) of
+		{ok, more} ->
+			timer:apply_after(500,?MODULE,check_publish_monitor,[self()]);
+		{ok, done} ->
+			ok
+	end,
 	{noreply, State};
 
 handle_cast (send_report,State) ->
@@ -340,8 +345,8 @@ prepare_state (CAName, ID, Options) ->
 -spec set_status (Status :: ap_status(), State :: #ap_state{}) -> NewState :: #ap_state{}.
 set_status (Status, #ap_state{status=OldStatus, config=Cfg}=State) ->
 	ovsdb_client_handler:ap_status(Status,ovsdb_ap_config:id(Cfg)),
-	post_event(status_change,{OldStatus,Status},io_lib:format("status change := ~p -> ~p",[OldStatus,Status])),
-	?L_I(?DBGSTR("AP ~p : status change := ~p -> ~p",[self(),OldStatus,Status])),
+	post_event(status_change,{OldStatus,Status},io_lib:format("status change (~s) := ~p -> ~p",[ovsdb_ap_config:id(Cfg),OldStatus,Status])),
+	?L_I(?DBGSTR("AP ~p : status change (~s) := ~p -> ~p",[self(),ovsdb_ap_config:id(Cfg),OldStatus,Status])),
 	start_stop_mqtt_updates(State#ap_state{status=Status}).
 
 -spec start_stop_mqtt_updates (State :: #ap_state{}) -> NewState :: #ap_state{}.
@@ -484,8 +489,7 @@ start_mqtt (Cfg,#ap_state{ca_name=CAName, id=ID, mqtt=idle}=State) ->
 	_ = mqtt_client_manager:start_client(CAName,ID,Cfg),
 	State#ap_state{mqtt=running};
 start_mqtt (_,State) ->
-	io:format("MQTT start request, but already running ...~n"),
-	?L_E(?DBGSTR("MQTT client already running!")),
+	?L_E(?DBGSTR("MQTT start request, but client already running!")),
 	State.
 
 -spec stop_mqtt (State::#ap_state{}) -> NewState::#ap_state{}.
@@ -506,7 +510,10 @@ request_mqtt_updates (#ap_state{config=Cfg} = State) ->
 -spec handle_mqtt_stats_update (Serial :: binary(), Stats :: #{binary() => #'Client.Stats'{}}, State :: #ap_state{}) -> NewState :: #ap_state{}.
 handle_mqtt_stats_update (_Serial,_Stats,State) ->
 	%% io:format("GOT MQTT STATS: ->republishing changes~n"),
-	ovsdb_ap_monitor:refresh_publications(State#ap_state.store),
+	%%ovsdb_ap_monitor:refresh_publications(State#ap_state.store),
+	ovsdb_ap_simop:update_wifi_clients(State#ap_state.store),
+	ovsdb_ap_simop:update_dhcp_leases(State#ap_state.store),
+	check_publish_monitor(self()),
 	State.
 	
 %%==============================================================================

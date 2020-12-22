@@ -12,7 +12,7 @@
 -include("../include/common.hrl").
 -include("../include/ovsdb_ap_tables.hrl").
 
--export ([req_monitor/3,maybe_publish_data/6,publish_unpublished/1,refresh_publications/1]).
+-export ([req_monitor/3,maybe_publish_data/6,publish_monitored/1,create_pub_entry/3,create_pub_entry/5]).
 
 -spec req_monitor (NameSpace :: binary(), ToMonitor :: [#{binary()=>term()}], Store :: ets:tid()) -> Result :: #{binary()=>term()}.
 req_monitor (NameSpace,[{Table,Operations}|_],Store) ->
@@ -102,7 +102,13 @@ publish_monitor (NameSpace,Data) ->
 		_ ->
 			ok
 	end,
-%%	io:format("PUBLISHING: ~s~n~s~n",[NameSpace,Json]),
+	% case maps:keys(Data) of
+	% 	[<<"DHCP_leased_IP">>] ->
+	% 		Pr = iolist_to_binary(jiffy:encode(RPC,[pretty])),
+	% 		io:format("PUBLISHING: ~s/~s~n~s~n",[NameSpace,"DHCP",Pr]);   %% Json
+	% 	_ ->
+	% 		io:format("PUBLISHING: ~s~n~p~n",[NameSpace,Data])   %% Json
+	% end,
 	?L_IA("PUBLISHING: ~s",[NameSpace]),
 	ovsdb_ap:rpc_request(self(),RPC).
 
@@ -122,29 +128,71 @@ maybe_publish_data (NS,T,Op,New,Old,Store) ->
 			ok
 	end.
 
--spec publish_unpublished (Store :: ets:tid()) -> ok.
-publish_unpublished (Store) ->
-	ToPublish = ets:match_object(Store,#monitors{published=false, modify=true, _='_'}),
-	%ToPublish = ets:match_object(Store,#monitors{_='_'}),
-	%io:format ("UNPUBLISHED:~n~p~n",[ToPublish]),
-	F = fun (#monitors{namespace=NS, table=T}=P) when is_binary(T) ->
-			QRes = ovsdb_dba:select_with_key(T,[],Store),
-			publish_monitor(NS,monitor_result(T,QRes,[])),
-			P#monitors{published=true}
-		end,
-	N = [F(X) || X <- ToPublish],
-	[ets:delete_object(Store,X) || X <- ToPublish],
-	ets:insert(Store,N).
+-spec publish_monitored (Store :: ets:tid()) -> {ok, done} | {ok, more}.
+publish_monitored (Store) ->
+	case ets:match_object(Store,#to_publish{_='_'},3) of
+		{ToPublish,_} ->
+			[ should_publish(X,Store) || X <- ToPublish ],
+			[ ets:delete_object(Store,X) || X <- ToPublish ],
+			{ok, more};
+		_ ->
+			{ok, done}
+	end.
 
--spec refresh_publications (Store::ets:tid()) -> ok.
-refresh_publications (Store) ->
-	ToPublish = ets:match_object(Store,#monitors{modify=true, _='_'}),
-	F = fun (#monitors{namespace=NS, table=T}=P) when is_binary(T) ->
-			QRes = ovsdb_dba:select_with_key(T,[],Store),
-			publish_monitor(NS,monitor_result(T,QRes,[])),
-			P#monitors{published=true}
-		end,
-	[F(X) || X <- ToPublish].
+-spec should_publish (Publish :: #to_publish{}, Store :: ets:tid()) -> ok.
+should_publish(#to_publish{table=T, row_key=Key, new_values=New, old_values=Old}, Store) ->
+	case ets:match_object(Store,#monitors{table=T, _='_'}) of
+		[#monitors{namespace=NS, initial=I, modify=M}] when I=:=true orelse M=:=true ->
+			NewList = case New of
+				ND when is_map(ND) andalso map_size(ND) > 0 ->
+					[{Key, ND}];
+				_ ->
+					[]
+			end,
+			OldList = case Old of
+				OD when is_map(OD) andalso map_size(OD) > 0 ->
+					[{Key, OD}];
+				_ ->
+					[]
+			end,
+			%io:format("SHOULD_PUB: ~s~nTP=~p~nOld=~p~nNew=~p~nNewMapList=~p~n",[T,TP,Old,New,NewList]);
+			publish_monitor(NS,monitor_result(T,NewList,OldList));
+		[#monitors{table=T}] ->
+			?L_IA("Publishing request for ~s but not monitored, throwing away",[T]);
+		_ ->
+			?L_EA("publishing error: ~p",[T])
+	end.
+
+-spec create_pub_entry (TableName :: binary(), RowKey :: binary(), Store :: ets:tid()) -> ok.
+create_pub_entry (Table, Key, Store) ->
+	case ovsdb_dba:select_with_key(Table,[[<<"**key_id**">>,<<"=">>,Key]],Store) of	
+		[{Key,Data}] ->
+			[<<"uuid">>,Version] = maps:get(<<"_version">>,Data,[<<"uuid">>,utils:uuid_b()]),
+			ets:insert(Store,#to_publish{
+				table = Table,
+				new_version = Version,
+				row_key = Key,
+				new_values = Data
+			});
+		_ ->
+			?L_E("CBE error")
+	end.
+
+-spec create_pub_entry (TableName :: binary(), RowKey :: binary(), OldValue :: #{binary()=>any()}, NewValue :: #{binary()=>any()}, Store :: ets:tid()) -> ok.
+create_pub_entry (Table, Key, Old, New, Store) ->
+	[<<"uuid">>,OldVer] = maps:get(<<"_version">>,Old,[<<"uuid">>,utils:uuid_b()]),
+	[<<"uuid">>,NewVer] = maps:get(<<"_version">>,New,[<<"uuid">>,utils:uuid_b()]),
+	ets:insert(Store,#to_publish{
+		table = Table,
+		new_version = NewVer,
+		old_version = OldVer,
+		row_key = Key,
+		new_values = New,
+		old_values = Old
+	}).
+
+
+
 
 -spec dump_data(FileName::string(),Data::binary())->ok.
 dump_data(FileName,Data)->

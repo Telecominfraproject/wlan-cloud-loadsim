@@ -34,7 +34,7 @@ eval_req(<<"monitor">>,Id,#{<<"params">>:=[<<"Open_vSwitch">>,NSpace|Tables]},St
 	Res = make_result(Id,Mon),
 	% Json = iolist_to_binary(jiffy:encode(Res,[pretty])),
 	% io:format("MONITOR REQUEST (~s):~n~s~n",[NSpace,Json]),
-	io:format("MONITOR REQUEST (~s):~n",[NSpace]),
+	?L_IA("MONITOR REQUEST: (~s)",[NSpace]),
 	_ = timer:apply_after(3000,ovsdb_ap,check_publish_monitor,[self()]),
 	{ok, Res};
 eval_req(<<"monitor">>,Id,P,_) ->
@@ -73,7 +73,7 @@ eval_resp (Id, _Data, Queue, _Store) ->
 			?L_E(?DBGSTR("Result with no corresponding request ~s",[Id])),
 			{error,?DBGSTR("Can't find ID ~s",[Id])};
 		_ ->
-			io:format("handle response to RPC wit ID: ~s~n",[Id]),
+			?L_IA("handle response to RPC wit ID: ~s",[Id]),
 			ok
 	end.
 

@@ -378,7 +378,7 @@ get_all_sim_clients_macs()->
 
 compare_clients()->
 	tip_api:login("sim1"),
-	Equipments = tip_api:equipments(),
+	% Equipments = tip_api:equipments(),
 	Clients = tip_api:clients(),
 	ClientMacs = lists:sort(lists:foldl( fun(C,A) ->
 														MacEntry = maps:get(<<"macAddress">>,C),
@@ -386,7 +386,9 @@ compare_clients()->
 														[Mac|A]
 													 end,[],Clients)),
 	SimClientMacs = lists:sort(get_all_sim_clients_macs()),
-	lists:subtract(SimClientMacs,ClientMacs).
+	SimMinusTip = lists:subtract(SimClientMacs,ClientMacs),
+	TipMinusSim = lists:subtract(ClientMacs,SimClientMacs),
+	{ SimMinusTip, TipMinusSim }.
 
 
 

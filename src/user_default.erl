@@ -376,6 +376,7 @@ get_all_sim_clients_macs()->
 								end
 	            end,[],AllClients).
 
+%% Get all serial numbers in the simulation data
 get_all_sim_clients_serials()->
 	{ ok , AllClients } = list_clients("sim1"),
 	lists:sort(lists:foldl(fun(Client,A)->

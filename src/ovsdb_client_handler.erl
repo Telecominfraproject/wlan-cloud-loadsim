@@ -537,13 +537,21 @@ print_debug_status (#hdl_state{clients=Clients}) ->
 	Cl = ets:match_object(Clients,#ap_client{_='_'}),
 	dbg_status_header(),
 	F = fun (Id,none) ->
-				io:format("| ~17s |  *** error this AP was never created ***~n",[Id]);
+				io:format("| ~17s |  *** error this AP was never created ***~n",[Id]),
+				{0,0};
 		  	(_,Pid) ->
 			    R = ovsdb_ap:dbg_status(Pid),
-				dbg_status_row(R)
+				dbg_status_row(R),
+				case R#status_info.monitors > 6 of
+					true -> {R#status_info.clients,0};
+					_ -> {0,R#status_info.clients}
+				end
 	end,
-	[ F(ID,Pid) || #ap_client{id=ID, process=Pid} <- Cl ],
+	{Active,Bad} = lists:unzip([ F(ID,Pid) || #ap_client{id=ID, process=Pid} <- Cl ]),
+	AN = lists:sum(Active),
+	BN = lists:sum(Bad),
 	io:format("+=================================================================================================+~n"),
+	dbg_summary_line(length(Cl),AN,BN),
 	ok.
 
 dbg_status_header () ->
@@ -563,3 +571,7 @@ dbg_status_row (R) ->
 		 R#status_info.monitors,
 		 R#status_info.published]
 	).
+
+dbg_summary_line (N,A,B) ->
+	io:format ("Access Points: ~B~nTotal clients: ~B~nActive clients: ~B~nDubious clients: ~B~n",
+		[N,A+B,A,B]).

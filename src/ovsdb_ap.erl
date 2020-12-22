@@ -238,7 +238,7 @@ handle_cast ({exec_rpc, RPC}, #ap_state{status=paused}=State) when is_map(RPC) a
 			case ovsdb_ap_rpc:eval_req(<<"echo">>, maps:get(<<"id">>,RPC), RPC, State#ap_state.store) of
 				{ok, Result} when is_map(Result) andalso is_map_key(<<"result">>,Result) ->
 						ok = ovsdb_ap_comm:send_term(State#ap_state.comm,Result),
-						NewState = update_debug_state(#ap_events{event=set_idle},State),
+						NewState = update_debug_state({set_idle,0,0},State),
 						{reply,ok,NewState};
 				_ ->
 						{reply, ignored, State}
@@ -253,9 +253,9 @@ handle_cast ({exec_rpc, RPC}, State) when is_map(RPC) andalso
 										  is_map_key(<<"id">>,RPC) ->
 	NewState = case  maps:get(<<"method">>,RPC) of
 		<<"echo">> -> 
-			update_debug_state(#ap_events{event=set_idle},State);
+			update_debug_state({set_idle,0,0},State);
 		_ ->
-			update_debug_state(#ap_events{event=set_active},State)
+			update_debug_state({set_active,0,0},State)
 	end,
 	case ovsdb_ap_rpc:eval_req(maps:get(<<"method">>,RPC),
 								maps:get(<<"id">>,RPC),
@@ -632,13 +632,13 @@ assemble_dbg_status (#ap_state{store=Store}=State) ->
 	}.
 
 -spec update_debug_state(Event :: tuple(), State :: #ap_state{}) -> NewState :: #ap_state{}.
-update_debug_state (#ap_events{event=sock_recon}, #ap_state{dbg_info=Info}=State) ->
+update_debug_state ({sock_recon,_,_}, #ap_state{dbg_info=Info}=State) ->
 	New = Info#dbg_info{recons=Info#dbg_info.recons+1},
 	State#ap_state{dbg_info=New};
-update_debug_state (#ap_events{event=set_idle}, #ap_state{dbg_info=Info}=State) ->
+update_debug_state ({set_idle,_,_}, #ap_state{dbg_info=Info}=State) ->
 	New = Info#dbg_info{substate=idle},
 	State#ap_state{dbg_info=New};
-update_debug_state (#ap_events{event=set_active}, #ap_state{dbg_info=Info}=State) ->
+update_debug_state ({set_active,_,_}, #ap_state{dbg_info=Info}=State) ->
 	New = Info#dbg_info{substate=active},
 	State#ap_state{dbg_info=New};
 update_debug_state (_, State) ->

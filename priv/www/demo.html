@@ -102,7 +102,7 @@
 
                     <div></div>
                     <div>
-                        <button class="btn btn-secondary btn-sm" v-on:click="saveCA()">Import CA</button>
+                        <button class="btn btn-secondary btn-sm" v-on:click="saveCas()" v-bind:disabled="!casSaveValid">Import CA</button>
                         <button class="btn btn-light btn-sm" v-on:click="loadImportCasForm()">Cancel</button>
                     </div>
                     
@@ -147,7 +147,11 @@
                     <label class="form-label">Port</label>
                     <div><input type="number" class="form-control form-control-sm" v-model="form.port" /></div>
 
-                    <button class="btn btn-secondary btn-sm" v-on:click="saveSimulation()">Save</button>
+                    <div></div>
+
+                    <div>
+                        <button class="btn btn-secondary btn-sm" v-on:click="saveSimulation()">Save</button>
+                    </div>
 
                 </fieldset>
             </div>
@@ -357,6 +361,7 @@
 
             // clear form for empty mode
             newSimulation() {
+                this.importCA = false;
                 this.simulation = '';
                 this.simulationNew = true;
                 this.resetProps( this.form );
@@ -404,15 +409,14 @@
                     });
             },
 
-            saveCA: function() {
-                console.log(JSON.stringify(this.casForm));
+            saveCas: function() {
                 // block if name exists
                 if( this.cas.includes( this.casForm.name ) ) {
                     console.log(`CA name ${this.casForm.name} already exists!`);
                     return false;
                 }
                 // basic validation
-                if( this.casForm.name && this.casForm.key && this.casForm.cert ) {
+                if( this.casSaveValid ) {
                     this.apiPost( `/cas/${this.casForm.name}`, this.casForm )
                         .then(response => {
                             console.log(response);
@@ -571,6 +575,9 @@
                     return this.nodes.filter( n => n.type === 'node' ).map( n => n.node );
                 }
                 return [];
+            },
+            casSaveValid: function() {
+                return ( this.casForm.name && this.casForm.key && this.casForm.cert );
             },
         },
     };

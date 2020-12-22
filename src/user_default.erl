@@ -365,16 +365,28 @@ number_of_clients()->
 								end
 							end,0,AllClients).
 
+get_all_sim_clients_macs()->
+	{ ok , AllClients } = list_clients("sim1"),
+	lists:foldl(fun(Client,A)->
+								case inventory:get_client("sim1",Client) of
+									{ok,ClientInfo} ->
+										A ++ length(ClientInfo#client_info.wifi_clients);
+									_ ->
+										A
+								end
+	            end,[],AllClients).
+
 compare_clients()->
 	tip_api:login("sim1"),
 	Equipments = tip_api:equipments(),
 	Clients = tip_api:clients(),
-	ClientMacs = lists:foldl( fun(C,A) ->
+	ClientMacs = lists:sort(lists:foldl( fun(C,A) ->
 														MacEntry = maps:get(<<"macAddress">>,C),
 														Mac = maps:get(<<"addressAsString">>,MacEntry),
 														[Mac|A]
-													 end,[],Clients),
-	ClientMacs.
+													 end,[],Clients)),
+	SimClientMacs = lists:sort(get_all_sim_clients_macs()),
+	lists:subtract(SimClientMacs,ClientMacs).
 
 
 

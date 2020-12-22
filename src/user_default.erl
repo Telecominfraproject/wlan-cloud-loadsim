@@ -376,19 +376,37 @@ get_all_sim_clients_macs()->
 								end
 	            end,[],AllClients).
 
+get_all_sim_clients_serials()->
+	{ ok , AllClients } = list_clients("sim1"),
+	lists:sort(lists:foldl(fun(Client,A)->
+								case inventory:get_client("sim1",Client) of
+									{ok,ClientInfo} ->
+										[ ClientInfo#client_info.serial | A] ;
+									_ ->
+										A
+								end
+	            end,[],AllClients)).
+
 compare_clients()->
 	tip_api:login("sim1"),
-	% Equipments = tip_api:equipments(),
 	Clients = tip_api:clients(),
-	ClientMacs = lists:sort(lists:foldl( fun(C,A) ->
+	TipClientMacs = lists:sort(lists:foldl( fun(C,A) ->
 														MacEntry = maps:get(<<"macAddress">>,C),
 														Mac = maps:get(<<"addressAsString">>,MacEntry),
 														[Mac|A]
 													 end,[],Clients)),
 	SimClientMacs = lists:sort(get_all_sim_clients_macs()),
-	SimMinusTip = lists:subtract(SimClientMacs,ClientMacs),
-	TipMinusSim = lists:subtract(ClientMacs,SimClientMacs),
-	{ SimMinusTip, TipMinusSim }.
+	{ SimClientMacs, TipClientMacs, lists:subtract(SimClientMacs,TipClientMacs) }.
+
+compare_equipments()->
+	tip_api:login("sim1"),
+	SimSerials = get_all_sim_clients_serials(),
+	Equipments = tip_api:equipments(),
+	TipSerials = lists:sort(lists:foldl( fun(E,A) ->
+															[ maps:get(<<"serial">>,E) | A ]
+														end,[],Equipments)),
+	{ SimSerials, TipSerials, lists:subtract(SimSerials,TipSerials)}.
+
 
 
 

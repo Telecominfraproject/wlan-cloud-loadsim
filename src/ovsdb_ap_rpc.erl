@@ -33,7 +33,7 @@ eval_req(<<"monitor">>,Id,#{<<"params">>:=[<<"Open_vSwitch">>,NSpace|Tables]},St
 	Mon = ovsdb_ap_monitor:req_monitor(NSpace,maps:to_list(hd(Tables)),Store),
 	Res = make_result(Id,Mon),
 	% Json = iolist_to_binary(jiffy:encode(Res,[pretty])),
-	% io:format("MONITOR REQUEST (~s):~n~s~n",[NSpace,Json]),
+	io:format("MONITOR REQUEST (~s)~n",[NSpace]),
 	?L_IA("MONITOR REQUEST: (~s)",[NSpace]),
 	_ = timer:apply_after(3000,ovsdb_ap,check_publish_monitor,[self()]),
 	{ok, Res};

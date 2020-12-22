@@ -45,13 +45,11 @@ monitor (NameSpace, Table, Operations, Store) ->
 		modify = maps:get(<<"modify">>,Sel,false)
 	},
 	ets:insert(Store, M),
+	create_pub_entries_for_table(Table,Store),
 	case should_return_value(initial,Table,Store) of
 		true ->
 			QRes = ovsdb_dba:select_with_key(Table,[],Store),
 			monitor_result(Table,QRes,[]);
-			% R = monitor_result(Table,QRes,[]),
-			% io:format("MONITOR RESULT:~n~p~n",[R]),
-			% R;
 		false ->
 			M2 = M#monitors{published=false},
 			ets:delete_object(Store,M),
@@ -158,7 +156,7 @@ should_publish(#to_publish{table=T, row_key=Key, new_values=New, old_values=Old}
 			%io:format("SHOULD_PUB: ~s~nTP=~p~nOld=~p~nNew=~p~nNewMapList=~p~n",[T,TP,Old,New,NewList]);
 			publish_monitor(NS,monitor_result(T,NewList,OldList));
 		[#monitors{table=T}] ->
-			?L_IA("Publishing request for ~s but not monitored, throwing away",[T]);
+			?L_IA("Publishing request for ~s but modifications not requested => throwing away",[T]);
 		_ ->
 			?L_EA("publishing error: ~p",[T])
 	end.
@@ -191,7 +189,15 @@ create_pub_entry (Table, Key, Old, New, Store) ->
 		old_values = Old
 	}).
 
-
+-spec create_pub_entries_for_table (TableName :: binary(), Store :: ets:tid()) -> ok.
+create_pub_entries_for_table (Table,Store) ->
+	case ets:match_object(Store,#monitors{table=Table, _='_'}) of
+		[#monitors{initial=I, modify=M}] when I=:=true orelse M=:=true ->
+			[ create_pub_entry(Table, K, Store) || {K,_} <- ovsdb_dba:select_with_key(Table,[],Store) ],
+			io:format("Monitor data set up for ~s~n",[Table]);
+		_ ->
+			io:format("ERROR, failed setup monitor for ~s~n",[Table])
+	end.
 
 
 -spec dump_data(FileName::string(),Data::binary())->ok.

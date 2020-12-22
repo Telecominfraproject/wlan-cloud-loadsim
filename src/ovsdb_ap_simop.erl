@@ -277,28 +277,39 @@ create_wifi_client ({Idx,_Band,_SSID,MAC,Vendor},APC,Store) ->
         vendor_class = Vendor,
 		fingerprint = get_dhcp_fingerprint(),
         device_name = iolist_to_binary([NM,".SimClient_",integer_to_list(Idx+1)])
-    }),
-	ovsdb_ap_monitor:create_pub_entry(<<"Wifi_Associated_Clients">>,AssKey,Store),
-	ovsdb_ap_monitor:create_pub_entry(<<"DHCP_leased_IP">>,DhcpKey,Store).
+    }).
+	% ovsdb_ap_monitor:create_pub_entry(<<"Wifi_Associated_Clients">>,AssKey,Store),
+	% ovsdb_ap_monitor:create_pub_entry(<<"DHCP_leased_IP">>,DhcpKey,Store).
 
 update_wifi_clients (Store) ->
-	F = fun ({Key,Old}) ->
-			New = Old#{<<"_version">>=>[<<"uuid">>,utils:uuid_b()],
-					   <<"state">>=>get_random_wifi_state()},
-			{Key,Old,New}
-	end,
-	Cl = [ F(X) || X <- ovsdb_dba:select_with_key(<<"Wifi_Associated_Clients">>,[],Store) ],
-	[ ovsdb_ap_monitor:create_pub_entry(<<"Wifi_Associated_Clients">>,K,O,N,Store) || {K,O,N} <- Cl ],
-	?L_IA("Refreshing Wifi Clients N=~B",[length(Cl)]).
+	case ets:match_object(Store,#monitors{table = <<"Wifi_Associated_Clients">>, _='_'}) of
+		[#monitors{modify=true}] ->
+			F = fun ({Key,Old}) ->
+					New = Old#{<<"_version">>=>[<<"uuid">>,utils:uuid_b()],
+							<<"state">>=>get_random_wifi_state()},
+					{Key,Old,New}
+			end,
+			Cl = [ F(X) || X <- ovsdb_dba:select_with_key(<<"Wifi_Associated_Clients">>,[],Store) ],
+			[ ovsdb_ap_monitor:create_pub_entry(<<"Wifi_Associated_Clients">>,K,O,N,Store) || {K,O,N} <- Cl ],
+			?L_IA("Refreshing Wifi Clients N=~B",[length(Cl)]);
+		_ ->
+			?L_I("Should not modify Wifi clients (not monitores)~n")
+	end.
+	
 
 update_dhcp_leases (Store) ->
-	F = fun ({Key,Old}) ->
-		New = Old#{<<"_version">>=>[<<"uuid">>,utils:uuid_b()]},
-		{Key,Old,New}
-	end,
-	Leases = [ F(X) || X <- ovsdb_dba:select_with_key(<<"DHCP_leased_IP">>,[],Store) ],
-	[ ovsdb_ap_monitor:create_pub_entry(<<"DHCP_leased_IP">>,K,O,N,Store) || {K,O,N} <- Leases ],
-	?L_IA("Refreshing DHCP leases N=~B",[length(Leases)]).
+	case ets:match_object(Store,#monitors{table = <<"DHCP_leased_IP">>, _='_'}) of
+		[#monitors{modify=true}] ->
+			F = fun ({Key,Old}) ->
+				New = Old#{<<"_version">>=>[<<"uuid">>,utils:uuid_b()]},
+				{Key,Old,New}
+			end,
+			Leases = [ F(X) || X <- ovsdb_dba:select_with_key(<<"DHCP_leased_IP">>,[],Store) ],
+			[ ovsdb_ap_monitor:create_pub_entry(<<"DHCP_leased_IP">>,K,O,N,Store) || {K,O,N} <- Leases ],
+			?L_IA("Refreshing DHCP leases N=~B",[length(Leases)]);
+		_ ->
+			?L_I("Should not modify DHCP clients (not monitores)~n")
+	end.
 
 %%-----------------------------------------------------------------------------
 %% helper functions

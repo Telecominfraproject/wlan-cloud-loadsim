@@ -59,6 +59,17 @@
 }).
 
 
+-record (status_info, {
+	id = <<>> :: binary(),
+	status = available :: client_status(),
+	substate = initial :: initial | active | idle,
+	mqtt = idle :: idle | running,
+	recons = 0 :: integer(),
+	clients = 0 :: integer(),
+	monitors = 0 :: integer(),
+	published = 0 :: integer()
+}).
+
 -define(MAX_STARTUP_TIME,10000).
 -define(AP_STATS_INTERVAL,1000).
 -define(AP_REPORT_INTERVAL,4000).

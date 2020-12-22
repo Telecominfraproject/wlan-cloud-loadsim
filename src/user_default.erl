@@ -407,7 +407,8 @@ compare_equipments()->
 														end,[],Equipments)),
 	{ SimSerials, TipSerials, lists:subtract(SimSerials,TipSerials)}.
 
-
+ap_status() ->
+	ovsdb_client_handler:dbg_status().
 
 
 

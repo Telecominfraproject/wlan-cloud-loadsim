@@ -24,6 +24,9 @@
 -export([set_configuration/1, start/1, start/2, restart/2, stop/1, stop/2, pause/1, pause/2, cancel/1, cancel/2, resume/1, report/0]).
 -export([ap_status/2,push_ap_stats/2,dump_clients/0,list_ids/0,all_ready/0]).
 
+% Debug API
+-export ([dbg_status/0]).
+
 %% gen_server callbacks
 -export([init/1, handle_cast/2, handle_call/3, handle_info/2, terminate/2, code_change/3]).
 
@@ -131,7 +134,7 @@ resume (_) ->
 %%%============================================================================
 %%% CLIENT CALLBACK API
 %%%============================================================================
--spec ap_status (Status :: ovsdb_ap:ap_status(), Status :: ovsdb_ap:ap_status()) -> ok.
+-spec ap_status (Status :: ovsdb_ap:ap_status(), Id :: binary()) -> ok.
 ap_status (Status, Id) ->
 	gen_server:cast(?SERVER,{status,Status,Id}).
 
@@ -139,6 +142,14 @@ ap_status (Status, Id) ->
 push_ap_stats (Stats, Id) ->
 	gen_server:cast(?SERVER,{ap_stats,Stats,Id}).
 
+
+%%%============================================================================
+%%% DEBUG API
+%%%============================================================================
+
+-spec dbg_status () -> ok.
+dbg_status () ->
+	gen_server:call(?SERVER,dbg_status).
 
 %%%============================================================================
 %%% GEN_SERVER callbacks
@@ -220,6 +231,10 @@ handle_call (all_ready,_From, #hdl_state{clients=Clients}=State) ->
 		true ->
 			{reply,false,State}
 	end;
+
+handle_call (dbg_status,_From, State) ->
+	print_debug_status (State),
+	{reply, ok, State};
 
 handle_call (_, _, State) ->
 	{reply, invalid, State}.
@@ -512,3 +527,39 @@ clients_cancel (Refs, #hdl_state{clients=Clients, timer=T}=State) ->
 	ToCancel = get_clients_with_ids(Clients,get_client_ids_in_state(Clients,{running,paused,stopped},Refs)),		
 	[ovsdb_ap:cancel_ap(P) || #ap_client{process=P} <- ToCancel],
 	State#hdl_state{timer=owls_timers:mark("cancel_executed",T2)}.
+
+
+%%-----------------------------------------------------------------------------
+%% cdebug output 
+
+-spec print_debug_status (State :: #hdl_state{}) -> ok.
+print_debug_status (#hdl_state{clients=Clients}) ->
+	Cl = ets:match_object(Clients,#ap_client{_='_'}),
+	dbg_status_header(),
+	F = fun (Id,none) ->
+				io:format("| ~17s |  *** error this AP was never created ***~n",[Id]);
+		  	(_,Pid) ->
+			    R = ovsdb_ap:dbg_status(Pid),
+				dbg_status_row(R)
+	end,
+	[ F(ID,Pid) || #ap_client{id=ID, process=Pid} <- Cl ],
+	io:format("+=================================================================================================+~n"),
+	ok.
+
+dbg_status_header () ->
+	io:format("~n~n"),
+	io:format("+=================================================================================================+~n"),
+	io:format("|       AP ID       |   status   |   state   |   mqtt   | recons | clients | monitors | published |~n"),
+	io:format("+-------------------------------------------------------------------------------------------------+~n").
+
+dbg_status_row (R) ->
+	io:format("| ~17s | ~10s | ~9s | ~8s | ~6B | ~7B | ~8B | ~9B |~n",
+		[R#status_info.id,
+		 R#status_info.status,
+		 R#status_info.substate,
+		 R#status_info.mqtt,
+		 R#status_info.recons,
+		 R#status_info.clients,
+		 R#status_info.monitors,
+		 R#status_info.published]
+	).

@@ -28,6 +28,8 @@
 %% comm API
 -export([rpc_cmd/2,rpc_request/2,reset_comm/1,mqtt_conf/2,post_event/4,post_event/3,check_publish_monitor/1,check_for_mqtt_updates/1,set_ssid/2]).
 
+%% debug API
+-export([dbg_status/1,dbg_details/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_cast/2, handle_call/3, handle_info/2, terminate/2, code_change/3]).
@@ -35,6 +37,16 @@
 %% data structures
 -type ap_status() :: init | ready | running | paused.
 -export_type([ap_status/0]).
+
+-record(dbg_info,{
+	substate = initial :: initial | active | idle,
+	recons = 0 :: integer(),
+	published = 0 :: integer(),
+	last_msg_down = <<>> :: binary(),
+	last_msg_up = <<>> :: binary(),
+	last_recon_msg_down = <<>> :: binary(),
+	last_recon_msg_up = <<>> :: binary()
+}).
 
 -record(ap_state, { 	
 	id :: UUID::binary(),				% the ID of the access point we cary around
@@ -47,14 +59,16 @@
 	req_queue :: ets:tid(),				% not used at the moment ... used to que request IDs
 	reporting :: timer:tref(),			% statistics reporting interval timer reference
 	stats_ets :: ets:tid(),				% statistics table
-	updates = none :: none | timer:tref()		% timer reference for periodic updates from MQTT while running
+	recons = 0 :: integer(),			% number of reconnection events
+	dbg_info = #dbg_info{} :: #dbg_info{},	% debug info of the AP state
+	updates = none :: none | timer:tref()	% timer reference for periodic updates from MQTT while running
 }).
 
 -record (ap_events, {
-	stamp :: {Time :: integer(), UMI :: integer()},
-	event :: atom(),
-	args :: tuple(),
-	comment :: binary()
+	stamp = {0,0} :: {Time :: integer(), UMI :: integer()},
+	event = none :: atom(),
+	args = {} :: tuple(),
+	comment = <<>> :: binary()
 }).
 
 -record (stats_vars, {
@@ -128,6 +142,15 @@ check_for_mqtt_updates (Node) ->
 set_ssid (Node,SSID) ->
 	gen_server:cast(Node,{set_ssid,SSID}).
 
+-spec dbg_status (Node :: pid()) -> ok.
+dbg_status (Node) ->
+	gen_server:call(Node,dbg_status).
+
+-spec dbg_details (Node :: pid()) -> ok.
+dbg_details (Node) ->
+	gen_server:call(Node,dbg_details).
+
+
 %%%============================================================================
 %%% GEN_SERVER callbacks
 %%%============================================================================
@@ -188,7 +211,8 @@ handle_cast ({mqtt_conf,Conf}, State) ->
 
 handle_cast ({stats_update,Event},State) ->
 	true = update_statistics(Event,State#ap_state.stats_ets),
-	{noreply, State};
+	NewState = update_debug_state(Event,State),
+	{noreply, NewState};
 
 handle_cast (check_mqtt_updates, State) ->
 	S = request_mqtt_updates(State),
@@ -214,7 +238,8 @@ handle_cast ({exec_rpc, RPC}, #ap_state{status=paused}=State) when is_map(RPC) a
 			case ovsdb_ap_rpc:eval_req(<<"echo">>, maps:get(<<"id">>,RPC), RPC, State#ap_state.store) of
 				{ok, Result} when is_map(Result) andalso is_map_key(<<"result">>,Result) ->
 						ok = ovsdb_ap_comm:send_term(State#ap_state.comm,Result),
-						{reply,ok,State};
+						NewState = update_debug_state(#ap_events{event=set_idle},State),
+						{reply,ok,NewState};
 				_ ->
 						{reply, ignored, State}
 			end;
@@ -226,6 +251,12 @@ handle_cast ({exec_rpc, _RPC}, #ap_state{status=paused}=State) ->
 handle_cast ({exec_rpc, RPC}, State) when is_map(RPC) andalso
 										  is_map_key(<<"method">>,RPC) andalso
 										  is_map_key(<<"id">>,RPC) ->
+	NewState = case  maps:get(<<"method">>,RPC) of
+		<<"echo">> -> 
+			update_debug_state(#ap_events{event=set_idle},State);
+		_ ->
+			update_debug_state(#ap_events{event=set_active},State)
+	end,
 	case ovsdb_ap_rpc:eval_req(maps:get(<<"method">>,RPC),
 								maps:get(<<"id">>,RPC),
 								RPC,
@@ -236,16 +267,16 @@ handle_cast ({exec_rpc, RPC}, State) when is_map(RPC) andalso
 			Bytes = length(lists:flatten(R)),
 			?L_I(?DBGSTR("RPC RESULT (~s): ~Bbytes",[maps:get(<<"id">>,RPC),Bytes])),
 			ok = ovsdb_ap_comm:send_term(State#ap_state.comm,Result),
-			{noreply, State};
+			{noreply, NewState};
 
 		{ok, Result} when is_binary(Result) ->
 			?L_I(?DBGSTR("RPC RAW RESULT (~s): ~Bbytes",[maps:get(<<"id">>,RPC),byte_size(Result)])),
 			ok = ovsdb_ap_comm:send_term(State#ap_state.comm,Result),
-			{noreply, State};
+			{noreply, NewState};
 
 		{error, Reason} ->
 			?L_E(?DBGSTR("RPC call '~s' failed with reason: ~s",[maps:get(<<"method">>,RPC),Reason])),
-			{norepl,State}
+			{norepl,NewState}
 	end;
 handle_cast ({exec_rpc, RPC},  State) when is_map(RPC) andalso
 										   is_map_key(<<"result">>,RPC) andalso
@@ -286,6 +317,9 @@ handle_cast (R,State) ->
 	{noreply, State}.
 
 -spec handle_call (Request :: term(), From :: {pid(),Tag::term()}, State :: #ap_state{}) -> {reply, Reply :: ok | invalid | ignored, NewState :: #ap_state{}} | {stop, Reason :: term(), Reply :: ok | invalid | ignored, NewState :: #ap_state{}}.
+handle_call (dbg_status, _, State) ->
+	{reply, assemble_dbg_status(State), State};
+
 handle_call (Request, From, State) ->
 	?L_E(?DBGSTR("got unknow request ~p from ~p",[Request,From])),
 	{reply, invalid, State}.
@@ -582,3 +616,30 @@ comm_dropped (S) ->
 -spec comm_restart(S::ets:tid()) -> RestartCount::integer().
 comm_restart(S) ->
 	length(ets:match_object(S,{ap_events,'_',tip_connect,{<<"start_comm">>},'_'})). 
+
+
+-spec assemble_dbg_status(State :: #ap_state{}) -> DbgInfo :: #status_info{}.
+assemble_dbg_status (#ap_state{store=Store}=State) ->
+	#status_info{
+		id = State#ap_state.id,
+		status = State#ap_state.status,
+		substate = State#ap_state.dbg_info#dbg_info.substate,
+		mqtt = State#ap_state.mqtt,
+		recons = State#ap_state.dbg_info#dbg_info.recons,
+		clients = length(ets:match_object(Store,#'DHCP_leased_IP'{_='_'})),
+		monitors = length(ets:match_object(Store,#monitors{_='_'})),
+		published = State#ap_state.dbg_info#dbg_info.published
+	}.
+
+-spec update_debug_state(Event :: tuple(), State :: #ap_state{}) -> NewState :: #ap_state{}.
+update_debug_state (#ap_events{event=sock_recon}, #ap_state{dbg_info=Info}=State) ->
+	New = Info#dbg_info{recons=Info#dbg_info.recons+1},
+	State#ap_state{dbg_info=New};
+update_debug_state (#ap_events{event=set_idle}, #ap_state{dbg_info=Info}=State) ->
+	New = Info#dbg_info{substate=idle},
+	State#ap_state{dbg_info=New};
+update_debug_state (#ap_events{event=set_active}, #ap_state{dbg_info=Info}=State) ->
+	New = Info#dbg_info{substate=active},
+	State#ap_state{dbg_info=New};
+update_debug_state (_, State) ->
+	State.

@@ -183,7 +183,8 @@ start_connection (#c_state{options=Opts}=State) ->
 try_reconnect (#c_state{restart=R, ap=AP}=State) ->
 	Rj = R + rand:uniform(250) - 125,
 	?L_I(?DBGSTR("socket closed by server, trying to reconnect in ~.2fsec",[Rj/1000])),
-	_ = timer:send_after(Rj,{start, AP}),  %% should be more a reset of the AP!
+	%_ = timer:send_after(Rj,{start, AP}),  %% should be more a reset of the AP!
+	_ = timer:apply_after(Rj,ovsdb_ap,reset_ap,[AP]),
 	ovsdb_ap:post_event(AP,sock_recon,{Rj},io_lib:format("socket abnormally closed -> reconnect attempt in ~.2fsec",[Rj/1000])),
 	State#c_state{socket=none, status=error, restart=min(R*2,32000)}.
 

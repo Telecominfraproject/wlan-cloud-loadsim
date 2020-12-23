@@ -23,7 +23,7 @@
 
 %% API
 -export([launch/3]).
--export([start_ap/1,stop_ap/1,pause_ap/1,cancel_ap/1]).
+-export([start_ap/1,stop_ap/1,pause_ap/1,cancel_ap/1,reset_ap/1]).
 
 %% comm API
 -export([rpc_cmd/2,rpc_request/2,reset_comm/1,mqtt_conf/2,post_event/4,post_event/3,check_publish_monitor/1,check_for_mqtt_updates/1,set_ssid/2]).
@@ -102,6 +102,11 @@ pause_ap (Node) ->
 -spec cancel_ap (Node :: pid()) -> ok.
 cancel_ap (Node) ->
 	gen_server:cast(Node,ap_cancel).
+
+-spec reset_ap (Node :: pid()) -> ok.
+reset_ap (Node) ->
+	gen_server:cast(Node,ap_reset).
+
 
 %%%============================================================================
 %%% Internal module API
@@ -199,6 +204,10 @@ handle_cast (ap_pause, State) ->
 handle_cast (ap_cancel, State) ->	
 	_ = cancel_simulation(State),
 	{stop, normal, State};
+
+handle_cast (ap_reset,State) ->
+	NewState = do_reset_ap(State),
+	{noreply,NewState};
 
 handle_cast (reset_comm, State) ->
 	{noreply,ctrl_connect(State)};
@@ -426,6 +435,29 @@ pause_simulation (State) ->
 cancel_simulation (State) ->
 	_ = timer:cancel(State#ap_state.reporting),
 	State.
+
+%--------do_reset_ap/1----------------try to reset AP to initial state
+-spec do_reset_ap (State :: #ap_state{}) -> NewState :: #ap_state{}.
+do_reset_ap (#ap_state{id=Id, config=Cfg, store=Store, comm=Comm}=State) ->
+	io:format ("RESETTING AP: ~s~n",[Id]),
+	NewState = stop_mqtt(State),
+	ets:delete(Store,'AWLAN_Node'),
+	ets:delete(Store,'Wifi_Stats_Config'),
+	ets:delete(Store,'Wifi_RRM_Config'),
+	ets:delete(Store,'Wifi_VIF_Config'),
+	ets:delete(Store,'Wifi_VIF_State'),
+	ets:delete(Store,'Wifi_Associated_Clients'),
+	ets:delete(Store,'DHCP_leased_IP'),
+	ets:delete(Store,'Wifi_Radio_Config'),
+	ets:delete(Store,'Wifi_Radio_State'),
+	ets:delete(Store,'Wifi_Inet_Config'),
+	ets:delete(Store,'Wifi_Inet_State'),
+	ets:delete(Store,'monitors'),
+	ets:delete(Store,'to_publish'),
+	NewCfg =  ovsdb_ap_config:configure(Cfg),
+	ovsdb_ap_comm:start_comm(Comm),
+	set_status(running,NewState#ap_state{config=NewCfg}).
+
 
 %--------ctrl_connect/1------------------connect to either the tip redirector or manager based on state / old connections are closed if open
 -spec ctrl_connect (State :: #ap_state{}) -> NewState :: #ap_state{}.

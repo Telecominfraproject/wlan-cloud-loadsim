@@ -596,7 +596,7 @@ report_statistics (#ap_state{stats_ets=S,id=ID}=State) ->
 report_interval (S) ->
 	case ets:match(S,{ap_events,{'$1','_'},report_mark,'_','_'}) of
 		[[R]] ->
-			erlang:convert_time_unit(erlang:system_time()-R, native, millisecond);
+			min(1,erlang:convert_time_unit(erlang:system_time()-R, native, millisecond));
 		_ -> 
 			?AP_REPORT_INTERVAL
 	end.

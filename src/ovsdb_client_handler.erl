@@ -57,6 +57,17 @@
 	state_num = 0 :: non_neg_integer()
 }).
 
+-record (ap_dbgs,{
+	ap_conf = 0,
+	ap_ready = 0,
+	ap_run = 0,
+	ap_ok = 0,
+	ap_recon = 0,
+	cl_conf = 0,
+	cl_start = 0,
+	cl_ok = 0
+}).
+
 
 %%%============================================================================
 %%% HANDLER - API
@@ -536,22 +547,33 @@ clients_cancel (Refs, #hdl_state{clients=Clients, timer=T}=State) ->
 print_debug_status (#hdl_state{clients=Clients}) ->
 	Cl = ets:match_object(Clients,#ap_client{_='_'}),
 	dbg_status_header(),
-	F = fun (Id,none) ->
+	F = fun (#ap_client{id=Id, process=none},Acc) ->
 				io:format("| ~17s |  *** error this AP was never created ***~n",[Id]),
-				{0,0};
-		  	(_,Pid) ->
+				Acc#ap_dbgs{ap_conf=Acc#ap_dbgs.ap_conf+1};
+		  	(#ap_client{status=ready, process=Pid},Acc) ->
 			    R = ovsdb_ap:dbg_status(Pid),
 				dbg_status_row(R),
-				case R#status_info.monitors > 6 of
-					true -> {R#status_info.clients,0};
-					_ -> {0,R#status_info.clients}
-				end
+				Acc#ap_dbgs{ap_conf=Acc#ap_dbgs.ap_conf+1,
+							ap_ready=Acc#ap_dbgs.ap_ready+1,
+							cl_conf=Acc#ap_dbgs.cl_conf+R#status_info.clients};
+			(#ap_client{status=running, process=Pid},Acc) ->
+				R = ovsdb_ap:dbg_status(Pid),
+				dbg_status_row(R),
+				Run = case R#status_info.monitors > 6 of
+					true -> 1;
+					_ -> 0
+				end,
+				Acc#ap_dbgs{ap_conf=Acc#ap_dbgs.ap_conf+1,
+							ap_run=Acc#ap_dbgs.ap_run+1,
+							ap_recon=Acc#ap_dbgs.ap_recon+R#status_info.recons,
+							ap_ok=Acc#ap_dbgs.ap_ok+Run,
+							cl_conf=Acc#ap_dbgs.cl_conf+R#status_info.clients,
+							cl_start=Acc#ap_dbgs.cl_start+R#status_info.clients,
+							cl_ok=Acc#ap_dbgs.cl_ok+(Run*R#status_info.clients)}
 	end,
-	{Active,Bad} = lists:unzip([ F(ID,Pid) || #ap_client{id=ID, process=Pid} <- Cl ]),
-	AN = lists:sum(Active),
-	BN = lists:sum(Bad),
+	SumStats = lists:foldl(F, #ap_dbgs{}, Cl),
 	io:format("+=================================================================================================+~n"),
-	dbg_summary_line(length(Cl),AN,BN),
+	dbg_summary_line(length(Cl),SumStats),
 	ok.
 
 dbg_status_header () ->
@@ -572,6 +594,15 @@ dbg_status_row (R) ->
 		 R#status_info.published]
 	).
 
-dbg_summary_line (N,A,B) ->
-	io:format ("Access Points: ~B~nTotal clients: ~B~nActive clients: ~B~nDubious clients: ~B~n",
-		[N,A+B,A,B]).
+dbg_summary_line (N,Stats) ->
+	io:format ("APs in system: ~B~nAPs configured: ~B~nAPs not started: ~B~nAPs running: ~B~nAPs failure: ~B~n",
+				[N,
+				 Stats#ap_dbgs.ap_conf,
+				 Stats#ap_dbgs.ap_ready,
+				 Stats#ap_dbgs.ap_run,
+				 Stats#ap_dbgs.ap_run - Stats#ap_dbgs.ap_ok]),
+	io:format ("Clients configured: ~B~nClients started: ~B~nClients OK: ~B~n",
+		[Stats#ap_dbgs.cl_conf,
+		 Stats#ap_dbgs.cl_start,
+		 Stats#ap_dbgs.cl_ok]),
+	io:format ("Reconnections: ~B~n",[Stats#ap_dbgs.ap_recon]). 

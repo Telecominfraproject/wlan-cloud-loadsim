@@ -260,12 +260,6 @@ handle_cast ({exec_rpc, _RPC}, #ap_state{status=paused}=State) ->
 handle_cast ({exec_rpc, RPC}, State) when is_map(RPC) andalso
 										  is_map_key(<<"method">>,RPC) andalso
 										  is_map_key(<<"id">>,RPC) ->
-	NewState = case  maps:get(<<"method">>,RPC) of
-		<<"echo">> -> 
-			update_debug_state({set_idle,0,0},State);
-		_ ->
-			update_debug_state({set_active,0,0},State)
-	end,
 	case ovsdb_ap_rpc:eval_req(maps:get(<<"method">>,RPC),
 								maps:get(<<"id">>,RPC),
 								RPC,
@@ -276,16 +270,16 @@ handle_cast ({exec_rpc, RPC}, State) when is_map(RPC) andalso
 			Bytes = length(lists:flatten(R)),
 			?L_I(?DBGSTR("RPC RESULT (~s): ~Bbytes",[maps:get(<<"id">>,RPC),Bytes])),
 			ok = ovsdb_ap_comm:send_term(State#ap_state.comm,Result),
-			{noreply, NewState};
+			{noreply, check_AP_state(RPC,State)};
 
 		{ok, Result} when is_binary(Result) ->
 			?L_I(?DBGSTR("RPC RAW RESULT (~s): ~Bbytes",[maps:get(<<"id">>,RPC),byte_size(Result)])),
 			ok = ovsdb_ap_comm:send_term(State#ap_state.comm,Result),
-			{noreply, NewState};
+			{noreply, check_AP_state(RPC,State)};
 
 		{error, Reason} ->
 			?L_E(?DBGSTR("RPC call '~s' failed with reason: ~s",[maps:get(<<"method">>,RPC),Reason])),
-			{norepl,NewState}
+			{norepl,State}
 	end;
 handle_cast ({exec_rpc, RPC},  State) when is_map(RPC) andalso
 										   is_map_key(<<"result">>,RPC) andalso
@@ -581,6 +575,25 @@ handle_mqtt_stats_update (_Serial,_Stats,State) ->
 	ovsdb_ap_simop:update_dhcp_leases(State#ap_state.store),
 	check_publish_monitor(self()),
 	State.
+
+-spec check_AP_state (RPC :: #{binary() => any()}, State :: #ap_state{}) -> NewState :: #ap_state{}.
+check_AP_state (RPC, #ap_state{id=Id, store=Store}=State) ->
+	case  maps:get(<<"method">>,RPC) of
+		<<"echo">> -> 
+			update_debug_state({set_idle,0,0},State);
+		<<"monitor">> ->
+			case ets:match_object(Store,#monitors{_='_'}) of
+				A when is_list(A) andalso length(A) > 6 ->
+					io:format("AP ~s finalized; monitoring ~B tables!~n",[Id,length(A)]),
+					_ = timer:apply_after(500,ovsdb_ap,check_publish_monitor,[self()]),
+					?L_IA("AP ~s finalized! Last monitor ~s",[Id]);
+				_ ->
+					?L_IA("AP ~s expects more monitors!",[Id])
+			end,
+			update_debug_state({set_active,0,0},State);
+		_ ->
+			update_debug_state({set_active,0,0},State)
+	end.
 	
 %%==============================================================================
 %% managing statistics of access point

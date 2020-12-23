@@ -30,12 +30,9 @@ eval_req(<<"transact">>,Id,#{<<"params">>:=_P},_Store) ->
 	{ok, make_result(Id,<<>>)};
 
 eval_req(<<"monitor">>,Id,#{<<"params">>:=[<<"Open_vSwitch">>,NSpace|Tables]},Store) when length(Tables)==1 ->	
+	?L_IA("MONITOR REQUEST: (~s) for AP ~s",[NSpace,Id]),
 	Mon = ovsdb_ap_monitor:req_monitor(NSpace,maps:to_list(hd(Tables)),Store),
 	Res = make_result(Id,Mon),
-	% Json = iolist_to_binary(jiffy:encode(Res,[pretty])),
-	io:format("MONITOR REQUEST (~s)~n",[NSpace]),
-	?L_IA("MONITOR REQUEST: (~s)",[NSpace]),
-	_ = timer:apply_after(3000,ovsdb_ap,check_publish_monitor,[self()]),
 	{ok, Res};
 eval_req(<<"monitor">>,Id,P,_) ->
 	?L_EA("unrecognized monitor request: ~p",[P]),

@@ -17,18 +17,6 @@
 -spec req_monitor (NameSpace :: binary(), ToMonitor :: [#{binary()=>term()}], Store :: ets:tid()) -> Result :: #{binary()=>term()}.
 req_monitor (NameSpace,[{Table,Operations}|_],Store) ->
 	monitor (NameSpace,Table,Operations,Store);
-	% case Table of 
-	% 	<<"Wifi_Associated_Clients">> ->
-	% 		QRes = ovsdb_dba:select_with_key(Table,[],Store),
-	% 		timer:apply_after(5000,?MODULE,publish_monitor,[self(),NameSpace,monitor_result(Table,QRes,[])]),
-	% 		#{};
-	% 	<<"DHCP_leased_IP">> ->
-	% 		QRes = ovsdb_dba:select_with_key(Table,[],Store),
-	% 		timer:apply_after(5500,?MODULE,publish_monitor,[self(),NameSpace,monitor_result(Table,QRes,[])]),
-	% 		#{};
-	% 	_ ->
-	% 		Ret
-	% end;
 req_monitor (NameSpace,OPS,_) ->
 	?L_EA("Monitor request for namespace '~s' with unsupported operatiosn format ~p",[NameSpace,OPS]),
 	#{}.
@@ -194,9 +182,9 @@ create_pub_entries_for_table (Table,Store) ->
 	case ets:match_object(Store,#monitors{table=Table, _='_'}) of
 		[#monitors{initial=I, modify=M}] when I=:=true orelse M=:=true ->
 			[ create_pub_entry(Table, K, Store) || {K,_} <- ovsdb_dba:select_with_key(Table,[],Store) ],
-			io:format("Monitor data set up for ~s~n",[Table]);
+			?L_IA("Monitor data set up for ~s~n",[Table]);	
 		_ ->
-			io:format("ERROR, failed setup monitor for ~s~n",[Table])
+			?L_EA("ERROR, failed setup monitor for ~s~n",[Table])
 	end.
 
 

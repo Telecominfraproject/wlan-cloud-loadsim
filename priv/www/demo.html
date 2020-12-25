@@ -66,13 +66,13 @@
                 <button class="btn btn-sm btn-secondary"
                         v-on:click="newSimulation()">Create Simulation</button>
                 <button class="btn btn-sm btn-secondary"
-                        v-on:click="sendAction('prepare')">Prepare Assets</button>
+                        v-on:click="sendAction('prepare')" disabled="!simulationState">Prepare Assets</button>
                 <button class="btn btn-sm btn-secondary"
-                        v-on:click="sendAction('push')">Push Simulation</button>
+                        v-on:click="sendAction('push')" disabled="!simulationState">Push Simulation</button>
                 <button class="btn btn-sm btn-secondary"
-                        v-on:click="sendAction('start')">Start Simulation</button>
+                        v-on:click="sendAction('start')" disabled="!simulationState">Start Simulation</button>
                 <button class="btn btn-sm btn-secondary"
-                        v-on:click="sendAction('stop')">Stop Simulation</button>
+                        v-on:click="sendAction('stop')" disabled="!simulationState">Stop Simulation</button>
             </div>
         </div>
 
@@ -578,6 +578,10 @@
             },
             casSaveValid: function() {
                 return ( this.casForm.name && this.casForm.key && this.casForm.cert );
+            },
+            simulationState: function() {
+                return this.simulation
+                // determine if prepare assets, can push/start/stop...
             },
         },
     };

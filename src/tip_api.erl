@@ -49,9 +49,10 @@ tip_locations()->
 	LocationId.
 
 create_pagination_context("")->
-	uri_string:compose_query([{"paginationContext","{ \"model_type\": \"PaginationContext\", \"maxItemsPerPage\": 5000 }"}]);
-create_pagination_context(Cursor)->
-	uri_string:compose_query([{"paginationContext","{ \"model_type\": \"PaginationContext\", \"cursor\" : \"" ++ Cursor ++ "\" , \"maxItemsPerPage\": 5000 }"}]).
+	uri_string:compose_query([{"paginationContext","{ \"model_type\": \"PaginationContext\", \"maxItemsPerPage\": 250 }"}]);
+create_pagination_context(Context)->
+	NewContext = binary_to_list(jiffy:encode(Context)),
+	uri_string:compose_query([{"paginationContext",NewContext}]).
 
 get_all(BaseURI)->
 	get_all(BaseURI,"",[]).
@@ -70,10 +71,8 @@ get_all(BaseURI,Cursor,Acc)->
 			io:format("Total elements: ~p~n",[length(Acc)+length(Array)]),
 			Acc ++ Array;
 		false ->
-			NewCursor = binary_to_list(maps:get(<<"cursor">>,NewContext)),
-			io:format("New cursor: ~p~n",[NewCursor]),
 			io:format("Just got ~p elements so far ~p ~n",[L,length(Acc)+L]),
-			get_all(BaseURI,NewCursor,Acc ++ Array)
+			get_all(BaseURI,NewContext,Acc ++ Array)
 	end.
 
 equipments()->
@@ -81,3 +80,4 @@ equipments()->
 
 clients()->
 	get_all("/portal/client/session/forCustomer?customerId=2&").
+

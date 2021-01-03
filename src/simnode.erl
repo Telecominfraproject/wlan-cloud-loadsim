@@ -26,24 +26,26 @@
 -define(START_SERVER,{local,?MODULE}).
 
 %% API
--export([start_link/1,creation_info/0,set_configuration/1,reset_configuration/1,
-	 get_configuration/0,set_configuration/2,get_configuration/1,update_stats/3,start/2,restart/2,
-   pause/2,cancel/2,stop/2]).
+-export([ start_link/1,creation_info/0,set_configuration/1,reset_configuration/1,
+	        get_configuration/0,set_configuration/2,get_configuration/1,update_stats/3,start/2,restart/2,
+          pause/2,cancel/2,stop/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
 	code_change/3]).
 
+-type simnode_configuration() :: #{ atom() => term() }.
+
 -record(simnode_state, {
-	node_finder = none :: timer:tref(),
-	os_stats_updater = none :: timer:tref(),
-	ap_client_handler :: atom(),
-	mqtt_server_handler :: atom(),
-	ovsdb_server_handler :: atom(),
-	node_id = 1 :: non_neg_integer(),
-	manager  :: atom(),
-	sim_configuration = #{} :: #{ atom() => string()},
-	client_pids = #{} :: #{ string() => pid() }}).
+	node_finder           = none  :: timer:tref(),
+	os_stats_updater      = none  :: timer:tref(),
+	ap_client_handler     = none  :: atom(),
+	mqtt_server_handler   = none  :: atom(),
+	ovsdb_server_handler  = none  :: atom(),
+	node_id               = 1     :: non_neg_integer(),
+	sim_configuration     = #{}   :: simnode_configuration() } ).
+
+-type simnode_state() :: #simnode_state{}.
 
 %% ovsdb_server
 %%%===================================================================
@@ -79,17 +81,19 @@ stop( UIDS,Attributes ) ->
 cancel( UIDS,Attributes ) ->
 	gen_server:call(?SERVER,{cancel,UIDS,Attributes}).
 
+-spec set_configuration(Configuration::simnode_configuration()) -> ok | generic_error().
 set_configuration(Configuration)->
 	gen_server:call(?SERVER,{set_configuration,Configuration}).
 
+-spec get_configuration() -> { ok, simnode_configuration() }.
 get_configuration()->
 	gen_server:call(?SERVER,get_configuration).
 
--spec set_configuration(Node::node(),Configuration::term())->ok.
+-spec set_configuration(Node::node(),Configuration::simnode_configuration())->ok.
 set_configuration(Node,Configuration)->
 	gen_server:call({?SERVER,Node},{set_configuration,Configuration}).
 
--spec get_configuration(Node::node())->{ok,Configuration::term()}.
+-spec get_configuration(Node::node())->{ok,Configuration::simnode_configuration()}.
 get_configuration(Node)->
 	gen_server:call({?SERVER,Node},get_configuration).
 
@@ -106,14 +110,12 @@ update_stats(Client,Role,Stats)->
 %% @doc Spawns the server and registers the local name (unique)
 -spec start_link(Config::term()) -> {ok, Pid :: pid()} | ignore | {error, Reason :: term()}.
 start_link(Config) ->
-	gen_server:start_link(?START_SERVER, ?MODULE, [Config], []).
+	gen_server:start_link(?START_SERVER, ?MODULE, Config, []).
 
 %% @private
 %% @doc Initializes the server
--spec init(Args ::[[{atom(),atom()}]]) -> {ok, State :: #simnode_state{}} |
-	{ok, State :: #simnode_state{}, timeout() | hibernate} |
-	{stop, Reason :: term()} | ignore.
-init([Config]) ->
+% -spec init(Config::[any(),...]) -> {ok, State::simnode_state()}.
+init(Config) ->
 	NodeId = utils:app_env(node_id,1),
 	ApClientHandler = proplists:get_value(ap_client,Config,undefined),
 	MqttServerHandler = proplists:get_value(mqtt_server,Config,undefined),
@@ -121,20 +123,19 @@ init([Config]) ->
 	NewState = #simnode_state{ node_id = NodeId,
 	                           ap_client_handler = ApClientHandler,
 	                           mqtt_server_handler = MqttServerHandler,
-	                           ovsdb_server_handler = OvsdbServerHandler,
-	                           manager = undefined },
+	                           ovsdb_server_handler = OvsdbServerHandler},
 	{ok,NewState}.
 
 %% @private
 %% @doc Handling call messages
 -spec(handle_call(Request :: term(), From :: {pid(), Tag :: term()},
-		State :: #simnode_state{}) ->
-	{reply, Reply :: term(), NewState :: #simnode_state{}} |
-	{reply, Reply :: term(), NewState :: #simnode_state{}, timeout() | hibernate} |
-	{noreply, NewState :: #simnode_state{}} |
-	{noreply, NewState :: #simnode_state{}, timeout() | hibernate} |
-	{stop, Reason :: term(), Reply :: term(), NewState :: #simnode_state{}} |
-	{stop, Reason :: term(), NewState :: #simnode_state{}}).
+		State :: simnode_state()) ->
+	{reply, Reply :: term(), NewState :: simnode_state()} |
+	{reply, Reply :: term(), NewState :: simnode_state(), timeout() | hibernate} |
+	{noreply, NewState :: simnode_state()} |
+	{noreply, NewState :: simnode_state(), timeout() | hibernate} |
+	{stop, Reason :: term(), Reply :: term(), NewState :: simnode_state()} |
+	{stop, Reason :: term(), NewState :: simnode_state()}).
 handle_call({set_configuration,Configuration}, _From, State = #simnode_state{}) ->
 	safe_execute( State#simnode_state.ap_client_handler, set_configuration, [Configuration]),
 	safe_execute( State#simnode_state.mqtt_server_handler, set_configuration, [Configuration]),
@@ -186,10 +187,10 @@ handle_call(_Request, _From, State = #simnode_state{}) ->
 
 %% @private
 %% @doc Handling cast messages
--spec(handle_cast(Request :: term(), State :: #simnode_state{}) ->
-	{noreply, NewState :: #simnode_state{}} |
-	{noreply, NewState :: #simnode_state{}, timeout() | hibernate} |
-	{stop, Reason :: term(), NewState :: #simnode_state{}}).
+-spec(handle_cast(Request :: term(), State :: simnode_state()) ->
+	{noreply, NewState :: simnode_state()} |
+	{noreply, NewState :: simnode_state(), timeout() | hibernate} |
+	{stop, Reason :: term(), NewState :: simnode_state()}).
 handle_cast({update_stats,_Client,_Role,_Stats}, State = #simnode_state{}) ->
 	{noreply,State};
 handle_cast(_Request, State = #simnode_state{}) ->
@@ -197,14 +198,14 @@ handle_cast(_Request, State = #simnode_state{}) ->
 
 %% @private
 %% @doc Handling all non call/cast messages
--spec(handle_info(Info :: timeout() | term(), State :: #simnode_state{}) ->
-	{noreply, NewState :: #simnode_state{}} |
-	{noreply, NewState :: #simnode_state{}, timeout() | hibernate} |
-	{stop, Reason :: term(), NewState :: #simnode_state{}}).
+-spec(handle_info(Info :: timeout() | term(), State :: simnode_state()) ->
+	{noreply, NewState :: simnode_state()} |
+	{noreply, NewState :: simnode_state(), timeout() | hibernate} |
+	{stop, Reason :: term(), NewState :: simnode_state()}).
 handle_info({nodedown,Node},State=#simnode_state{})->
 	io:format("Manager ~p is going down.~n",[Node]),
 	_=lager:info("Manager ~p is going down.",[Node]),
-	{noreply,State#simnode_state{ manager = none }};
+	{noreply,State};
 handle_info(_Info, State = #simnode_state{}) ->
 	{noreply, State}.
 
@@ -214,13 +215,13 @@ handle_info(_Info, State = #simnode_state{}) ->
 %% necessary cleaning up. When it returns, the gen_server terminates
 %% with Reason. The return value is ignored.
 -spec(terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
-		State :: #simnode_state{}) -> term()).
+		State :: simnode_state()) -> term()).
 terminate(_Reason, _State = #simnode_state{}) ->
 	ok.
 
 %% @private
 %% @doc Convert process state when code is changed
--spec(code_change(OldVsn :: term() | {down, term()}, State :: #simnode_state{},
+-spec(code_change(OldVsn :: term() | {down, term()}, State :: simnode_state(),
 		Extra :: term()) ->
 	{ok, NewState :: #simnode_state{}} | {error, Reason :: term()}).
 code_change(_OldVsn, State = #simnode_state{}, _Extra) ->

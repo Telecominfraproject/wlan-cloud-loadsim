@@ -41,8 +41,7 @@ init([]) ->
 			mqtt_server_handler:creation_info() ++
 			ovsdb_client_handler:creation_info() ++
 			node_stats:creation_info() ++
-			animals:creation_info() ++
-			node_rest_api:creation_info();
+			animals:creation_info() ;
 		pseudo ->
 			?L_I("Pseudo Node starting."),
 			node_stats:creation_info();

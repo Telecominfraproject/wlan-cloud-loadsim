@@ -9,6 +9,8 @@
 -module(manager_api_rest_handler).
 -author("stephb").
 
+-compile({parse_transform, lager_transform}).
+
 -include("../include/common.hrl").
 -include("../include/mqtt_definitions.hrl").
 -include("../include/inventory.hrl").

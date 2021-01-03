@@ -9,47 +9,22 @@
 -module(ovsdb_ap).
 -author("helge").
 
--behaviour(gen_server).
+-compile({parse_transform, lager_transform}).
 
 -include("../include/common.hrl").
 -include("../include/ovsdb_definitions.hrl").
 -include("../include/ovsdb_ap_tables.hrl").
 -include("../include/opensync_stats.hrl").
 
-
--define(SERVER, ?MODULE).
-
-
-
 %% API
--export([launch/3]).
+-export([start/4]).
 -export([start_ap/1,stop_ap/1,pause_ap/1,cancel_ap/1]).
 
 %% comm API
--export([rpc_cmd/2,rpc_request/2,reset_comm/1,mqtt_conf/2,post_event/4,post_event/3,check_publish_monitor/1,check_for_mqtt_updates/1,set_ssid/2]).
-
-
-%% gen_server callbacks
--export([init/1, handle_cast/2, handle_call/3, handle_info/2, terminate/2, code_change/3]).
+-export([ set_mqtt_conf/2,post_event/4,post_event/3,set_ssid/2,
+					publish/1,set_ovsdb_manager/2]).
 
 %% data structures
--type ap_status() :: init | ready | running | paused.
--export_type([ap_status/0]).
-
--record(ap_state, { 	
-	id :: UUID::binary(),				% the ID of the access point we cary around
-	ca_name :: string() | binary(),		% ???
-	status = init :: ap_status(),		% internal status
-	config :: ovsdb_ap_config:cfg(),	% simulated AP configuration (model, serial etc.)
-	comm = none :: none | pid(),		% OVSDB SSL communication
-	mqtt = idle :: idle | running,		% mqtt status (external process)
-	store :: ets:tid(),					% the tables where OVSDB server stores info
-	req_queue :: ets:tid(),				% not used at the moment ... used to que request IDs
-	reporting :: timer:tref(),			% statistics reporting interval timer reference
-	stats_ets :: ets:tid(),				% statistics table
-	updates = none :: none | timer:tref()		% timer reference for periodic updates from MQTT while running
-}).
-
 -record (ap_events, {
 	stamp :: {Time :: integer(), UMI :: integer()},
 	event :: atom(),
@@ -63,458 +38,438 @@
 	stats_count = 0 :: integer()
 }).
 
+-type ovsdb_request()::#{ term() => term()}.
+
 %%%============================================================================
 %%% API
 %%%============================================================================
--spec launch (CAName :: string() | binary(), Id::binary(), Options :: [{atom(),term()}]) -> {ok, Pid :: pid()} | generic_error().
-launch (CAName, Id, Options) ->
-	gen_server:start_link(?MODULE, {CAName, Id, Options}, []).
+-spec start (CAName :: string() | binary(), ID::binary(), Options :: #{atom() => term()}, Manager::pid()) -> ok.
+start(CAName, ID, Options, ManagerPID ) ->
+	#{ sim_name:= SimName, ovsdb_server_name:= Server, ovsdb_server_port:= Port} = Options,
+	{ ok, ClientInfo } = inventory:get_client(CAName,ID),
+	{ok,[HardwareInfo]} = hardware:get_by_id(ClientInfo#client_info.id),
+	Store = ets:new(ovsdb_ap,[bag,private,{keypos, 1}]),
+	Stats = ets:new(ovsdb_ap_stats,[ordered_set,private,{keypos, 2}]),
+	{ok, ReportTimer } = timer:send_interval(15000,send_report),
+	Redirector = maps:get(redirector,Options,<<"">>),
+	update_statistics({report_mark,{},<<>>},Stats),
+	ets:insert(Stats,#stats_vars{}),
+	CurrentState = #ap_state{
+		id = ID,
+		caname = CAName,
+		simname = SimName,
+		details = ClientInfo,
+		manager_pid = ManagerPID,
+		status = ready,
+		hardware = HardwareInfo,
+		ovsdb_server_port = Port,
+		ovsdb_server_name = Server,
+		original_ovsdb_server_name = Server,
+		original_ovsdb_server_port = Port,
+		redirector = Redirector,
+		wan_addr = make_wan_addr(),
+		store = Store,
+		req_queue = ets:new(ovsdb_ap_req,[ordered_set,private,{keypos, 1}]),
+		reporting = ReportTimer,
+		stats_ets = Stats,
+		mqtt_update_timer = none
+	},
+	ovsdb_client_handler:set_ap_status( ready , ID),
+	StartingState = ovsdb_ap_config:configure(CurrentState),
+	_=message_loop(StartingState),
+	ok.
 
 %%%============================================================================
 %%% HANDLER API Implementation
 %%%============================================================================
--spec start_ap (Node :: pid()) -> ok.
-start_ap (Node) ->
-	gen_server:cast(Node,ap_start).
+-spec start_ap (APPid :: pid()) -> ok.
+start_ap( APPid ) ->
+	APPid ! ap_start, ok.
 
--spec stop_ap (Node :: pid()) -> ok.
-stop_ap (Node) ->
-	gen_server:cast(Node,ap_stop).
+-spec stop_ap (APPid :: pid()) -> ok.
+stop_ap(APPid) ->
+	APPid ! ap_stop, ok.
 
--spec pause_ap (Node :: pid()) -> ok.
-pause_ap (Node) ->
-	gen_server:cast(Node,ap_pause).
+-spec pause_ap (APPid :: pid()) -> ok.
+pause_ap(APPid) ->
+	APPid ! ap_pause, ok.
 
--spec cancel_ap (Node :: pid()) -> ok.
-cancel_ap (Node) ->
-	gen_server:cast(Node,ap_cancel).
+-spec cancel_ap (APPid :: pid()) -> ok.
+cancel_ap (APPid) ->
+	APPid ! ap_cancel, ok .
 
-%%%============================================================================
-%%% Internal module API
-%%%============================================================================
--spec rpc_cmd (Node :: pid(), Rpc :: term()) -> ok.
-rpc_cmd (Node,Rpc) ->
-	gen_server:cast(Node,{exec_rpc,Rpc}).
+-spec set_mqtt_conf (APPid :: pid(), Config :: map()) -> ok.
+set_mqtt_conf (APPid, Conf) ->
+	APPid ! {set_mqtt_conf,Conf}, ok.
 
--spec rpc_request (Node :: pid(), Rpc :: term()) -> ok.
-rpc_request (Node,Rpc) ->
-	gen_server:cast(Node,{exec_rpc_req,Rpc}).
+-spec set_ovsdb_manager(APPid::pid(),Manager::#{ atom() => term()})-> ok.
+set_ovsdb_manager(APPid,Manager)->
+	APPid ! {set_ovsdb_manager,Manager}, ok.
 
--spec reset_comm (Node :: pid()) -> ok.
-reset_comm (Node) ->
-	gen_server:cast(Node, reset_comm).
+-spec set_ssid(APPid :: pid(), SSID :: binary()) -> ok.
+set_ssid (APPid,SSID) ->
+	APPid ! {set_ssid,SSID}, ok.
 
--spec mqtt_conf (Node :: pid(), Config :: map()) -> ok.
-mqtt_conf (Node, Conf) ->
-	gen_server:cast(Node, {mqtt_conf,Conf}).
-
--spec post_event (Node :: pid(), Event :: atom(), Args :: tuple(), Comment :: binary() | string()) -> ok.
-post_event (Node, Event, Args, Comment) ->
-	gen_server:cast(Node,{stats_update, {Event, Args, Comment}}).
+-spec post_event (APPid :: pid(), Event :: atom(), Args :: tuple(), Comment :: binary() | string()) -> ok.
+post_event (APPid, Event, Args, Comment) ->
+	APPid ! {stats_update, {Event, Args, Comment}}, ok.
 
 -spec post_event (Event :: atom(), Args :: tuple(), Comment :: binary() | string()) -> ok.
 post_event (Event, Args, Comment) ->
-	post_event(self(),Event,Args,Comment).
+	post_event(self(),Event,Args,Comment), ok.
 
--spec check_publish_monitor (Node :: pid()) -> ok.
-check_publish_monitor (Node) ->
-	gen_server:cast(Node,check_publish_monitor).
+publish( Request ) ->
+	self() ! {publish,Request}, ok.
 
--spec check_for_mqtt_updates (Node :: pid()) -> ok.
-check_for_mqtt_updates (Node) ->
-	gen_server:cast(Node,check_mqtt_updates).
 
--spec set_ssid(Node :: pid(), SSID :: binary()) -> ok.
-set_ssid (Node,SSID) ->
-	gen_server:cast(Node,{set_ssid,SSID}).
+-spec message_loop(APS::ap_state()) -> any().
+message_loop(APS) ->
+	receive
 
-%%%============================================================================
-%%% GEN_SERVER callbacks
-%%%============================================================================
--spec init ({CAName :: string() | binary(), Id::binary(), Options :: [{atom(),term()}]}) -> {ok, State :: #ap_state{}}.
-init ({CAName, Id, Options}) ->
-	process_flag(trap_exit, true),
-	InitialState = prepare_state(CAName,Id,Options),
-	gen_server:cast(self(),start_up),
-	{ok, InitialState}.
+		dump_state ->
+			io:format("~p: ~n~p~n",[APS#ap_state.id,APS]),
+			message_loop(APS);
 
--spec handle_cast (Request :: term(), State :: #ap_state{}) -> {noreply, NewState :: #ap_state{}} | {stop, Reason :: string(), NewState :: #ap_state{}}.
-handle_cast (start_up, #ap_state{status=init}=State) ->
-	{noreply, startup_ap(State)};
-
-handle_cast (start_up, State) ->
-	?L_E(?DBGSTR("can not start up client if not in init state")),	
-	{noreply, State};
-
-handle_cast (ap_start, #ap_state{status=ready}=State) ->
-	{noreply, run_simulation(State)};
-
-handle_cast (ap_start, #ap_state{status=paused}=State) ->
-	{noreply, run_simulation(State)};
-
-handle_cast (ap_start, State) ->
-	?L_E(?DBGSTR("can not run simulation if not in ready or paused  state")),
-	{noreply, State};
-
-handle_cast (ap_stop, #ap_state{status=paused}=State) ->
-	{noreply, stop_simulation(State)};
-
-handle_cast (ap_stop, #ap_state{status=running}=State) ->
-	{noreply, stop_simulation(State)};
-
-handle_cast (ap_stop, State) ->
-	?L_E(?DBGSTR("can not stop simulation that is not running or paused")),
-	{noreply, State};
-
-handle_cast (ap_pause, #ap_state{status=running}=State) ->
-	{noreply, pause_simulation(State)};
-
-handle_cast (ap_pause, State) ->
-	?L_E(?DBGSTR("can not pause simulation that is not running")),
-	{noreply, State};
-
-handle_cast (ap_cancel, State) ->	
-	_ = cancel_simulation(State),
-	{stop, normal, State};
-
-handle_cast (reset_comm, State) ->
-	{noreply,ctrl_connect(State)};
-
-handle_cast (ctlr_start_comm, State) ->
-	{noreply, ctlr_start_comm(State)};
-
-handle_cast ({mqtt_conf,Conf}, State) ->
-	{noreply, check_mqtt(Conf,State)};
-
-handle_cast ({stats_update,Event},State) ->
-	true = update_statistics(Event,State#ap_state.stats_ets),
-	{noreply, State};
-
-handle_cast (check_mqtt_updates, State) ->
-	S = request_mqtt_updates(State),
-	{noreply, S};
-
-handle_cast (check_publish_monitor, State) ->
-	case ovsdb_ap_monitor:publish_monitored(State#ap_state.store) of
-		{ok, more} ->
-			timer:apply_after(500,?MODULE,check_publish_monitor,[self()]);
-		{ok, done} ->
-			ok
-	end,
-	{noreply, State};
-
-handle_cast (send_report,State) ->
-	{noreply, report_statistics(State)};
-
-handle_cast ({exec_rpc, RPC}, #ap_state{status=paused}=State) when is_map(RPC) andalso
-												 					is_map_key(<<"method">>,RPC) andalso
-												 					is_map_key(<<"id">>,RPC) ->
-	case  maps:get(<<"method">>,RPC) of
-		<<"echo">> -> 
-			case ovsdb_ap_rpc:eval_req(<<"echo">>, maps:get(<<"id">>,RPC), RPC, State#ap_state.store) of
-				{ok, Result} when is_map(Result) andalso is_map_key(<<"result">>,Result) ->
-						ok = ovsdb_ap_comm:send_term(State#ap_state.comm,Result),
-						{reply,ok,State};
-				_ ->
-						{reply, ignored, State}
+		ap_start ->
+			case APS#ap_state.status of
+				 ready -> message_loop(start_connection(APS));
+				paused -> message_loop(APS#ap_state{ status = running});
+						 _ -> message_loop(APS)
 			end;
-		_ ->
-			{noreply, State}
-	end;
-handle_cast ({exec_rpc, _RPC}, #ap_state{status=paused}=State) ->
-	{noreply, State};
-handle_cast ({exec_rpc, RPC}, State) when is_map(RPC) andalso
-										  is_map_key(<<"method">>,RPC) andalso
-										  is_map_key(<<"id">>,RPC) ->
-	case ovsdb_ap_rpc:eval_req(maps:get(<<"method">>,RPC),
-								maps:get(<<"id">>,RPC),
-								RPC,
-								State#ap_state.store) of
-		
-		{ok, Result} when is_map(Result) andalso is_map_key(<<"result">>,Result) ->
-			R= io_lib:format("~p",[Result]),
-			Bytes = length(lists:flatten(R)),
-			?L_I(?DBGSTR("RPC RESULT (~s): ~Bbytes",[maps:get(<<"id">>,RPC),Bytes])),
-			ok = ovsdb_ap_comm:send_term(State#ap_state.comm,Result),
-			{noreply, State};
 
-		{ok, Result} when is_binary(Result) ->
-			?L_I(?DBGSTR("RPC RAW RESULT (~s): ~Bbytes",[maps:get(<<"id">>,RPC),byte_size(Result)])),
-			ok = ovsdb_ap_comm:send_term(State#ap_state.comm,Result),
-			{noreply, State};
+		ap_stop ->
+			case APS#ap_state.status of
+				paused -> message_loop(disconnect(APS));
+				running-> message_loop(disconnect(APS));
+						 _ -> message_loop(APS)
+			end;
 
-		{error, Reason} ->
-			?L_E(?DBGSTR("RPC call '~s' failed with reason: ~s",[maps:get(<<"method">>,RPC),Reason])),
-			{norepl,State}
-	end;
-handle_cast ({exec_rpc, RPC},  State) when is_map(RPC) andalso
-										   is_map_key(<<"result">>,RPC) andalso
-										   is_map_key(<<"id">>,RPC) ->
-	case ovsdb_ap_rpc:eval_resp(maps:get(<<"id">>,RPC),
-								 RPC,
-								 State#ap_state.req_queue,
-								 State#ap_state.store) of
-		ok ->
-			{noreply,State};
+		ap_pause ->
+			case APS#ap_state.status of
+				running -> 	ovsdb_client_handler:set_ap_status(paused,APS#ap_state.id),
+										message_loop(APS#ap_state{ status = paused });
+							_ -> message_loop(APS)
+			end;
 
-		{error, Reason} ->
-			?L_E(?DBGSTR("RPC response to request '~B' failed with reason: ~p",[maps:get(<<"id">>,RPC),Reason])),
-			{noreply,State}
-	end;
-handle_cast ({exec_rpc, RPC},State) ->
-	?L_E(?DBGSTR("invalid RPC: ~p~n",[RPC])),
-	{reply,noreply, State};
+		ap_cancel ->
+			disconnect(APS);
 
-handle_cast ({exec_rpc_req, _RPC}, #ap_state{status=paused}=State) ->
-	{noreply, State};
-handle_cast ({exec_rpc_req, RPC}, State) when is_map(RPC) andalso
-										      is_map_key(<<"method">>,RPC) andalso
-										      is_map_key(<<"id">>,RPC) ->
-	R= io_lib:format("~p",[RPC]),
-	Bytes = length(lists:flatten(R)),
-	?L_I(?DBGSTR("RPC UPSTREAM REQUEST (~s): ~Bbytes",[maps:get(<<"id">>,RPC),Bytes])),
-	ok = ovsdb_ap_comm:send_term(State#ap_state.comm,RPC),
-	{noreply, State};
+		connect ->
+			NewState = start_connection(APS),
+			% post_event(self(),comm_event,{<<"started">>},<<>>),
+			message_loop(NewState);
 
-handle_cast ({set_ssid,SSID},#ap_state{config=Cfg}=State) ->
-	%% io:format("SETTING SSID: ~s~n",[SSID]),
-	mqtt_client_manager:set_ssid(ovsdb_ap_config:caname(Cfg),ovsdb_ap_config:serial(Cfg),SSID),
-	{noreply,State};
+		re_connect ->
+			NewState = start_connection(APS),
+			% post_event(self(),comm_event,{<<"started">>},<<>>),
+			message_loop(NewState);
 
-handle_cast (R,State) ->
-	?L_E(?DBGSTR("got unknown request: ~p",[R])),
-	{noreply, State}.
+		{set_ovsdb_manager,Manager } ->
+			?L_IA("~p: Redirecting to ~p.~n",[APS#ap_state.id,Manager]),
+			log_packet(binary:list_to_bin([<<"Redirecting to ">>,Manager]),APS),
+			[_Protocol,NewHost,NewPort] = string:tokens(binary_to_list(Manager),":"),
+			sslclose(APS#ap_state.socket),
+			APS1 = stop_timers(APS),
+			APS2 = APS1#ap_state{   ovsdb_server_name = list_to_binary(NewHost),
+		                          ovsdb_server_port = list_to_integer(NewPort),
+	                            socket = none,
+	                            trail_data = <<>>,
+	                            status = ready,
+		                          redirected = true},
+			message_loop(start_connection(APS2#ap_state{ normal_reconnect = true, manager_addr = Manager }));
 
--spec handle_call (Request :: term(), From :: {pid(),Tag::term()}, State :: #ap_state{}) -> {reply, Reply :: ok | invalid | ignored, NewState :: #ap_state{}} | {stop, Reason :: term(), Reply :: ok | invalid | ignored, NewState :: #ap_state{}}.
-handle_call (Request, From, State) ->
-	?L_E(?DBGSTR("got unknow request ~p from ~p",[Request,From])),
-	{reply, invalid, State}.
+		{set_mqtt_conf,Conf} ->
+			?L_IA("~p: Just got MQTT settings: ~p~n",[APS#ap_state.id]),
+			message_loop(check_mqtt(Conf,APS));
 
--spec handle_info (Msg :: term(), State :: #ap_state{}) -> {noreply, NewState :: #ap_state{}} | {stop, Reason :: term(), NewState :: #ap_state{}}.
-handle_info({'EXIT', _Pid, normal}, State) ->
-	{noreply, State};
+		{set_ssid,SSID} = M ->
+			case APS#ap_state.mqtt == running of
+				true ->     mqtt_client_manager:set_ssid(APS#ap_state.caname,APS#ap_state.id,SSID);
+				false-> _ = timer:send_after( 5000 , M ) %% resent a notification in 5 seconds if MQTT is not running
+			end,
+			message_loop(APS#ap_state{ ssid = SSID });
 
-handle_info({'EXIT', Pid, Reason}, State) ->
-	?L_E(?DBGSTR("Abnormal exit from ~p with reason: ~p",[Pid,Reason])),
-	{noreply, State};
+		{stats_update,Event}  ->
+			update_statistics(Event,APS#ap_state.stats_ets),
+			message_loop(APS);
 
-handle_info({client_stats,Serial,Stats},State) ->
-	S = handle_mqtt_stats_update(Serial,Stats,State),
-	{noreply, S};
+		send_report ->
+			message_loop(report_statistics(APS));
 
-handle_info (Msg,State) ->
-	?L_E(?DBGSTR("got unexpected info message ~p",[Msg])),
-	{noreply, State}.
+		{client_stats,Serial,Stats}  ->
+			message_loop(update_client_stats(Serial,Stats,APS));
 
--spec terminate (Reason :: shutdown | normal, State :: #ap_state{}) -> ok.
-terminate (_Reason, #ap_state{stats_ets=Tab}) ->
-	ets:delete(Tab),
-	ok.
+		check_mqtt_updates ->
+			message_loop(request_mqtt_updates(APS));
 
--spec code_change (OldVersion :: term(), OldState ::#ap_state{}, Extra :: term()) -> {ok, NewState :: #ap_state{}}.
-code_change (_,OldState,_) ->
-	?L_E(?DBGSTR("code change requested")),
-	{ok, OldState}.
+		check_publish_monitor ->
+			% io:format("~p: Publish tick=~p. Echos=~p~n",[APS#ap_state.id,APS#ap_state.check_monitor_tick,APS#ap_state.echo]),
+			case (APS#ap_state.echo>0) of
+				false ->
+					message_loop(APS);
+				true ->
+					case APS#ap_state.check_monitor_tick of
+						2 ->
+							?L_IA("~p: Resetting Wifi_Associated_Clients table.~n",[APS#ap_state.id]),
+							NewState = send_associated_clients_table(false,APS),
+							message_loop(NewState#ap_state{ check_monitor_tick = NewState#ap_state.check_monitor_tick+1 });
+						4 ->
+							?L_IA("~p: Resetting DHCP_Leased_IP table.~n",[APS#ap_state.id]),
+							NewState = send_dhcp_lease_table(false,APS),
+							message_loop(NewState#ap_state{ check_monitor_tick = NewState#ap_state.check_monitor_tick+1 });
+						3 ->
+							?L_IA("~p: Sending Wifi_Associated_Clients table.~n",[APS#ap_state.id]),
+							NewState = send_associated_clients_table(true,APS),
+							message_loop(NewState#ap_state{ check_monitor_tick = NewState#ap_state.check_monitor_tick+1 });
+						5 ->
+							?L_IA("~p: Sending DHCP_Leased_IP table.~n",[APS#ap_state.id]),
+							NewState = send_dhcp_lease_table(true,APS),
+							message_loop(NewState#ap_state{ check_monitor_tick = NewState#ap_state.check_monitor_tick+1 });
+						_ ->
+							message_loop(APS#ap_state{ check_monitor_tick = APS#ap_state.check_monitor_tick+1 })
+					end
+			end;
+
+		{ssl, S, Data} ->
+			case S == APS#ap_state.socket of
+				true ->
+					NewState = process_received_data( << (APS#ap_state.trail_data)/binary, Data/binary>>,APS),
+					message_loop(NewState);
+				false->
+					message_loop(APS)
+			end;
+
+		{ssl_closed, S} ->
+			case S == APS#ap_state.socket of
+				true ->
+					?L_IA("~p: Socket closed by server.~n",[APS#ap_state.id]),
+					log_packet(binary:list_to_bin([<<"Socket closed by server.">>]),APS),
+					APS1 = disconnect(APS),
+					message_loop(try_reconnect(APS1));
+				false ->
+					message_loop(APS)
+			end;
+
+		{ssl_error, S, Reason} ->
+			case S == APS#ap_state.socket of
+				true ->
+					?L_IA("~p: socket error:~p. ",[APS#ap_state.id,Reason]),
+					message_loop(try_reconnect(APS));
+				false ->
+					message_loop(APS)
+			end;
+
+		{send_raw, _AP, RawData} ->
+			% io:format("~p: Data sent back: ~p~n",[APS#ap_state.id,RawData]),
+			?L_IA("~p: Sending internal ~p bytes.~n",[APS#ap_state.id,size(RawData)]),
+			log_packet(RawData,APS),
+			sslsend(APS#ap_state.socket,RawData),
+			message_loop(APS);
+
+		{publish,TableData} when is_map(TableData)->
+			?L_IA("~p: Sending monitored data.~n",[APS#ap_state.id]),
+			Data = jiffy:encode(TableData),
+			sslsend(APS#ap_state.socket,Data),
+			_ = sslsend(APS#ap_state.socket,Data),
+			message_loop(APS);
+
+		{down, _AP} ->
+			% post_event(self(),comm_event,{<<"shutdown">>},<<>>),
+			sslclose(APS#ap_state.socket);
+
+		Message ->
+			io:format("~p: unknown message: ~p~n",[APS#ap_state.id,Message]),
+			message_loop(APS)
+	end.
 
 %%%============================================================================
 %%% internal functions
 %%%============================================================================
-%---------prepare_state/2----------------convert Spec proplist into internal state
 
--spec prepare_state (CAName :: string() | binary(), ID :: binary(), Options :: [{atom(),term()}]) -> State :: #ap_state{}.
-prepare_state (CAName, ID, Options) ->
-	Store = ets:new(ovsdb_ap,[bag,private,{keypos, 1}]),
-	Stats = ets:new(ovsdb_ap_stats,[ordered_set,private,{keypos, 2}]),
-	{ok, Tref} = timer:apply_interval(proplists:get_value(report_int,Options,?AP_REPORT_INTERVAL),
-										gen_server,cast,[self(),send_report]),
-	Redirector = proplists:get_value(redirector,Options,<<"">>),
-	update_statistics({report_mark,{},<<>>},Stats),
-	ets:insert(Stats,#stats_vars{}),
-	#ap_state{
-		id = ID,
-		ca_name = CAName,
-		config = ovsdb_ap_config:new(CAName,ID,Store,Redirector),
-		status = init,
-		store = Store,
-		req_queue = ets:new(ovsdb_ap_req,[ordered_set,private,{keypos, 1}]),
-		reporting = Tref,
-		stats_ets = Stats
-	}.
+sslsend(none,_Data)-> ok;
+sslsend(Socket,Data)->
+	try
+		_=ssl:send(Socket,Data), ok
+	catch
+		_:_ -> ok
+	end.
 
-%--------set_status/1--------------------sets internal status + broadcast status to handler
--spec set_status (Status :: ap_status(), State :: #ap_state{}) -> NewState :: #ap_state{}.
-set_status (Status, #ap_state{status=OldStatus, config=Cfg}=State) ->
-	ovsdb_client_handler:ap_status(Status,ovsdb_ap_config:id(Cfg)),
-	post_event(status_change,{OldStatus,Status},io_lib:format("status change (~s) := ~p -> ~p",[ovsdb_ap_config:id(Cfg),OldStatus,Status])),
-	?L_I(?DBGSTR("AP ~p : status change (~s) := ~p -> ~p",[self(),ovsdb_ap_config:id(Cfg),OldStatus,Status])),
-	start_stop_mqtt_updates(State#ap_state{status=Status}).
+sslclose(none)-> ok;
+sslclose(S)->
+	try
+	    case ssl:close(S,2000) of
+				ok ->
+					ok;
+				Error ->
+					?L_IA(">>>>Error closing socket: ~p.~n",[Error])
+	    end
+	catch
+	   _:_  ->
+		   ok
+	end.
 
--spec start_stop_mqtt_updates (State :: #ap_state{}) -> NewState :: #ap_state{}.
-start_stop_mqtt_updates(#ap_state{status=running, updates=none}=State) ->
-	{ok, Ref} = timer:apply_interval(60000,?MODULE,check_for_mqtt_updates,[self()]),
-	State#ap_state{updates=Ref};
-start_stop_mqtt_updates(#ap_state{status=running}=State) ->
-	State;
-start_stop_mqtt_updates(#ap_state{updates=U}=State) when U =/= none->
-	{ok, cancel} = timer:cancel(U),
-	State#ap_state{updates=none};
-start_stop_mqtt_updates(State) ->
-	State.
+stop_timer(none) -> ok;
+stop_timer(T)    -> _=timer:cancel(T).
 
-%--------startup_ap/1--------------------initiate startup sequence
--spec startup_ap (State :: #ap_state{}) -> NewState :: #ap_state{}.
-startup_ap (#ap_state{status=init, config=Cfg}=State) ->
-	NewCfg =  ovsdb_ap_config:configure(Cfg),
-	set_status(ready,State#ap_state{config=NewCfg, comm=none}).
+-spec start_timers(APS::ap_state()) -> NewAPS::ap_state().
+start_timers(APS)->
+	{ok, MqttUpdateTimer}       = timer:send_interval(20000,check_mqtt_updates),
+	{ok, CheckPublishMonitor }  = timer:send_interval(10000,check_publish_monitor),
+	APS#ap_state{ mqtt_update_timer = MqttUpdateTimer, publish_timer = CheckPublishMonitor}.
 
-%--------run_simulation/1----------------start or resume simulation
--spec run_simulation (State :: #ap_state{}) -> NewState :: #ap_state{}.
-run_simulation (#ap_state{status=ready}=State) ->
-	NewState = ctrl_connect(State),
-	set_status(running,NewState);
+-spec stop_timers(APS::ap_state()) -> NewAPS::ap_state().
+stop_timers(APS)->
+	stop_timer(APS#ap_state.publish_timer),
+	stop_timer(APS#ap_state.mqtt_update_timer),
+	APS#ap_state{ mqtt_update_timer = none, publish_timer = none}.
 
-run_simulation (#ap_state{status=paused}=State) ->
-	set_status(running,State).
-	
-%--------stop_simulation/1----------------stops a simulation (clears internal state to ready)
--spec stop_simulation (State :: #ap_state{}) -> NewState :: #ap_state{}.
-stop_simulation (State) ->
-	NewState = ctrl_disconnect(State),
-	set_status(ready, NewState).
-
-%--------pause_simulation/1----------------halts simulation (tear down of connections) but keeps internal state
--spec pause_simulation (State :: #ap_state{}) -> NewState :: #ap_state{}.
-pause_simulation (State) ->
-	set_status(paused, State).
 
 %--------cancel_simulation/1----------------shutdown and exit simulation (AP exits)
--spec cancel_simulation (State :: #ap_state{}) -> NewState :: #ap_state{}.
-cancel_simulation (State) ->
-	_ = timer:cancel(State#ap_state.reporting),
-	State.
+-spec process_received_data(Data::binary(),APS::ap_state()) -> { TrailingData::binary(), JSON::ovsdb_request(), NewState::ap_state()}.
+process_received_data (<<>>, APS) ->
+	APS;
+process_received_data (Data, APS) ->
+	try
+		FullData = << (APS#ap_state.trail_data)/binary, Data/binary>>,
+		{JSONToProcess,TrailingData} = case jiffy:decode(FullData,[return_maps,copy_strings,return_trailer]) of
+											{has_trailer,Map,Tail} ->
+												{Map,iolist_to_binary(Tail)};
+											Map ->
+												{Map,<<"">>}
+										end,
+		case ovsdb_process:do(JSONToProcess,APS) of
+			{reply,ResponseData,NewState} ->
+				?L_IA("~p: Sending back ~p bytes.~n",[APS#ap_state.id,size(ResponseData)]),
+				log_packet(ResponseData,APS),
+				_=sslsend(APS#ap_state.socket,ResponseData),
+				process_received_data(TrailingData,NewState#ap_state{ trail_data = <<>> });
+			{noreply,NewState} ->
+				process_received_data(TrailingData,NewState#ap_state{ trail_data = <<>>})
+		end
+	catch
+		error:{N,Error} ->
+			?L_IA("JSON decode error: '~s' after ~B bytes",[Error,N]),
+			APS#ap_state{ trail_data = Data };
+		_:_ ->
+			APS#ap_state{ trail_data = <<>>}
+	end.
 
 %--------ctrl_connect/1------------------connect to either the tip redirector or manager based on state / old connections are closed if open
--spec ctrl_connect (State :: #ap_state{}) -> NewState :: #ap_state{}.
-ctrl_connect (#ap_state{comm=none, status=ready, config=Cfg, id=ID}=State) ->
-	Opts = [
-		{host, ovsdb_ap_config:tip_redirector(host,Cfg)},
-		{port, ovsdb_ap_config:tip_redirector(port,Cfg)},
-		{ca, ovsdb_ap_config:ca_certs(Cfg)},
-		{cert, ovsdb_ap_config:client_cert(Cfg)},
-		{id, ID},
-		{key, ovsdb_ap_config:client_key(Cfg)}
-	],
-	{ok, Comm} = ovsdb_ap_comm:start_link(Opts),
-	gen_server:cast(self(),ctlr_start_comm),
-	post_event(tip_connect,{<<"redirector">>},<<"connecting to the TIP controller (redirector)">>),
-	State#ap_state{comm=Comm};
-
-ctrl_connect (#ap_state{comm=none, status=running, config=Cfg, id=ID}=State) ->
-	O = case ovsdb_ap_config:tip_manager(host,Cfg) of
-		[] ->
-			post_event(tip_connect,{<<"redirector">>},<<"connecting to the TIP controller (redirector)">>),
-			[{host, ovsdb_ap_config:tip_redirector(host,Cfg)},
-			 {port, ovsdb_ap_config:tip_redirector(port,Cfg)}];
-		_ ->
-			post_event(tip_connect,{<<"manager">>},<<"connecting to the TIP controller (manager)">>),
-			[{host, ovsdb_ap_config:tip_manager(host,Cfg)},
-			 {port, ovsdb_ap_config:tip_manager(port,Cfg)}]
-	end,
-	Opts = [{cacert, ovsdb_ap_config:ca_certs(Cfg)},
-	        {cert, ovsdb_ap_config:client_cert(Cfg)},
-	        {key,ovsdb_ap_config:client_key(Cfg)},
-			{id, ID} |O],
-	{ok, Comm} = ovsdb_ap_comm:start_link(Opts),
-	gen_server:cast(self(),ctlr_start_comm),
-	State#ap_state{comm=Comm};
-
-ctrl_connect (#ap_state{comm=none}=State) ->
-	State;
-
-ctrl_connect (#ap_state{comm=Comm}=State) ->
-	ovsdb_ap_comm:end_comm(Comm),
-	post_event(tip_connect,{<<"down">>},<<"TIP contoller connection relinquished">>),
-	ctrl_connect (State#ap_state{comm=none}).
-
 %--------ctrl_disconnect/1---------------disconnect and closes communication port but otherwise does not chenge status
--spec ctrl_disconnect (State :: #ap_state{}) -> NewState :: #ap_state{}.
-ctrl_disconnect (#ap_state{comm=none}=State) ->
+-spec start_connection(APS::#ap_state{}) -> NewState::#ap_state{}.
+start_connection(APS0) ->
+	Opts = [{cacerts, [APS0#ap_state.details#client_info.cacert]},
+	        {cert,APS0#ap_state.details#client_info.cert},
+	        {key,APS0#ap_state.details#client_info.key},
+	        {versions, ['tlsv1.2','tlsv1.3']},
+	        {session_tickets,auto},
+	        {mode,binary},
+	        {keepalive, true},
+	        {packet,raw},
+	        {active,true},
+	        {recbuf, 500000},
+	        {sndbuf, 500000}],
+	% opn normal reconnect, you should not reset the AWLAN table...
+	APS = case APS0#ap_state.normal_reconnect of
+		true ->
+			APS0;
+		false ->
+			ovsdb_ap_config:create_table(<<"AWLAN_Node">>,APS0)
+	end,
+	?L_IA("~p: AP connecting to ~s:~B",[APS#ap_state.id,APS#ap_state.ovsdb_server_name,APS#ap_state.ovsdb_server_port]),
+	NewState = case ssl:connect( binary_to_list(APS#ap_state.ovsdb_server_name), APS#ap_state.ovsdb_server_port, Opts, 5000) of
+		{ok, Socket} ->
+			ovsdb_client_handler:set_ap_status(running,APS#ap_state.id),
+			NewAPS = APS#ap_state{ socket = Socket, reconnect_timer = none, reconnecting = false , normal_reconnect = false },
+			start_timers(NewAPS);
+		{error, Reason} ->
+			?L_IA("~p: Connecting to ~s:~B failed with reason: ~p",[APS#ap_state.id,APS#ap_state.ovsdb_server_name,APS#ap_state.ovsdb_server_port,Reason]),
+			try_reconnect(APS#ap_state{ reconnecting = false, reconnect_timer = none ,socket = none, echo = 0, normal_reconnect = false })
+	end,
+	NewState.
+
+disconnect(APS)->
+	sslclose(APS#ap_state.socket),
+	APS1 = stop_timers(APS),
+	ovsdb_client_handler:set_ap_status( paused , APS1#ap_state.id),
+	APS1#ap_state{ status = ready, socket = none, mqtt_update_timer = none, reconnect_timer = none, normal_reconnect = false }.
+
+random_reconnect_timer(APS)->
+	(rand:uniform(APS#ap_state.max_backoff-APS#ap_state.min_backoff)+APS#ap_state.min_backoff)*1000.
+
+-spec try_reconnect (State :: #ap_state{}) -> NewState :: #ap_state{}.
+try_reconnect (#ap_state{ reconnecting = true }=State) ->
 	State;
-
-ctrl_disconnect (#ap_state{comm=Comm}=State) ->
-	ovsdb_ap_comm:end_comm(Comm),
-	post_event(tip_connect,{<<"down">>},<<"TIP contoller connection relinquished">>),
-	stop_mqtt(State#ap_state{comm=none}).
-
-%--------ctlr_start_comm/1---------------asychrounously starts the connection after comm is created
--spec ctlr_start_comm (State :: #ap_state{}) -> NewState :: #ap_state{}.
-ctlr_start_comm (#ap_state{comm=Comm, store=Store}=State) ->
-	ovsdb_ap_comm:start_comm(Comm),
-	post_event(tip_connect,{<<"start_comm">>},<<"TIP contoller start communication">>),
-	case ets:match(Store,#'AWLAN_Node'{mqtt_settings='$1',_='_'}) of
-		[[[<<"map">>,MQTT]]] when is_list(MQTT) andalso length(MQTT)>0 ->
-			Map = maps:from_list([{K,V}||[K,V]<-MQTT]),
-			check_mqtt(Map,State);
-		_ ->
-			State
-	end.
+try_reconnect (#ap_state{ reconnecting = false, retries = Retries }=APS0) when Retries > 5 ->
+	Reconnect_ms = random_reconnect_timer(APS0),
+	{ok,ReconnectionTimer} = timer:send_after(Reconnect_ms, re_connect ),
+	?L_I(?DBGSTR("socket closed by server, trying to reconnect in ~B seconds.",[Reconnect_ms div 1000])),
+	sslclose(APS0#ap_state.socket),
+	APS1 = stop_timers(APS0),
+	APS2 = case APS1#ap_state.redirected of
+		true ->
+			APS1#ap_state{ ovsdb_server_port = APS1#ap_state.original_ovsdb_server_port ,
+			               ovsdb_server_name = APS1#ap_state.original_ovsdb_server_name ,
+			               redirected = false, echo = 0 , normal_reconnect = false,
+										 manager_addr = <<>>};
+		false ->
+			APS1
+		end,
+	ovsdb_client_handler:set_ap_status( reconnecting , APS2#ap_state.id),
+	APS3 = ovsdb_ap_config:create_table(<<"AWLAN_Node">>,APS2),
+	APS3#ap_state{socket=none, reconnecting = true, reconnect_timer = ReconnectionTimer, mqtt_update_timer = none, retries = 0 , echo = 0,check_monitor_tick = 0};
+try_reconnect (#ap_state{ reconnecting = false, retries = Retries}=APS0) ->
+	Reconnect_ms = random_reconnect_timer(APS0),
+	{ok,ReconnectionTimer} = timer:send_after(Reconnect_ms, re_connect ),
+	sslclose(APS0#ap_state.socket),
+	APS = stop_timers(APS0),
+	?L_I(?DBGSTR("socket closed by server, trying to reconnect in ~B seconds.",[Reconnect_ms div 1000])),
+	ovsdb_client_handler:set_ap_status( reconnecting , APS#ap_state.id),
+	APS#ap_state{socket=none, reconnecting = true, echo = 0, reconnect_timer = ReconnectionTimer, mqtt_update_timer = none, retries = Retries+1 ,
+		check_monitor_tick = 0 , normal_reconnect = false}.
 
 %%==============================================================================
 %% managing mqtt
 -spec check_mqtt (Config :: #{binary():=binary()}, #ap_state{}) -> NewState :: #ap_state{}.
-check_mqtt (Cfg,#ap_state{ca_name=CAName, id=ID}=State) ->
+check_mqtt (NewConfig,#ap_state{caname=CAName, id=ID, mqtt_config = OldMqttConfig }=APS) ->
 	?L_I(?DBGSTR("AP->MQTT check configuration")),
 	case mqtt_client_manager:is_running(CAName,ID) of
-		{ ok , {_, MQTTCfgCurr}} ->
-			case mqtt_needs_restart(MQTTCfgCurr,Cfg) of
+		{ok,_} ->
+			case NewConfig =/= OldMqttConfig of
 				true ->
-					_ = stop_mqtt(State),
-					start_mqtt(Cfg,State);
+					_ = stop_mqtt(APS),
+					start_mqtt(NewConfig,APS);
 				false ->
-					State#ap_state{mqtt=running}
+					APS
 			end;
-		_ -> 
-			start_mqtt(Cfg,State)
+		_ ->
+			start_mqtt(NewConfig,APS)
 	end.
 
--spec mqtt_needs_restart (ActiveConfig :: gen_configuration(), NewConfig :: gen_configuration()) -> boolean().
-mqtt_needs_restart (#{broker:=CurBroker, port:=CurPort},#{broker:=NewBroker, port:=NewPort}) when CurBroker==NewBroker andalso CurPort==NewPort ->
-	false;
-mqtt_needs_restart (_,_) ->
-	true.
-
--spec start_mqtt(gen_configuration(), #ap_state{}) -> NewState :: #ap_state{}.
-start_mqtt (Cfg,#ap_state{ca_name=CAName, id=ID, mqtt=idle}=State) ->
+-spec start_mqtt(gen_configuration(), APS::ap_state()) -> NewState :: ap_state().
+start_mqtt (Cfg,#ap_state{caname=CAName, id=ID, mqtt=idle}=APS) ->
 	post_event(mqtt,{<<"set_config">>},<<"start an MQTT client">>),
 	_ = mqtt_client_manager:start_client(CAName,ID,Cfg),
-	State#ap_state{mqtt=running};
-start_mqtt (_,State) ->
+	APS#ap_state{mqtt=running,mqtt_config = Cfg};
+start_mqtt (_,APS) ->
 	?L_E(?DBGSTR("MQTT start request, but client already running!")),
-	State.
+	APS.
 
--spec stop_mqtt (State::#ap_state{}) -> NewState::#ap_state{}.
-stop_mqtt(#ap_state{mqtt=idle}=State) ->
-	State;
-stop_mqtt(#ap_state{ca_name=CAName, id=ID}=State) ->
+-spec stop_mqtt (APS::ap_state()) -> NewState::ap_state().
+stop_mqtt(#ap_state{mqtt=idle}=APS) ->
+	APS;
+stop_mqtt(#ap_state{caname=CAName, id=ID}=APS) ->
 	_ = mqtt_client_manager:stop_client(CAName,ID),
-	State#ap_state{mqtt=idle}.
+	APS#ap_state{mqtt=idle}.
 
--spec request_mqtt_updates (State :: #ap_state{}) -> NewState :: #ap_state{}.
-request_mqtt_updates (#ap_state{config=Cfg} = State) ->
-	CA = ovsdb_ap_config:caname(Cfg),
-	Serial = ovsdb_ap_config:serial(Cfg),
-	Mqtt = mqtt_client_manager:get_client_pid(CA,Serial),
+-spec request_mqtt_updates (APS::ap_state()) -> NewState ::ap_state().
+request_mqtt_updates (#ap_state{ caname = CAName, id = ID} = APS) ->
+	Mqtt = mqtt_client_manager:get_client_pid(CAName,ID),
 	Mqtt ! {send_stats, self()},
-	State.
+	APS.
 
--spec handle_mqtt_stats_update (Serial :: binary(), Stats :: #{binary() => #'Client.Stats'{}}, State :: #ap_state{}) -> NewState :: #ap_state{}.
-handle_mqtt_stats_update (_Serial,_Stats,State) ->
-	%% io:format("GOT MQTT STATS: ->republishing changes~n"),
-	%%ovsdb_ap_monitor:refresh_publications(State#ap_state.store),
-	ovsdb_ap_simop:update_wifi_clients(State#ap_state.store),
-	ovsdb_ap_simop:update_dhcp_leases(State#ap_state.store),
-	check_publish_monitor(self()),
-	State.
+update_client_stats(Serial,Stats,APS)->
+	APS.
 	
 %%==============================================================================
 %% managing statistics of access point
@@ -525,23 +480,17 @@ update_statistics ({Event,Args,Comment},Stats) ->
 			stamp = ETag,
 			event = Event,
 			args = Args,
-			comment = case Comment of
-						A when is_binary(A) -> A;
-						A when is_list(A) -> list_to_binary(A);
-						_ -> <<>>
-					end
+			comment = utils:safe_binary(Comment)
 		}).
 
 %--------report_statistics/1-------------generate an AP specific statistics report and send it to the handler
--spec report_statistics (State :: #ap_state{}) -> NewState :: #ap_state{}.
-report_statistics (#ap_state{status=ready}=State) ->
-	State;
-report_statistics (#ap_state{stats_ets=S,id=ID}=State) ->
-	% D = ets:match(Stats,'$1'),
-	% io:format("all DATA: ~n~p~n",[D]),
-	Ri = report_interval(S),
-	RX = received_bytes(S),
-	TX = sent_bytes(S),
+-spec report_statistics (APS :: ap_state()) -> NewState :: ap_state().
+report_statistics (#ap_state{status=ready}=APS) ->
+	APS;
+report_statistics (#ap_state{ stats_ets = StatsETS,id=ID}=APS) ->
+	Ri = report_interval(StatsETS),
+	RX = received_bytes(StatsETS),
+	TX = sent_bytes(StatsETS),
 	Stats = #ap_statistics{
 			stamp = erlang:system_time(),
 			interval = Ri,
@@ -549,14 +498,14 @@ report_statistics (#ap_state{stats_ets=S,id=ID}=State) ->
 			rx_bps = RX / Ri,
 			tx_bytes = TX,
 			tx_bps = TX / Ri,
-			dropped = comm_dropped(S),
-			restarts  = comm_restart(S),
+			dropped = comm_dropped(StatsETS),
+			restarts  = comm_restart(StatsETS),
 			latency = 0
 		},
-	ets:delete_all_objects(S),
+	ets:delete_all_objects(StatsETS),
 	ovsdb_client_handler:push_ap_stats(Stats,ID),
-	update_statistics({report_mark,{},<<>>},S),
-	State.
+	update_statistics({report_mark,{},<<>>},StatsETS),
+	APS.
 
 -spec report_interval(S :: ets:tid()) -> IntervalInMs :: integer().
 report_interval (S) ->
@@ -581,4 +530,167 @@ comm_dropped (S) ->
 	
 -spec comm_restart(S::ets:tid()) -> RestartCount::integer().
 comm_restart(S) ->
-	length(ets:match_object(S,{ap_events,'_',tip_connect,{<<"start_comm">>},'_'})). 
+	length(ets:match_object(S,{ap_events,'_',tip_connect,{<<"start_comm">>},'_'})).
+
+-spec make_wan_addr() -> IPAddr :: binary().
+make_wan_addr() ->
+	A = rand:uniform(30) + 60,
+	B = rand:uniform(200) + 20,
+	C = rand:uniform(50) + 100,
+	D = rand:uniform(230) + 10,
+	list_to_binary(io_lib:format("~B.~B.~B.~B",[A,B,C,D])).
+
+send_response(TableName,Response,APS) ->
+	FullResponse = #{ <<"id">> => null,
+	              <<"method">> => <<"update">>,
+	              <<"params">> =>
+	              [ binary:list_to_bin([TableName,<<"_Open_AP_">>, APS#ap_state.id]),
+	                #{ TableName => Response }]},
+	self() ! {send_raw, APS#ap_state.id, jsx:encode(FullResponse)}.
+
+%send_dhcp_lease_table(false,APS) ->
+%	APS;
+send_dhcp_lease_table(DevState,APS) ->
+	TableName = <<"DHCP_leased_IP">>,
+	TableData = maps:get(TableName,APS#ap_state.tables),
+	{NewLeaseTable,_ResponseTable} =
+		maps:fold(fun(UUID,#{ <<"_version">> := CurrentVersion }=V,{TmpNewTable,TmpResponse}) ->
+							NewVersion = utils:create_version(),
+							case DevState of
+								true ->
+									NewUUID = utils:uuid_b(),
+									NewLeaseVersion = V#{ <<"_version">> => NewVersion,
+									                      <<"_uuid">> => [<<"uuid">>,NewUUID ]},
+									NewRow = #{ <<"new">> => V#{ <<"_version">> => NewVersion,
+																							<<"_uuid">> => [<<"uuid">>,NewUUID ]},
+									            <<"old">> => #{<<"_version">> => CurrentVersion }} ,
+									% io:format("~p: DHCP_LEASE_TRANSACTION (on): ~p~n",[APS#ap_state.id,NewRow]),
+									send_response( TableName, #{ NewUUID => maps:remove(<<"_uuid">>,NewRow)}, APS ),
+									{ maps:put(NewUUID,NewLeaseVersion,TmpNewTable),
+										maps:put(NewUUID,NewRow,TmpResponse) };
+								false->
+									NewRow = #{ UUID => #{<<"old">> => maps:remove(<<"_uuid">>,V) } },
+									% io:format("~p: DHCP_LEASE_TRANSACTION (off): ~p~n",[APS#ap_state.id,NewRow]),
+									send_response( TableName, NewRow, APS ),
+									{ maps:put(UUID,V,TmpNewTable),
+									  maps:put(UUID,NewRow,TmpResponse) }
+							end
+						end,{#{},#{}},TableData),
+	APS#ap_state{ tables = maps:put(TableName,NewLeaseTable,APS#ap_state.tables)}.
+
+send_associated_clients_table(DevState,APS) ->
+	APS1 = send_assoc_table(DevState,APS),
+	send_vif_state(DevState,APS1).
+
+send_assoc_table(DevState,APS)->
+	% make sure you update the associated list
+	TableName = <<"Wifi_Associated_Clients">>,
+	TableData = maps:get(TableName,APS#ap_state.tables),
+	{New_Wifi_Associated_Clients,Response} = maps:fold(fun(K,OldRow,{NewAssocClientsTable,PartialResponse}) ->
+									#{ <<"_version">> := OldVersion } = OldRow,
+									NewRow = case DevState of
+														 true ->
+															 OldRow#{ <<"state">> => <<"active">>, <<"_version">> => utils:create_version() };
+														 false->
+															 OldRow#{ <<"state">> => <<"idle">>, <<"_version">> => utils:create_version() }
+									         end,
+									OldEntry = case DevState of
+															 true ->
+																 #{ <<"_version">> => OldVersion, <<"state">> => <<"idle">> };
+															 false->
+																 #{ <<"_version">> => OldVersion, <<"state">> => <<"active">> }
+									           end,
+									ResponseRow = #{ <<"new">> => NewRow,
+									                 <<"old">> => OldEntry},
+									{ maps:put(K,NewRow,NewAssocClientsTable), maps:put(K,ResponseRow,PartialResponse) }
+	              end,{#{},#{}},TableData),
+
+	FullResponse = #{ <<"id">> => null,
+	                 <<"method">> => <<"update">>,
+	                 <<"params">> =>
+	                 [ binary:list_to_bin([TableName,<<"_Open_AP_">>, APS#ap_state.id]),
+	                   #{ TableName => Response } ]},
+
+	self() ! {send_raw, APS#ap_state.id, jsx:encode(FullResponse)},
+
+	NewTables = maps:put(TableName,New_Wifi_Associated_Clients, APS#ap_state.tables),
+	APS#ap_state{ tables = NewTables }.
+
+
+% make sure you update the VIF state
+	% look in the radio DB for the same if_name, this will give you the band
+	% with the band, add the client list to to VIF state and send a monitor update
+send_vif_state(DevState,APS)->
+	TableName = <<"Wifi_VIF_State">>,
+	Wifi_VIF_State_Table = maps:get(TableName,APS#ap_state.tables),
+	{New_Wifi_VIF_State_Table,VIF_Response} = maps:fold(fun(K,Wifi_VIF_State_Row,{TempNewVifTable,TempVifResponse }) ->
+							% io:format("~p: Band=~p Clients=~p~n",[APS#ap_state.id,K,Wifi_VIF_State_Row]),
+							case maps:get(<<"if_name">>,Wifi_VIF_State_Row,undefined) of
+								undefined ->
+									?L_IA("~p: Wifi_VIF_State_Table: could not find if_name~n",[APS#ap_state.id]),
+									{maps:put(K,Wifi_VIF_State_Row,TempNewVifTable),TempVifResponse};
+								IFName ->
+									Band = ovsdb_ap_config:find_band_for_interface(IFName,APS),
+									case maps:get(Band,APS#ap_state.associated_clients,undefined) of
+										undefined ->
+											?L_IA("~p: skipping Wifi_VIF_State update:~p~n",[APS#ap_state.id,Wifi_VIF_State_Row]),
+											{maps:put(K,Wifi_VIF_State_Row,TempNewVifTable),TempVifResponse};
+										MacUUIDList ->
+											#{ <<"_version">> := OldVersion, <<"associated_clients">> := OldSet } = Wifi_VIF_State_Row,
+											NewOldSet = case DevState of
+																			true -> OldSet;
+																			false -> [<<"set">>,[]]
+											end,
+											NewSet = case DevState of
+																 true ->
+																	 [ <<"set">>, [ [<<"uuid">>,X] || X <- MacUUIDList]];
+																 false ->
+																	 [<<"set">>,[]]
+
+											end,
+											OldRecord = #{ <<"associated_clients">> => NewOldSet,
+											               <<"_version">> => OldVersion },
+											NewRecord = Wifi_VIF_State_Row#{ <<"associated_clients">> => NewSet,
+											                                 <<"_version">> => utils:create_version()},
+											ResponseRow = #{ <<"new">> => NewRecord, <<"old">> => OldRecord},
+											{ maps:put(K,NewRecord,TempNewVifTable), maps:put(K,ResponseRow,TempVifResponse)}
+									end
+							end
+						end,{#{},#{}},Wifi_VIF_State_Table),
+
+	FullVifResponse = #{ <<"id">> => null,
+	                  <<"method">> => <<"update">>,
+	                  <<"params">> =>
+	                    [ binary:list_to_bin([TableName,<<"_Open_AP_">>, APS#ap_state.id]),
+	                          #{ TableName => VIF_Response }]},
+	self() ! {send_raw, APS#ap_state.id, jsx:encode(FullVifResponse)},
+
+	NewTables = maps:put(TableName,New_Wifi_VIF_State_Table,APS#ap_state.tables),
+	APS#ap_state{ tables = NewTables }.
+
+log_packet(Data,APS)->
+	case filelib:is_file("keep_packets") of
+		true ->
+			{ok,IoDev}=file:open("packets.log",[append]),
+			io:fwrite(IoDev,"~p: (~p) ~p~n",
+			          [ % calendar:system_time_to_rfc3339(erlang:system_time(seconds)),
+				          os:system_time(),
+									APS#ap_state.id,
+									Data]),
+			_=file:close(IoDev),
+			ok;
+		false->
+			ok
+	end.
+
+
+%% Tables we should report...
+%%% [<<"Wifi_VIF_State">>,
+%%   <<"Wifi_Radio_State">>,
+%%   <<"Wifi_Inet_State">>,
+%%   <<"Wifi_Associated_Clients">>,
+%%   <<"DHCP_leased_IP">>,
+%%   <<"Command_State">>,
+%%   <<"AWLAN_Node">>]
+
+

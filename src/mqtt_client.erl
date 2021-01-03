@@ -9,6 +9,8 @@
 -module(mqtt_client).
 -author("stephb").
 
+-compile({parse_transform, lager_transform}).
+
 -include("../include/common.hrl").
 -include("../include/inventory.hrl").
 -include("../include/mqtt_definitions.hrl").
@@ -90,7 +92,6 @@ full_start(State)->
 										keep_alive_ref = undefined,
 										send_report_timer = undefined };
 								{error,_}=Error->
-									io:format("MQTT(~p): Cannot connect: ~p.~n",[State#client_state.details#client_info.serial,Error]),
 									?L_IA("MQTT(~p): Cannot connect: ~p.~n",[State#client_state.details#client_info.serial,Error]),
 									State
 							end,
@@ -105,8 +106,7 @@ run_client(Socket,CS)->
 	%%							 _ -> CS#client_state.details#client_info.serial
 	%%            end,
 
-	C = #mqtt_connect_variable_header{
-		protocol_version = ?MQTT_PROTOCOL_VERSION_3_11,
+	C = #mqtt_connect_variable_header_v4{
 		username_flag = 0,
 		password_flag = 0,
 		will_retain_flag = 0,
@@ -121,11 +121,11 @@ run_client(Socket,CS)->
 	_Res = ssl:setopts(Socket,[{active,true}]),
 	_=case ssl:send(Socket,ConnectMessage) of
 		ok ->
-			%% io:format("MQTT_CLIENT: Sent connection message. Res=~p..~n",[Res]),
+			?L_IA("~p: MQTT_CLIENT: Sent connection message...~n",[CS#client_state.details#client_info.serial]),
 			CS#client_state.manager_pid ! { stats, connection , 1 },
 			manage_connection(Socket,CS#client_state{ current_state = waiting_for_hello });
 		Error ->
-			io:format("MQTT(~p): SSL error ~p while connecting.~n",[CS#client_state.details#client_info.serial,Error]),
+			?L_IA("MQTT(~p): SSL error ~p while connecting.~n",[CS#client_state.details#client_info.serial,Error]),
 			?L_IA("MQTT(~p): SSL error ~p while connecting.~n",[CS#client_state.details#client_info.serial,Error])
 	end,
 	CS#client_state.manager_pid ! { stats, connection , -1 },
@@ -144,8 +144,7 @@ manage_connection(Socket,CS) ->
 					manage_connection(Socket,NewState)
 			end;
 		{ssl_closed,Socket} ->
-			?L_IA("MQTT(~p): Closing.~n",[CS#client_state.details#client_info.serial]),
-			io:format("MQTT(~p): Closing.~n",[CS#client_state.details#client_info.serial]);
+			?L_IA("MQTT(~p): Closing.~n",[CS#client_state.details#client_info.serial]);
 		send_report ->
 			ThisReport = os:system_time(),
 			NewMacStats = increase_stats(CS#client_state.mac_stats,(ThisReport-CS#client_state.last_report) div 1000000000 ),
@@ -153,11 +152,11 @@ manage_connection(Socket,CS) ->
 			Data = mqtt_message:publish(rand:uniform(60000),CS#client_state.topics,zlib:compress(OpenSyncReport),?MQTT_PROTOCOL_VERSION_3_11),
 			_ = ssl:send(Socket,Data),
 			%% Data2 = mqtt_message:decode(Data,?MQTT_PROTOCOL_VERSION_3_11),
-			?L_IA("MQTT(~p): Sent an MQTT report.~n",[CS#client_state.details#client_info.serial]),
+			?L_IA("~p: MQTT: Sent an MQTT report.~n",[CS#client_state.details#client_info.serial]),
 			manage_connection(Socket,CS#client_state{ mac_stats = NewMacStats, last_report = ThisReport });
 		{set_ssid,SSID}->
 			CI = CS#client_state.details,
-			?L_IA("MQTT(~p): Setting SSID to ~p.",[CI#client_info.serial,SSID]),
+			?L_IA("~p: MQTT: Setting SSID to ~p.",[CI#client_info.serial,SSID]),
 			WifiClients = CI#client_info.wifi_clients,
 			NewWifiClients = [{Index,Band,SSID,MAC,Vendor} || {Index,Band,_,MAC,Vendor} <- WifiClients],
 			NewCI = CI#client_info{ wifi_clients = NewWifiClients},
@@ -173,7 +172,7 @@ manage_connection(Socket,CS) ->
 			_ = ssl:send(Socket,Data),
 			manage_connection(Socket,CS#client_state{ internal_messages = 1+CS#client_state.internal_messages });
 		Anything ->
-			io:format("MQTT(~p): Unprocessed message (~p).~n",[CS#client_state.details#client_info.serial,Anything]),
+			?L_IA("MQTT(~p): Unprocessed message (~p).~n",[CS#client_state.details#client_info.serial,Anything]),
 			manage_connection(Socket,CS#client_state{ errors = CS#client_state.errors+1 })
 	end.
 
@@ -213,7 +212,6 @@ process( M, CS ) when is_record(M,mqtt_connack_variable_header_v4) ->
 			                       send_report_timer = TReportTimer,
 			                       t1 = 0 }};
 		Error ->
-			io:format("MQTT(~p): Cannot connect. Rejected by server:~p .~n",[CS#client_state.details#client_info.serial,Error]),
 			?L_IA("MQTT(~p): Cannot connect. Rejected by server:~p .~n",[CS#client_state.details#client_info.serial,Error]),
 			{none,CS#client_state{ messages = 1+CS#client_state.messages, errors = 1+CS#client_state.errors }}
 	end;
@@ -221,7 +219,7 @@ process( M, CS ) when is_record(M,mqtt_pingresp_variable_header_v4) ->
 	Response = mqtt_message:encode(#mqtt_msg{ variable_header = #mqtt_pingresp_variable_header_v4{} }),
 	{ Response, CS#client_state{ messages = 1+CS#client_state.messages }};
 process( M, CS ) ->
-	io:format("MQTT_CLIENT: Unknown message: ~p~n",[M]),
+	?L_IA("MQTT_CLIENT: Unknown message: ~p~n",[M]),
 	{none,CS}.
 
 c_cfg()->
@@ -245,8 +243,8 @@ t2()->
 
 -spec prepare_mac_stats( CI::client_info()) -> #{ MAC::binary() => Stats::#'Client.Stats'{} }.
 prepare_mac_stats(CI)->
-	M1 = [ MAC || { _Index, _Port,MAC } <- CI#client_info.lan_clients],
-	M2 = [ MAC || { _,_Band,_SSID,MAC,_Vendor } <- CI#client_info.wifi_clients],
+	M1 = [ MAC || { _Index, _Port,MAC,_Vendor } <- CI#client_info.lan_clients],
+	M2 = [ MAC || { _Index, _Band,_SSID,MAC,_Vendor } <- CI#client_info.wifi_clients],
 	M = lists:flatten(M1 ++ M2),
 	MacStats = lists:foldl( fun(E,A)->
 														maps:put(E,#'Client.Stats'{		rx_bytes = 0 ,

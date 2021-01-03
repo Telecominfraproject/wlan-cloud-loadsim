@@ -9,6 +9,8 @@
 -module(oui_server).
 -author("stephb").
 
+-compile({parse_transform, lager_transform}).
+
 -dialyzer(no_match).
 -behaviour(gen_server).
 

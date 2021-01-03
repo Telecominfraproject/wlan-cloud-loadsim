@@ -9,6 +9,8 @@
 -module(inventory).
 -author("stephb").
 
+-compile({parse_transform, lager_transform}).
+
 -behaviour(gen_server).
 
 -include_lib("stdlib/include/qlc.hrl").
@@ -721,7 +723,8 @@ gen_wlan_clients(Bands)->
 gen_wlan_clients([],_,Acc)->
 	Acc;
 gen_wlan_clients([Band|T],Index,Acc)->
-	FakeSSID = list_to_binary(animals:get_an_animal()),
+	% FakeSSID = list_to_binary(animals:get_an_animal()),
+	FakeSSID = <<"TipWlan-cloud-wifi">>,
 	Count = rand:uniform(6)+2,
 	gen_wlan_clients(T,Index+Count,[generate_wlan_tuples(Index,Count,Band,FakeSSID,[])|Acc]).
 

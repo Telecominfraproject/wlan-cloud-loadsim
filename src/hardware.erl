@@ -9,6 +9,8 @@
 -module(hardware).
 -author("stephb").
 
+-compile({parse_transform, lager_transform}).
+
 -include("../include/common.hrl").
 -include("../include/inventory.hrl").
 
@@ -169,10 +171,50 @@ convert([H|T],Result)->
 convert_entry(Entry)->
 	convert_entry(Entry,#hardware_info{}).
 
+% 'BAND2G' | 'BAND5G' | 'BAND5GL' | 'BAND5GU'
+
 convert_entry([],R)->
 	R;
 convert_entry([{"Id",Value}|Tail],R)->
 	convert_entry( Tail, R#hardware_info{ id = list_to_binary(Value)} );
+convert_entry([{"Radios",Value}|Tail],R)->
+	NumberOfRadios = Value,
+	Res = case NumberOfRadios of
+					1 ->
+						R#hardware_info{ number_of_radios = 1,
+						                 channels = #{'BAND2G' => [1,2,3,4,5,6,7,8,9,10,11]},
+						                 channel_default =  #{ 'BAND2G' => 6 },
+						                 channel_backup = #{ 'BAND2G' => 11 },
+						                 bands = ['BAND2G']};
+
+					2 ->
+						R#hardware_info{ number_of_radios = 2,
+						                 channels = #{'BAND2G' => [1,2,3,4,5,6,7,8,9,10,11],
+						                              'BAND5G' => [36,40,44,48,52,56,60,64,100,104,108,112,116,120,124,128,132,136,140,144,149,153,154,157,161,165]},
+						                 channel_default =  #{ 'BAND2G' => 6,
+						                                       'BAND5G' => 36},
+						                 channel_backup = #{ 'BAND2G' => 11,
+						                                     'BAND5G' => 44},
+						                 bands = ['BAND2G','BAND5G']};
+
+		      3 ->
+			      R#hardware_info{ number_of_radios = 3,
+			                       channels = #{'BAND2G' => [1,2,3,4,5,6,7,8,9,10,11],
+			                                    'BAND5GL' => [36,40,44,48,52,56,60,64],
+			                                    'BAND5GU' => [100,104,108,112,116,120,124,128,132,136,140,144,149,153,154,157,161,165] },
+			                       channel_default =  #{ 'BAND2G' => 6,
+			                                             'BAND5GL' => 36,
+			                                             'BAND5GU' => 149 },
+			                       channel_backup = #{ 'BAND2G' => 11,
+			                                           'BAND5GL' => 44,
+			                                           'BAND5GU' => 154 },
+			                       bands = ['BAND2G','BAND5GL','BAND5GU']};
+
+					4 ->
+						ok
+
+				end,
+	convert_entry( Tail, Res );
 convert_entry([{"Description",Value}|Tail],R)->
 	convert_entry(Tail, R#hardware_info{ description = list_to_binary(Value)});
 convert_entry([{"Vendor",Value}|Tail],R)->
@@ -185,6 +227,8 @@ convert_entry([{"Capabilities",Value}|Tail],R)->
 	convert_entry(Tail,R#hardware_info{capabilities = convert_list(Value,[])});
 convert_entry([{"Bands",Value}|Tail],R)->
 	convert_entry(Tail,R#hardware_info{bands = convert_list(Value,[])});
+convert_entry([{"HWType",Value}|Tail],R)->
+	convert_entry(Tail,R#hardware_info{hw_type = list_to_binary(Value)});
 convert_entry([_|Tail],R)->
 	convert_entry(Tail,R).
 

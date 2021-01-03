@@ -16,7 +16,8 @@
 					do/2,pem_to_cert/1,pem_to_key/1,safe_binary/1,uuid_b/0,pem_key_is_encrypted/1,remove_pem_key_password/3,
 					noop/0,noop_mfa/0,split_into/2,select/3,adjust/2,apply_ntimes/4,
 					get_avg/1, new_avg/0,compute_avg/2,search_replace/3,json_node_info/1,
-					to_atom_list/2,to_atom_list/1,to_string_list/1,to_binary_list/1]).
+					to_atom_list/2,to_atom_list/1,to_string_list/1,to_binary_list/1,
+					dump_data_in_file/2,identify/1,json_to_band/1,band_to_json/1,create_version/0,modify_mac/2]).
 
 -type average() :: { CurrentValue::number(), HowManyValues::integer(), PastValues::[number()]}.
 -export_type([average/0]).
@@ -324,3 +325,44 @@ search_replace(InFile,OutFile,Elements)->
 	{ ok , InData } = file:read_file(safe_list(InFile)),
 	NewData = replace_data(binary_to_list(InData),Elements),
 	file:write_file(safe_list(OutFile),list_to_binary(NewData)).
+
+identify(D) when is_list(D) -> list;
+identify(D) when is_binary(D) -> binary;
+identify(D) when is_map(D) -> map;
+identify(D) when is_integer(D) -> integer;
+identify(_) -> unknown.
+
+-spec dump_data_in_file(FileName::string(),Data::binary())->ok.
+dump_data_in_file(FileName,Data)->
+	try
+		{ok,IoDev}=file:open(FileName,[append]),
+		io:fwrite(IoDev,"~s~n~n~n",[Data]),
+		_=file:close(IoDev),
+		ok
+	catch
+		_:_ -> ok
+	end.
+
+-spec band_to_json(atom()) -> binary().
+band_to_json('BAND2G') -> <<"2.4G">>;
+band_to_json('BAND5G') -> <<"5G">>;
+band_to_json('BAND5GL') -> <<"5GL">>;
+band_to_json('BAND5GU') -> <<"5GU">>;
+band_to_json(_) ->  <<"2.4G">>.
+
+-spec json_to_band(Band::binary())-> atom().
+json_to_band(<<"2.4G">>) -> 'BAND2G';
+json_to_band(<<"5G">>) -> 'BAND5G';
+json_to_band(<<"5GL">>) -> 'BAND5GL';
+json_to_band(<<"5GU">>) -> 'BAND5GU';
+json_to_band(_) -> 'BAND2G'.
+
+create_version()->
+	[<<"uuid">>,utils:uuid_b()].
+
+modify_mac(MAC,N) ->
+	[X1,X2,$:,X3,X4,$:,X5,X6,$:,X7,X8,$:,X9,X10,$:,X11,_X12] = binary_to_list(MAC),
+	list_to_binary([X1,X2,$:,X3,X4,$:,X5,X6,$:,X7,X8,$:,X9,X10,$:,X11,N+$0]).
+
+
+

@@ -9,6 +9,8 @@
 -module(mqtt_server).
 -author("stephb").
 
+-compile({parse_transform, lager_transform}).
+
 -include("../include/common.hrl").
 -include("../include/inventory.hrl").
 -include("../include/mqtt_definitions.hrl").

@@ -9,6 +9,8 @@
 -module(mqtt_os_gen).
 -author("stephb").
 
+-compile({parse_transform, lager_transform}).
+
 -include("../include/opensync_stats.hrl").
 -include("../include/inventory.hrl").
 

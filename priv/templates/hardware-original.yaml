@@ -1,0 +1,46 @@
+Version: 1.0
+
+Devices:
+  - Id : tp_link_ea8300
+    Description: TP Link Home Gateway
+    Vendor: TP-Link Technologies Ltd
+    Model: EA8300
+    Radios: 3
+    HWType: ath10k
+    Bands:
+      - BAND2G
+      - BAND5GL
+      - BAND5GU
+    Capabilities:
+      - mqtt_client
+      - ovsdb_client
+    Firmware: ea8300-2020-08-18-pending-5d9ea41
+  - Id : edge_core_ecw5211_l
+    Description: EdgeCore 5211
+    Vendor: Edgecore Networks Corporation
+    Model: ECW5211
+    Radios: 3
+    HWType: ath10k
+    Bands:
+      - BAND2G
+      - BAND5GL
+      - BAND5GU
+    Capabilities:
+      - mqtt_client
+      - ovsdb_client
+    Firmware: ecw5211-2020-08-18-pending-5d9ea41
+  - Id : edge_core_ecw5410_l
+    Description: EdgeCore 5410
+    Vendor: Edgecore Networks Corporation
+    Model: ECW5410
+    Radios: 3
+    HWType: ath10k
+    Bands:
+      - BAND2G
+      - BAND5GL
+      - BAND5GU
+    Capabilities:
+      - mqtt_client
+      - ovsdb_client
+    Firmware: ecw5410-2020-08-18-pending-175558b
+

@@ -9,6 +9,8 @@
 -module(user_default).
 -author("stephb").
 
+-compile({parse_transform, lager_transform}).
+
 -include("../include/common.hrl").
 -include("../include/errors.hrl").
 -include("../include/inventory.hrl").
@@ -316,9 +318,12 @@ get_server(ovsdb_server)->
 	Port  =      input("  Port:","6643"),
 	{ list_to_binary(ServerName),list_to_integer(Port)}.
 
-sim1(X)->
+s1(X)->
 	_ = import_ca("sim1","mypassword","tip2-cakey.pem","tip2-cacert.pem"),
 	c1(X).
+
+p1()->
+	prepare_simulation("sim1").
 
 c1(X)->
 	Simulation = #simulation{ name = <<"sim1">>,
@@ -326,7 +331,8 @@ c1(X)->
 	                          num_devices = X,
 	                          opensync_server_port = 6643,
 	                          opensync_server_name = <<"debfarm1-node-a.arilia.com">>,
-	                          nodes = ['simnode1@debfarm1-node-c.arilia.com'] },
+	                          nodes = ['simnode1@renegademac.arilia.com']  },
+%%	                          nodes = ['simnode1@debfarm1-node-c.arilia.com'] },
 		simengine:create(Simulation).
 
 t1_key_h() ->
@@ -408,7 +414,53 @@ compare_equipments()->
 														end,[],Equipments)),
 	{ SimSerials, TipSerials, lists:subtract(SimSerials,TipSerials)}.
 
+reconnecting()->
+	{ok,SimInfo} = simengine:get("sim1"),
+	[Node] = SimInfo#simulation.nodes,
+	Statuses = rpc:call(Node,ovsdb_client_handler,dump_status,[]),
+	maps:fold(fun(_K,V,A) ->
+							case V of
+								reconnecting -> A+1;
+								_ -> A
+							end
+						end,0,Statuses).
+
+calculate_client_delta()->
+	{_S,_T,D} = compare_clients(),
+	{ok,SerialNumbers} = list_clients("sim1"),
+	%% for each MAC in D, find it's client
+	lists:foldl(fun(Element,Acc)->
+								SN = lists:foldl(  fun(Serial,Res) ->
+																{ok,Client} = show_client("sim1",Serial),
+																case lists:keyfind(Element,4,Client#client_info.wifi_clients) of
+																	false -> Res;
+																	Row ->
+																		Row
+																end
+															end,{},SerialNumbers),
+								[{Element,SN}|Acc]
+							end,[],D).
 
 
+xx() ->
+	L = [<<"6c:41:6a:2f:c8:51">>,<<"50:48:eb:05:5f:b9">>,
+	     <<"34:e7:0b:b7:77:f1">>,<<"34:96:72:40:bc:90">>,
+	     <<"1c:f0:3e:8a:66:b9">>,<<"1c:3a:60:c6:75:2f">>,
+	     <<"18:b3:ba:cb:4b:f5">>,<<"18:7e:b9:1b:05:20">>,
+	     <<"10:c0:7c:e3:3f:98">>,<<"04:d6:aa:ab:bd:e7">>,
+	     <<"04:65:65:38:3a:60">>,<<"00:c0:9e:77:0e:e1">>,
+	     <<"00:90:0d:a0:44:af">>,<<"00:30:fe:cb:69:e5">>,
+	     <<"00:24:36:9a:fd:a7">>,<<"00:1d:17:5d:25:d2">>,
+	     <<"00:16:50:ec:69:b3">>,<<"00:14:cc:7e:bf:93">>,
+	     <<"00:0d:fb:df:03:7e">>,<<"00:0d:ba:5a:3e:80">>,
+	     <<"00:0b:64:5f:e3:f8">>,<<"00:09:ef:93:ac:56">>,
+	     <<"00:08:b2:99:a6:d9">>,<<"00:01:f8:93:d1:51">>],
+	BL = [mac_to_int(X)||X<-L],
+	[unicode:characters_to_list(binary_to_list(X))||X<-BL].
+
+mac_to_int(M)->
+	Tokens = string:tokens(binary_to_list(M),":"),
+	Ints = [ list_to_integer(X,16) || X<-Tokens],
+	binary:list_to_bin(Ints).
 
 

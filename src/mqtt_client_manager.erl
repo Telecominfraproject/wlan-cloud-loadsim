@@ -9,6 +9,8 @@
 -module(mqtt_client_manager).
 -author("stephb").
 
+-compile({parse_transform, lager_transform}).
+
 -behaviour(gen_server).
 
 -include("../include/common.hrl").
@@ -19,7 +21,8 @@
 %% gen_server callbacks
 -export([ init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
           code_change/3,creation_info/0,start_client/3,stop_client/2,is_running/2,
-					get_stats/0,update_stats/0,set_ssid/3,dump_client/2,get_client_pid/2]).
+					get_stats/0,update_stats/0,set_ssid/3,dump_client/2,get_client_pid/2,
+					get_pid_map/1]).
 
 -define(SERVER, ?MODULE).
 
@@ -71,6 +74,10 @@ dump_client(CAName,Serial)->
 -spec get_client_pid(CAName::string()|binary(),Serial::string()|binary())->pid().
 get_client_pid(CAName,Serial)->
 	gen_server:call(?SERVER,{get_client_pid,utils:safe_binary(CAName),utils:safe_binary(Serial)}).
+
+-spec get_pid_map(CAName::binary()|string()) -> {ok,#{ ClientPid::pid() => Serial::binary() }} | generic_error().
+get_pid_map(CAName)->
+	gen_server:call(?SERVER,{get_pid_map,CAName}).
 
 update_stats()->
 	{ok,Stats} = get_stats(),
@@ -130,11 +137,13 @@ handle_call(get_stats,_From,State = #mqtt_client_manager_state{}) ->
 handle_call({get_client_pid,_CAName,Serial},_From,State = #mqtt_client_manager_state{}) ->
 	case maps:get(Serial,State#mqtt_client_manager_state.client_configurations,unknown) of
 		unknown ->
-			?L_IA("MQTT_CLIENT_MANAGER: attempt to show config for device ~p failed.",[Serial]),
+			?L_IA("MQTT_CLIENT_MANAGER: attempt to get PID for device ~p failed.",[Serial]),
 			{ reply, {error,client_unknown}, State};
 		{Pid,_} ->
 			{reply, Pid , State}
 	end;
+handle_call({get_pid_map,_CAName}, _From, State = #mqtt_client_manager_state{}) ->
+	{reply, {ok,State#mqtt_client_manager_state.client_pids}, State};
 handle_call(_Request, _From, State = #mqtt_client_manager_state{}) ->
 	{reply, ok, State}.
 
@@ -244,7 +253,7 @@ start_client_process(CAName,Serial,Configuration,State)->
 		client_configurations = maps:put(Serial,{ Pid,Configuration} ,State#mqtt_client_manager_state.client_configurations),
 		client_pids = maps:put(Pid,Serial,State#mqtt_client_manager_state.client_pids )
 	},
-	io:format("MQTT-Client ~p starting at pid ~p. Already ~p running.~n",[Serial,Pid,maps:size(NewState#mqtt_client_manager_state.client_pids)]),
+	% io:format("MQTT-Client ~p starting at pid ~p. Already ~p running.~n",[Serial,Pid,maps:size(NewState#mqtt_client_manager_state.client_pids)]),
 	NewState.
 
 

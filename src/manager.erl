@@ -9,6 +9,8 @@
 -module(manager).
 -author("stephb").
 
+-compile({parse_transform, lager_transform}).
+
 -behaviour(gen_server).
 
 -include("../include/common.hrl").

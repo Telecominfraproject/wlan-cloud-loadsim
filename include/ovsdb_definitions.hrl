@@ -11,6 +11,8 @@
 -ifndef(__OVSDBDEFS_HRL__).
 -define(__OVSDBDEFS_HRL__,1).
 
+-include("../include/inventory.hrl").
+
 -record( ovsdb_cfg, {
 	reflector_port = 6643 :: integer(),
 	ovsdb_port = 6640 :: integer(),
@@ -33,6 +35,52 @@
 -define(OVSDB_DEFAULT_SERVER_PORT,6640).
 -define(OVSDB_DEFAULT_MAX_CLIENTS,100).
 
+-record(ap_state, {
+	id = <<>> ::  binary(),				% the ID of the access point we cary around
+	caname = <<>> :: string() | binary(),		% ???
+	simname = <<>> ::binary(),
+	ovsdb_server_name = <<>> :: binary(),
+	ovsdb_server_port = 6643 :: non_neg_integer(),
+	original_ovsdb_server_name = <<>> :: binary(),
+	original_ovsdb_server_port = 6643 :: non_neg_integer(),
+	redirected = false :: boolean(),
+	retries = 0 :: non_neg_integer(),
+	config,
+	socket = none :: none | ssl:sslsocket(),
+	details :: #client_info{},
+	hardware :: #hardware_info{},
+	lan_addr = <<"192.168.1.1">> :: binary(),
+	wan_addr = <<>> :: binary(),
+	trail_data = <<>> :: binary(),
+	manager_pid :: pid(),
+	reconnecting = false :: boolean(),
+	redirector = <<>> :: binary(),
+	manager_addr = <<>> :: binary(),
+	monitored_tables = #{} :: #{ TableName::binary() => TableParameters::#{} },
+	tables = #{} :: #{ TableName::binary() => term() },
+	known_table_names = [] :: [binary()],
+	associated_clients = #{} :: #{ Band::wifi_band() => [ MAC::binary()]},
+	associated_clients_uids = #{} :: #{ Band::wifi_band() => [ MAC::binary()]},
+	normal_reconnect = false :: boolean(),
+	ssid = <<>> :: binary(),
+	mqtt_config = #{} :: #{},
+	mqtt = idle :: idle | running,		% mqtt status (external process)
+	status = init :: atom(),		% internal status
+	store :: ets:tid(),					% the tables where OVSDB server stores info
+	req_queue :: ets:tid(),				% not used at the moment ... used to que request IDs
+	stats_ets :: ets:tid(),				% statistics table
+	min_backoff = 30 :: non_neg_integer(),
+	max_backoff = 60 :: non_neg_integer(),
+	reporting = none :: none | timer:tref(),			% statistics reporting interval timer reference
+	reconnect_timer = none  :: none | timer:tref(),
+	mqtt_update_timer = none :: none | timer:tref(),
+	publish_timer = none :: none | timer:tref(),
+	echo = 0 :: non_neg_integer(),
+	check_monitor_tick = 0 :: non_neg_integer()
+}).
+
+-type ap_state()::#ap_state{}.
+-export_type([ap_state/0]).
 
 -record (ap_statistics, {
 	stamp :: integer(),		% erlang system time
@@ -46,23 +94,15 @@
 	latency :: integer()	% network latency from HB in ms		
 }).
 
+-type ovsdb_client_status() :: ready | paused | running | reconnecting.
+-type ovsdb_ap_statistics() :: #ap_statistics{}.
+-type ovsdb_client_status_map() :: #{Serial::binary() => ovsdb_client_status()}.
 
--type client_status() :: available | dead | ovsdb_ap:ap_status().
-
--record (ap_client, {						
-	id :: ets_dont_care() | binary() | string(),				% this is the index position and must be there
-	ca_name :: ets_dont_care() | string() | binary(),
-	redirector = <<"">> :: ets_dont_care() | binary(),
-	status :: ets_dont_care() | client_status(),
-	process :: ets_dont_care() | none | pid(),
-	transitions :: ets_dont_care() | [{client_status(), TimeStamp::integer()}]
-}).
-
+-export_type([ovsdb_client_status/0,ovsdb_ap_statistics/0,ovsdb_client_status_map/0]).
 
 -define(MAX_STARTUP_TIME,10000).
 -define(AP_STATS_INTERVAL,1000).
 -define(AP_REPORT_INTERVAL,4000).
 -define(MGR_REPORT_INTERVAL,10000).
-
 
 -endif.

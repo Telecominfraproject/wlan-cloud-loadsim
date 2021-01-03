@@ -152,9 +152,27 @@
 -define(MQTT_PUB_RC_QUOTA_EXCEDDED,151).
 -define(MATT_PUB_RC_PAYLOAD_FORMAT_INVALID,153).
 
--record( mqtt_connect_variable_header, {
+-record( mqtt_connect_variable_header_v4, {
 	protocol_name = <<0,4,$M:8,$Q:8,$T:8,$T:8>> :: binary(),
-	protocol_version = ?MQTT_PROTOCOL_VERSION_3_11 :: ?MQTT_PROTOCOL_VERSION_3_11 | ?MQTT_PROTOCOL_VERSION_5 ,
+	protocol_version = ?MQTT_PROTOCOL_VERSION_3_11 ,
+	username_flag = 0 :: integer(),
+	password_flag = 0 :: integer(),
+	will_retain_flag = 0 :: integer(),
+	will_qos_flag = 0 :: integer(),
+	will_flag = 0 :: integer() ,
+	clean_start_flag = 0 :: integer(),
+	flags = 0 :: integer(),
+	keep_alive = 0 :: integer(),
+	client_identifier = <<>> :: binary(),
+	will_topic = <<>> :: binary(),
+	will_message = <<>> :: binary(),
+	will_payload = <<>> :: binary(),
+	username = <<>> :: binary(),
+	password = <<>> :: binary()}).
+
+-record( mqtt_connect_variable_header_v5, {
+	protocol_name = <<0,4,$M:8,$Q:8,$T:8,$T:8>> :: binary(),
+	protocol_version = ?MQTT_PROTOCOL_VERSION_5 ,
 	username_flag = 0 :: integer(),
 	password_flag = 0 :: integer(),
 	will_retain_flag = 0 :: integer(),
@@ -321,8 +339,8 @@
 -type mqtt_processor_state() :: #mqtt_processor_state{}.
 
 -type mqtt_msg() :: #mqtt_msg{}.
--type mqtt_connect_variable_header() :: #mqtt_connect_variable_header{}.
-
+-type mqtt_connect_variable_header_v4() :: #mqtt_connect_variable_header_v4{}.
+-type mqtt_connect_variable_header_v5() :: #mqtt_connect_variable_header_v5{}.
 -type mqtt_connack_variable_header_v4() :: #mqtt_connack_variable_header_v4{}.
 -type mqtt_connack_variable_header_v5() :: #mqtt_connack_variable_header_v5{}.
 -type mqtt_publish_variable_header_v4() :: #mqtt_publish_variable_header_v4{}.
@@ -352,16 +370,17 @@
 -type mqtt_pingresp_variable_header_v4() :: #mqtt_pingresp_variable_header_v4{}.
 -type mqtt_pingresp_variable_header_v5() :: #mqtt_pingresp_variable_header_v5{}.
 
--type mqtt_msg_any() :: mqtt_connect_variable_header() | mqtt_connack_variable_header_v4() | mqtt_connack_variable_header_v5() | mqtt_publish_variable_header_v4() | mqtt_publish_variable_header_v5() | mqtt_puback_variable_header_v4() | mqtt_puback_variable_header_v5() | mqtt_pubrec_variable_header_v4() | mqtt_pubrec_variable_header_v5() | mqtt_pubrel_variable_header_v4() | mqtt_pubrel_variable_header_v5() |
+-type mqtt_msg_any() :: mqtt_connect_variable_header_v4() | mqtt_connect_variable_header_v5() |mqtt_connack_variable_header_v4() | mqtt_connack_variable_header_v5() | mqtt_publish_variable_header_v4() | mqtt_publish_variable_header_v5() | mqtt_puback_variable_header_v4() | mqtt_puback_variable_header_v5() | mqtt_pubrec_variable_header_v4() | mqtt_pubrec_variable_header_v5() | mqtt_pubrel_variable_header_v4() | mqtt_pubrel_variable_header_v5() |
 		mqtt_pubcomp_variable_header_v4() | mqtt_pubcomp_variable_header_v5() | mqtt_subscribe_variable_header_v4() | mqtt_subscribe_variable_header_v5() | mqtt_suback_variable_header_v4() | mqtt_suback_variable_header_v5() | mqtt_unsubscribe_variable_header_v4() | mqtt_unsubscribe_variable_header_v5() | mqtt_unsuback_variable_header_v4() | mqtt_unsuback_variable_header_v5() | mqtt_disconnect_variable_header_v4() | mqtt_disconnect_variable_header_v5() |
 		mqtt_auth_variable_header_v4() | mqtt_auth_variable_header_v5() | mqtt_pingreq_variable_header_v4() | mqtt_pingreq_variable_header_v5() | mqtt_pingresp_variable_header_v4() | mqtt_pingresp_variable_header_v5().
 
--type mqtt_answerable() :: mqtt_connect_variable_header() | mqtt_publish_variable_header_v4() | mqtt_pubrel_variable_header_v4() |
+-type mqtt_answerable() :: mqtt_connect_variable_header_v4() | mqtt_connect_variable_header_v5() |mqtt_publish_variable_header_v4() | mqtt_pubrel_variable_header_v4() |
 	mqtt_subscribe_variable_header_v4() | mqtt_unsubscribe_variable_header_v4() | mqtt_pingreq_variable_header_v4() | mqtt_pingreq_variable_header_v5().
 
 -export_type([mqtt_connection_stats/0,mqtt_processor_state/0]).
 
--export_type([mqtt_msg_any/0,mqtt_msg/0,mqtt_connect_variable_header/0,
+-export_type([mqtt_msg_any/0,mqtt_msg/0,mqtt_connect_variable_header_v4/0,
+  mqtt_connect_variable_header_v5/0,
 	mqtt_connack_variable_header_v4/0,mqtt_connack_variable_header_v5/0,
 	mqtt_publish_variable_header_v4/0,mqtt_publish_variable_header_v5/0,
 	mqtt_puback_variable_header_v4/0,mqtt_puback_variable_header_v5/0,

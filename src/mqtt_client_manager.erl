@@ -14,17 +14,30 @@
 -behaviour(gen_server).
 
 -include("../include/common.hrl").
+-include("../include/mqtt_definitions.hrl").
 
 %% API
 -export([start_link/0]).
 
 %% gen_server callbacks
--export([ init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
-          code_change/3,creation_info/0,start_client/3,stop_client/2,is_running/2,
-					get_stats/0,update_stats/0,set_ssid/3,dump_client/2,get_client_pid/2,
-					get_pid_map/1]).
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
+         code_change/3, creation_info/0, start_client/3, stop_client/2, is_running/2,
+         get_stats/0, update_stats_daemon/0, set_ssid/3, dump_client/2, get_client_pid/2,
+         get_pid_map/1, update_running_stats/2]).
 
 -define(SERVER, ?MODULE).
+
+-record(mqtt_client_traffic_report, {
+	stamp           = 0 :: non_neg_integer(),
+	connected       = 0 :: non_neg_integer(),
+	reconnecting    = 0 :: non_neg_integer(),
+	dropped         = 0 :: non_neg_integer(),
+	restarts        = 0 :: non_neg_integer(),
+	tx_bytes        = 0 :: non_neg_integer(),
+	rx_bytes        = 0 :: non_neg_integer(),
+	average_tx_rate = 0 :: non_neg_integer(),
+	average_rx_rate = 0 :: non_neg_integer()
+}).
 
 -record(mqtt_client_manager_state, {
 	client_configurations = #{} :: #{ Serial::binary() => { ClientPid::pid(),Configuration::#{} }},
@@ -34,6 +47,8 @@
 	current_connections = 0 :: integer(),
 	connections_hwm = 0 :: integer(),
 	errors =0 :: integer(),
+	running_stats = #mqtt_stats{} :: #mqtt_stats{},
+	total_stats = #mqtt_stats{} :: #mqtt_stats{},
 	stats_updater :: timer:tref() } ).
 
 %%%===================================================================
@@ -79,9 +94,11 @@ get_client_pid(CAName,Serial)->
 get_pid_map(CAName)->
 	gen_server:call(?SERVER,{get_pid_map,CAName}).
 
-update_stats()->
-	{ok,Stats} = get_stats(),
-	statistics:submit_report(mqtt_client_handler,Stats).
+update_stats_daemon()->
+	gen_server:cast(?SERVER,update_stats_daemon).
+
+update_running_stats(Id,Stats)->
+	gen_server:cast(?SERVER,{update_running_stats,Id,Stats}).
 
 %% @doc Spawns the server and registers the local name (unique)
 -spec(start_link() ->
@@ -99,7 +116,7 @@ start_link() ->
 	{ok, State :: #mqtt_client_manager_state{}} | {ok, State :: #mqtt_client_manager_state{}, timeout() | hibernate} |
 	{stop, Reason :: term()} | ignore).
 init([]) ->
-	{ok,TRef} = timer:apply_interval(5000,?MODULE,update_stats,[]),
+	{ok,TRef} = timer:apply_interval(5000,?MODULE,update_stats_daemon,[]),
 	{ok, #mqtt_client_manager_state{
 		stats_updater = TRef,
 		connect_avg_time = utils:new_avg() }}.
@@ -180,6 +197,27 @@ handle_cast({dump_client,_CAName,Serial}, State = #mqtt_client_manager_state{}) 
 			Pid ! {dump_client,all}
 	end,
 	{noreply, State};
+handle_cast({update_running_stats,_Id,Stats}, State = #mqtt_client_manager_state{}) ->
+	NewRunningStats = add_mqtt_stats( State#mqtt_client_manager_state.running_stats, Stats ),
+	NewTotalStats = add_mqtt_stats( State#mqtt_client_manager_state.total_stats, Stats ),
+	{noreply, State#mqtt_client_manager_state{ running_stats = NewRunningStats, total_stats = NewTotalStats }};
+handle_cast(update_stats_daemon, State = #mqtt_client_manager_state{}) ->
+	ReportRecord = #mqtt_client_traffic_report{
+		stamp = os:system_time(),
+		connected = State#mqtt_client_manager_state.current_connections,
+		tx_bytes = State#mqtt_client_manager_state.running_stats#mqtt_stats.tx_bytes,
+		rx_bytes = State#mqtt_client_manager_state.running_stats#mqtt_stats.rx_bytes,
+		restarts = State#mqtt_client_manager_state.running_stats#mqtt_stats.connects,
+		dropped = State#mqtt_client_manager_state.running_stats#mqtt_stats.disconnects,
+		average_tx_rate =
+			State#mqtt_client_manager_state.running_stats#mqtt_stats.tx_bytes div (1+(State#mqtt_client_manager_state.running_stats#mqtt_stats.start_stamp-State#mqtt_client_manager_state.running_stats#mqtt_stats.end_stamp)),
+		average_rx_rate =
+			State#mqtt_client_manager_state.running_stats#mqtt_stats.rx_bytes div (1+(State#mqtt_client_manager_state.running_stats#mqtt_stats.start_stamp-State#mqtt_client_manager_state.running_stats#mqtt_stats.end_stamp))
+		},
+	Report = prepare_statistics_report(ReportRecord),
+	statistics:submit_report(mqtt_client_stats,maps:remove(seq,Report)),
+	statistics:submit_report(mqtt_client_handler, extract_stats(State)),
+	{noreply, State#mqtt_client_manager_state{ running_stats = #mqtt_stats{} }};
 handle_cast(_Request, State = #mqtt_client_manager_state{}) ->
 	{noreply, State}.
 
@@ -256,7 +294,22 @@ start_client_process(CAName,Serial,Configuration,State)->
 	% io:format("MQTT-Client ~p starting at pid ~p. Already ~p running.~n",[Serial,Pid,maps:size(NewState#mqtt_client_manager_state.client_pids)]),
 	NewState.
 
+-spec add_mqtt_stats(X::mqtt_stats(),Y::mqtt_stats())->Z::mqtt_stats().
+add_mqtt_stats(X,Y)->
+	#mqtt_stats{
+		start_stamp   = X#mqtt_stats.start_stamp + Y#mqtt_stats.start_stamp,
+		end_stamp     = X#mqtt_stats.end_stamp + Y#mqtt_stats.end_stamp,
+		rx_bytes      = X#mqtt_stats.rx_bytes + Y#mqtt_stats.rx_bytes,
+		tx_bytes      = X#mqtt_stats.tx_bytes + Y#mqtt_stats.tx_bytes,
+		disconnects   = X#mqtt_stats.disconnects + Y#mqtt_stats.disconnects,
+		connects      = X#mqtt_stats.connects + Y#mqtt_stats.connects,
+		errors        = X#mqtt_stats.start_stamp + Y#mqtt_stats.errors
+	}.
 
+prepare_statistics_report(StatsRecord) ->
+	Fields = record_info(fields,mqtt_client_traffic_report),
+	[_|Values] = tuple_to_list(StatsRecord),
+	maps:from_list(lists:zip(Fields,Values)).
 
 
 

@@ -21,22 +21,7 @@
 -export([start_ap/1,stop_ap/1,pause_ap/1,cancel_ap/1]).
 
 %% comm API
--export([ set_mqtt_conf/2,post_event/4,post_event/3,set_ssid/2,
-					publish/1,set_ovsdb_manager/2]).
-
-%% data structures
--record (ap_events, {
-	stamp :: {Time :: integer(), UMI :: integer()},
-	event :: atom(),
-	args :: tuple(),
-	comment :: binary()
-}).
-
--record (stats_vars, {
-	dummy = 0 :: integer (),  % keypos shoudl alwys be first entry
-	recon_backoff = 250 :: integer(),
-	stats_count = 0 :: integer()
-}).
+-export([ set_mqtt_conf/2,set_ssid/2,publish/1,set_ovsdb_manager/2]).
 
 -type ovsdb_request()::#{ term() => term()}.
 
@@ -48,12 +33,8 @@ start(CAName, ID, Options, ManagerPID ) ->
 	#{ sim_name:= SimName, ovsdb_server_name:= Server, ovsdb_server_port:= Port} = Options,
 	{ ok, ClientInfo } = inventory:get_client(CAName,ID),
 	{ok,[HardwareInfo]} = hardware:get_by_id(ClientInfo#client_info.id),
-	Store = ets:new(ovsdb_ap,[bag,private,{keypos, 1}]),
-	Stats = ets:new(ovsdb_ap_stats,[ordered_set,private,{keypos, 2}]),
 	{ok, ReportTimer } = timer:send_interval(15000,send_report),
 	Redirector = maps:get(redirector,Options,<<"">>),
-	update_statistics({report_mark,{},<<>>},Stats),
-	ets:insert(Stats,#stats_vars{}),
 	CurrentState = #ap_state{
 		id = ID,
 		caname = CAName,
@@ -68,11 +49,9 @@ start(CAName, ID, Options, ManagerPID ) ->
 		original_ovsdb_server_port = Port,
 		redirector = Redirector,
 		wan_addr = make_wan_addr(),
-		store = Store,
-		req_queue = ets:new(ovsdb_ap_req,[ordered_set,private,{keypos, 1}]),
 		reporting = ReportTimer,
-		stats_ets = Stats,
-		mqtt_update_timer = none
+		mqtt_update_timer = none,
+		stats = #ap_statistics{ start_stamp = os:system_time() }
 	},
 	ovsdb_client_handler:set_ap_status( ready , ID),
 	StartingState = ovsdb_ap_config:configure(CurrentState),
@@ -110,17 +89,8 @@ set_ovsdb_manager(APPid,Manager)->
 set_ssid (APPid,SSID) ->
 	APPid ! {set_ssid,SSID}, ok.
 
--spec post_event (APPid :: pid(), Event :: atom(), Args :: tuple(), Comment :: binary() | string()) -> ok.
-post_event (APPid, Event, Args, Comment) ->
-	APPid ! {stats_update, {Event, Args, Comment}}, ok.
-
--spec post_event (Event :: atom(), Args :: tuple(), Comment :: binary() | string()) -> ok.
-post_event (Event, Args, Comment) ->
-	post_event(self(),Event,Args,Comment), ok.
-
 publish( Request ) ->
 	self() ! {publish,Request}, ok.
-
 
 -spec message_loop(APS::ap_state()) -> any().
 message_loop(APS) ->
@@ -189,15 +159,8 @@ message_loop(APS) ->
 			end,
 			message_loop(APS#ap_state{ ssid = SSID });
 
-		{stats_update,Event}  ->
-			update_statistics(Event,APS#ap_state.stats_ets),
-			message_loop(APS);
-
 		send_report ->
 			message_loop(report_statistics(APS));
-
-		{client_stats,Serial,Stats}  ->
-			message_loop(update_client_stats(Serial,Stats,APS));
 
 		check_mqtt_updates ->
 			message_loop(request_mqtt_updates(APS));
@@ -208,7 +171,7 @@ message_loop(APS) ->
 				false ->
 					message_loop(APS);
 				true ->
-					case APS#ap_state.check_monitor_tick of
+					case (APS#ap_state.check_monitor_tick rem 50) of
 						2 ->
 							?L_IA("~p: Resetting Wifi_Associated_Clients table.~n",[APS#ap_state.id]),
 							NewState = send_associated_clients_table(false,APS),
@@ -233,7 +196,8 @@ message_loop(APS) ->
 		{ssl, S, Data} ->
 			case S == APS#ap_state.socket of
 				true ->
-					NewState = process_received_data( << (APS#ap_state.trail_data)/binary, Data/binary>>,APS),
+					NewStats = APS#ap_state.stats#ap_statistics{ rx_bytes = APS#ap_state.stats#ap_statistics.rx_bytes + size(Data)},
+					NewState = process_received_data( << (APS#ap_state.trail_data)/binary, Data/binary>>,APS#ap_state{stats = NewStats}),
 					message_loop(NewState);
 				false->
 					message_loop(APS)
@@ -263,15 +227,14 @@ message_loop(APS) ->
 			% io:format("~p: Data sent back: ~p~n",[APS#ap_state.id,RawData]),
 			?L_IA("~p: Sending internal ~p bytes.~n",[APS#ap_state.id,size(RawData)]),
 			log_packet(RawData,APS),
-			sslsend(APS#ap_state.socket,RawData),
-			message_loop(APS);
+			NewState = sslsend(APS#ap_state.socket,RawData),
+			message_loop(NewState);
 
 		{publish,TableData} when is_map(TableData)->
 			?L_IA("~p: Sending monitored data.~n",[APS#ap_state.id]),
 			Data = jiffy:encode(TableData),
-			sslsend(APS#ap_state.socket,Data),
-			_ = sslsend(APS#ap_state.socket,Data),
-			message_loop(APS);
+			NewState = sslsend(APS#ap_state.socket,Data),
+			message_loop(NewState);
 
 		{down, _AP} ->
 			% post_event(self(),comm_event,{<<"shutdown">>},<<>>),
@@ -286,12 +249,19 @@ message_loop(APS) ->
 %%% internal functions
 %%%============================================================================
 
-sslsend(none,_Data)-> ok;
-sslsend(Socket,Data)->
+sslsend(Data,APS)->
 	try
-		_=ssl:send(Socket,Data), ok
+		case APS#ap_state.socket == none of
+			false ->
+				_=ssl:send(APS#ap_state.socket,Data),
+				NewStats = APS#ap_state.stats#ap_statistics{ tx_bytes = APS#ap_state.stats#ap_statistics.tx_bytes + size(Data) },
+				APS#ap_state{ stats = NewStats };
+			true ->
+				APS
+		end
 	catch
-		_:_ -> ok
+		_:_ ->
+			APS
 	end.
 
 sslclose(none)-> ok;
@@ -341,8 +311,8 @@ process_received_data (Data, APS) ->
 			{reply,ResponseData,NewState} ->
 				?L_IA("~p: Sending back ~p bytes.~n",[APS#ap_state.id,size(ResponseData)]),
 				log_packet(ResponseData,APS),
-				_=sslsend(APS#ap_state.socket,ResponseData),
-				process_received_data(TrailingData,NewState#ap_state{ trail_data = <<>> });
+				NewState2 = sslsend(NewState#ap_state.socket,ResponseData),
+				process_received_data(TrailingData,NewState2#ap_state{ trail_data = <<>> });
 			{noreply,NewState} ->
 				process_received_data(TrailingData,NewState#ap_state{ trail_data = <<>>})
 		end
@@ -448,7 +418,6 @@ check_mqtt (NewConfig,#ap_state{caname=CAName, id=ID, mqtt_config = OldMqttConfi
 
 -spec start_mqtt(gen_configuration(), APS::ap_state()) -> NewState :: ap_state().
 start_mqtt (Cfg,#ap_state{caname=CAName, id=ID, mqtt=idle}=APS) ->
-	post_event(mqtt,{<<"set_config">>},<<"start an MQTT client">>),
 	_ = mqtt_client_manager:start_client(CAName,ID,Cfg),
 	APS#ap_state{mqtt=running,mqtt_config = Cfg};
 start_mqtt (_,APS) ->
@@ -468,69 +437,16 @@ request_mqtt_updates (#ap_state{ caname = CAName, id = ID} = APS) ->
 	Mqtt ! {send_stats, self()},
 	APS.
 
-update_client_stats(Serial,Stats,APS)->
-	APS.
-	
 %%==============================================================================
 %% managing statistics of access point
--spec update_statistics (Event :: tuple(), Stats :: ets:tid()) -> true.
-update_statistics ({Event,Args,Comment},Stats) ->
-	ETag = {erlang:system_time(),erlang:unique_integer([monotonic])},
-	ets:insert(Stats,#ap_events{
-			stamp = ETag,
-			event = Event,
-			args = Args,
-			comment = utils:safe_binary(Comment)
-		}).
-
 %--------report_statistics/1-------------generate an AP specific statistics report and send it to the handler
 -spec report_statistics (APS :: ap_state()) -> NewState :: ap_state().
 report_statistics (#ap_state{status=ready}=APS) ->
 	APS;
-report_statistics (#ap_state{ stats_ets = StatsETS,id=ID}=APS) ->
-	Ri = report_interval(StatsETS),
-	RX = received_bytes(StatsETS),
-	TX = sent_bytes(StatsETS),
-	Stats = #ap_statistics{
-			stamp = erlang:system_time(),
-			interval = Ri,
-			rx_bytes = RX,
-			rx_bps = RX / Ri,
-			tx_bytes = TX,
-			tx_bps = TX / Ri,
-			dropped = comm_dropped(StatsETS),
-			restarts  = comm_restart(StatsETS),
-			latency = 0
-		},
-	ets:delete_all_objects(StatsETS),
-	ovsdb_client_handler:push_ap_stats(Stats,ID),
-	update_statistics({report_mark,{},<<>>},StatsETS),
-	APS.
-
--spec report_interval(S :: ets:tid()) -> IntervalInMs :: integer().
-report_interval (S) ->
-	case ets:match(S,{ap_events,{'$1','_'},report_mark,'_','_'}) of
-		[[R]] ->
-			erlang:convert_time_unit(erlang:system_time()-R, native, millisecond);
-		_ -> 
-			?AP_REPORT_INTERVAL
-	end.
-
--spec received_bytes (S :: ets:tid()) -> Bytes :: integer().
-received_bytes (S) ->
-	lists:foldl(fun(X,A) -> X+A end,0,[V||[V]<-ets:match(S,{ap_events,'_',comm_event,{<<"RX">>,'$1'},'_'})]).
-	
--spec sent_bytes (S :: ets:tid()) -> Bytes :: integer().
-sent_bytes (S) ->
-	lists:foldl(fun(X,A) -> X+A end,0,[V||[V]<-ets:match(S,{ap_events,'_',comm_event,{<<"TX">>,'$1'},'_'})]).
-	
--spec comm_dropped (S :: ets:tid()) -> ErrorCount :: integer().
-comm_dropped (S) ->
-	length(ets:match_object(S,{ap_events,'_',comm_error,{<<"socket_closed">>},'_'})).
-	
--spec comm_restart(S::ets:tid()) -> RestartCount::integer().
-comm_restart(S) ->
-	length(ets:match_object(S,{ap_events,'_',tip_connect,{<<"start_comm">>},'_'})).
+report_statistics (APS) ->
+	ovsdb_client_handler:push_ap_stats(APS#ap_statistics{ end_stamp = os:system_time()},APS#ap_state.id),
+	NewStats = #ap_statistics{ start_stamp = os:system_time() },
+	APS#ap_state{ stats = NewStats }.
 
 -spec make_wan_addr() -> IPAddr :: binary().
 make_wan_addr() ->

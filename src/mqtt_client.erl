@@ -30,16 +30,15 @@
                       details :: client_info(),
                       current_state = not_connected :: atom(),
                       keep_alive_ref = undefined :: undefined | timer:tref(),
+											send_running_stats_timer = undefined :: unefined | timer:tref(),
                       errors=0::integer(),
-                      internal_messages=0::integer(),
-											disconnects = 0 :: integer(),
-											connects = 0 :: integer(),
 											t1 = 0 :: integer(),
 											connect_time = 0 :: integer(),
 											messages=0::integer(),
 											start_time = 0 :: number(),
 											send_report_timer,
 											last_report = 0,
+											running_stats = #mqtt_stats{} :: mqtt_stats(),
 											mac_stats = #{} :: #{ binary() => #'Client.Stats'{} }}).
 
 -spec start(CAName::binary(),Serial::binary(),Configuration::gen_configuration_b(), ManagerPid::pid()) -> no_return().
@@ -52,6 +51,8 @@ start(CAName,Serial,Configuration,ManagerPid)->
 	{ok,DeviceConfiguration} = inventory:get_client(CAName,Serial),
 
 	MacStats = prepare_mac_stats(DeviceConfiguration),
+
+	{ok,SendRunningStatsTimer} = timer:send_interval(2000,send_running_stats),
 
 	full_start(#client_state{
 		id = Serial,
@@ -66,11 +67,11 @@ start(CAName,Serial,Configuration,ManagerPid)->
 		send_report_timer = undefined,
 		mac_stats = MacStats,
 		last_report = os:system_time(),
+		send_running_stats_timer = SendRunningStatsTimer,
 		compress = Compress}).
 
 -spec full_start(State::#client_state{})->no_return().
 full_start(State)->
-	T1 = os:system_time(),
 	NewState = case ssl:connect(binary_to_list(State#client_state.broker),
 		                  State#client_state.port,
 	                     [{session_tickets,auto},
@@ -84,11 +85,13 @@ full_start(State)->
 												{mode,binary}]) of
 								{ok,SSLSocket} ->
 									?L_IA("MQTT(~p): Connecting.~n",[State#client_state.details#client_info.serial]),
-									RS = run_client(SSLSocket,State#client_state{ connects = State#client_state.connects+1, t1 = T1 }),
+									NewStats = State#client_state.running_stats#mqtt_stats{ connects = State#client_state.running_stats#mqtt_stats.connects + 1},
+									RS = run_client(SSLSocket,State#client_state{ running_stats = NewStats}),
 									utils:do(State#client_state.keep_alive_ref =/= undefined,{timer,cancel,[State#client_state.keep_alive_ref]}),
 									utils:do(State#client_state.send_report_timer =/= undefined,{timer,cancel,[State#client_state.send_report_timer]}),
 									_ = ssl:close(SSLSocket),
-									RS#client_state{ disconnects = State#client_state.disconnects +1,
+									NewStats2 = State#client_state.running_stats#mqtt_stats{ disconnects = State#client_state.running_stats#mqtt_stats.disconnects + 1},
+									RS#client_state{ running_stats = NewStats2,
 										keep_alive_ref = undefined,
 										send_report_timer = undefined };
 								{error,_}=Error->
@@ -119,17 +122,22 @@ run_client(Socket,CS)->
 	M = #mqtt_msg{ variable_header = C},
 	ConnectMessage = mqtt_message:encode(M),
 	_Res = ssl:setopts(Socket,[{active,true}]),
-	_=case ssl:send(Socket,ConnectMessage) of
+	NewState = case ssl:send(Socket,ConnectMessage) of
 		ok ->
 			?L_IA("~p: MQTT_CLIENT: Sent connection message...~n",[CS#client_state.details#client_info.serial]),
 			CS#client_state.manager_pid ! { stats, connection , 1 },
-			manage_connection(Socket,CS#client_state{ current_state = waiting_for_hello });
+			NewStats = CS#client_state.running_stats#mqtt_stats{
+				start_stamp = os:system_time(),
+				end_stamp = 0,
+				tx_bytes = CS#client_state.running_stats#mqtt_stats.tx_bytes+size(ConnectMessage) },
+			manage_connection(Socket,CS#client_state{ current_state = waiting_for_hello,
+			                                          running_stats = NewStats  });
 		Error ->
 			?L_IA("MQTT(~p): SSL error ~p while connecting.~n",[CS#client_state.details#client_info.serial,Error]),
-			?L_IA("MQTT(~p): SSL error ~p while connecting.~n",[CS#client_state.details#client_info.serial,Error])
+			CS
 	end,
-	CS#client_state.manager_pid ! { stats, connection , -1 },
-	CS.
+	NewState#client_state.manager_pid ! { stats, connection , -1 },
+	NewState.
 
 -spec manage_connection(Socket::ssl:sslsocket(),CS::#client_state{}) -> no_return().
 manage_connection(Socket,CS) ->
@@ -138,13 +146,17 @@ manage_connection(Socket,CS) ->
 			%% io:format("MQTT_CLIENT: Received ~p bytes: ~p.~n",[size(Data),Data]),
 			case manage_state(Data,CS) of
 				{ none, NewState } ->
-					manage_connection(Socket,NewState);
+					NewStats = CS#client_state.running_stats#mqtt_stats{ rx_bytes = CS#client_state.running_stats#mqtt_stats.rx_bytes+size(Data) },
+					manage_connection(Socket,NewState#client_state{ running_stats = NewStats });
 				{ Response, NewState } ->
 					_=ssl:send(Socket,Response),
-					manage_connection(Socket,NewState)
+					NewStats = CS#client_state.running_stats#mqtt_stats{ rx_bytes = CS#client_state.running_stats#mqtt_stats.rx_bytes+size(Data),
+					                                                     tx_bytes = CS#client_state.running_stats#mqtt_stats.tx_bytes+size(Response)},
+					manage_connection(Socket,NewState#client_state{running_stats = NewStats})
 			end;
 		{ssl_closed,Socket} ->
-			?L_IA("MQTT(~p): Closing.~n",[CS#client_state.details#client_info.serial]);
+			?L_IA("MQTT(~p): Closing.~n",[CS#client_state.details#client_info.serial]),
+			CS;
 		send_report ->
 			ThisReport = os:system_time(),
 			NewMacStats = increase_stats(CS#client_state.mac_stats,(ThisReport-CS#client_state.last_report) div 1000000000 ),
@@ -170,7 +182,10 @@ manage_connection(Socket,CS) ->
 		{ send_data, Data } ->
 			%% io:format("MQTT_CLIENT: Received a message to return some data: ~p~n",[Data]),
 			_ = ssl:send(Socket,Data),
-			manage_connection(Socket,CS#client_state{ internal_messages = 1+CS#client_state.internal_messages });
+			manage_connection(Socket,CS);
+		send_running_stats ->
+			mqtt_client_manager:update_running_stats(CS#client_state.id,CS#client_state.running_stats),
+			manage_connection(Socket,CS#client_state{ running_stats = #mqtt_stats{start_stamp = os:system_time() }});
 		Anything ->
 			?L_IA("MQTT(~p): Unprocessed message (~p).~n",[CS#client_state.details#client_info.serial,Anything]),
 			manage_connection(Socket,CS#client_state{ errors = CS#client_state.errors+1 })

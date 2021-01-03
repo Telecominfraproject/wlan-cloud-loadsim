@@ -26,7 +26,7 @@
 %%% API
 %%%===================================================================
 creation_info() ->
-	[	#{	id => ?MODULE ,
+	[	#{   id => ?MODULE ,
 	       start => { ?MODULE , start_link, [] },
 	       restart => permanent,
 	       shutdown => 100,

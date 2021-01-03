@@ -35,6 +35,17 @@
 -define(OVSDB_DEFAULT_SERVER_PORT,6640).
 -define(OVSDB_DEFAULT_MAX_CLIENTS,100).
 
+-record (ap_statistics, {
+	start_stamp   = 0 :: integer(),	% os:system_time() in microseconds
+	end_stamp     = 0 :: integer(), % evaluation period in ms
+	rx_bytes      = 0 :: integer(), % received bytes
+	tx_bytes      = 0 :: integer(), % transmitted bytes
+	dropped       = 0 :: integer(),	% number of dropped connections
+	restarts      = 0 :: integer() % number of resarts
+}).
+
+-type ap_statistics()::#ap_statistics{}.
+
 -record(ap_state, {
 	id = <<>> ::  binary(),				% the ID of the access point we cary around
 	caname = <<>> :: string() | binary(),		% ???
@@ -66,9 +77,6 @@
 	mqtt_config = #{} :: #{},
 	mqtt = idle :: idle | running,		% mqtt status (external process)
 	status = init :: atom(),		% internal status
-	store :: ets:tid(),					% the tables where OVSDB server stores info
-	req_queue :: ets:tid(),				% not used at the moment ... used to que request IDs
-	stats_ets :: ets:tid(),				% statistics table
 	min_backoff = 30 :: non_neg_integer(),
 	max_backoff = 60 :: non_neg_integer(),
 	reporting = none :: none | timer:tref(),			% statistics reporting interval timer reference
@@ -76,23 +84,12 @@
 	mqtt_update_timer = none :: none | timer:tref(),
 	publish_timer = none :: none | timer:tref(),
 	echo = 0 :: non_neg_integer(),
+	stats = #ap_statistics{} :: ap_statistics(),
 	check_monitor_tick = 0 :: non_neg_integer()
 }).
 
 -type ap_state()::#ap_state{}.
--export_type([ap_state/0]).
-
--record (ap_statistics, {
-	stamp :: integer(),		% erlang system time
-	interval :: integer(),  % evaluation period in ms
-	rx_bytes :: integer(),  % received bytes
-	tx_bytes :: integer(),  % transmitted bytes
-	rx_bps :: float(),		% received bytes per sec.
-	tx_bps :: float(),		% transmitted bytes per sec.
-	dropped :: integer(),	% number of dropped connections
-	restarts :: integer(),  % number of resarts 
-	latency :: integer()	% network latency from HB in ms		
-}).
+-export_type([ap_state/0,ap_statistics/0]).
 
 -type ovsdb_client_status() :: ready | paused | running | reconnecting.
 -type ovsdb_ap_statistics() :: #ap_statistics{}.

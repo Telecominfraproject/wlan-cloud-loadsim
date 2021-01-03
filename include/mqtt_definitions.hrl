@@ -294,21 +294,22 @@
 
 -record(mqtt_connection_stats,{
 	client_identifier = <<>> :: binary(),
-	msg_connect = 0 :: integer(),
-	msg_connack = 0 :: integer(),
-	msg_publish = 0 :: integer(),
-	msg_pubrec = 0 :: integer(),
-	msg_puback = 0 :: integer(),
-	msg_pubrel = 0 :: integer(),
-	msg_pubcomp = 0 :: integer(),
-	msg_subscribe = 0 :: integer(),
-	msg_suback = 0 :: integer(),
-	msg_unsubscribe = 0 :: integer(),
-	msg_unsuback = 0 :: integer(),
-	msg_pingreq = 0 :: integer(),
-	msg_pingresp = 0 :: integer(),
-	msg_disconnect = 0 :: integer(),
-	msg_auth = 0 :: integer() }).
+	msg_connect   = 0 :: non_neg_integer(),
+	msg_connack   = 0 :: non_neg_integer(),
+	msg_publish   = 0 :: non_neg_integer(),
+	msg_pubrec    = 0 :: non_neg_integer(),
+	msg_puback    = 0 :: non_neg_integer(),
+	msg_pubrel    = 0 :: non_neg_integer(),
+	msg_pubcomp   = 0 :: non_neg_integer(),
+	msg_subscribe = 0 :: non_neg_integer(),
+	msg_suback    = 0 :: non_neg_integer(),
+	msg_unsubscribe = 0 :: non_neg_integer(),
+	msg_unsuback  = 0 :: non_neg_integer(),
+	msg_pingreq   = 0 :: non_neg_integer(),
+	msg_pingresp  = 0 :: non_neg_integer(),
+	msg_disconnect = 0 :: non_neg_integer(),
+	msg_auth      = 0 :: non_neg_integer()
+}).
 
 -type mqtt_connection_stats() :: #mqtt_connection_stats{}.
 
@@ -323,6 +324,19 @@
 	socket,
 	stats = #mqtt_connection_stats{} :: mqtt_connection_stats(),
 	version = ?MQTT_PROTOCOL_VERSION_3_11 :: ?MQTT_PROTOCOL_VERSION_3_11 | ?MQTT_PROTOCOL_VERSION_5 }).
+
+-record( mqtt_stats, {
+	start_stamp   = 0 :: non_neg_integer(),	% os:system_time() in microseconds
+	end_stamp     = 0 :: non_neg_integer(), % evaluation period in ms
+	rx_bytes      = 0 :: non_neg_integer(), % received bytes
+	tx_bytes      = 0 :: non_neg_integer(), % transmitted bytes
+	disconnects   = 0 :: non_neg_integer(),	% number of dropped connections
+	connects      = 0 :: non_neg_integer(), % number of resarts,
+	errors        = 0 :: non_neg_integer()
+}).
+
+-type mqtt_stats()::#mqtt_stats{}.
+-export_type([mqtt_stats/0]).
 
 -record( mqtt_pingreq_variable_header_v4, { time }).
 -record( mqtt_pingreq_variable_header_v5, { time }).

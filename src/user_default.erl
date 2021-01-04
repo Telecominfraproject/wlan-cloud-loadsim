@@ -271,11 +271,7 @@ ap_start_clients(ClientsToStart) ->
 ap_stop_clients() ->
 	ovsdb_client_handler:stop(all).
 
--spec ap_client_stats(NumberOfRecords::non_neg_integer()) -> generic_result().
-ap_client_stats(N) ->
-	ovsdb_client_stats:show_statistics(N).
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%  Hardware Simulations Management functions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 show_hardware_definitions()->
@@ -546,14 +542,14 @@ run(SimName,Delay)->
 	Nodes = wait_for_nodes(),
 	case lists:subtract(SimInfo#simulation.nodes,Nodes) of
 		[] ->
-			io:format("~n. All nodes on-line.~nPushing simulation assets to all nodes..."),
+			io:format("~n.~nAll nodes on-line.~nPushing simulation assets to all nodes..."),
 			{ok,ID1} = push_simulation(SimName),
 			wait_job_id(ID1),
 			io:format(".Done.~n"),
 			io:format("Starting simulation assets on all nodes..."),
 			{ok,ID2} = start_simulation(SimName),
 			wait_job_id(ID2),
-			io:format(".~n");
+			io:format(".Done.~n");
 		_ ->
 			io:format("."),
 			timer:sleep(1000),

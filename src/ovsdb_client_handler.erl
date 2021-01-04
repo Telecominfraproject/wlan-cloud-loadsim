@@ -375,7 +375,7 @@ handle_info(_, State) ->
 
 -spec terminate (Reason :: shutdown | {shutdown, term()} | norma, State :: #state{}) -> ok.
 terminate (_Reason, _State) ->
-	ovsdb_client_stats:close().
+	ok.
 
 -spec code_change (OldVersion :: term(), OldState ::#state{}, Extra :: term()) -> {ok, Extra :: term()}.
 code_change (_,OldState,_) ->

@@ -41,4 +41,5 @@ app_settings()->
 	disksup:set_almost_full_threshold(0.90),
 	_ = application:ensure_all_started(ssl),
 	_ = application:start(yamerl),
+	% _ = application:start(cecho),
 	ok.

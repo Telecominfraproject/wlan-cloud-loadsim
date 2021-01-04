@@ -24,7 +24,7 @@
          prepare/3,start/3,stop/3,cancel/3,pause/3,restart/3,push/3,
          sim_exists/1,prepare_assets/5,push_assets/5,start_assets/5,stop_assets/5,cancel_assets/5,
 				 pause_assets/5,restarts_assets/5,update/1,list_actions/0,get_action/1,
-				 sim_action_to_json/1]).
+				 sim_action_to_json/1,delete/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -68,6 +68,10 @@ creation_info() ->
 -spec create(SimInfo::simulation())-> ok | generic_error().
 create(SimInfo) when is_record(SimInfo,simulation) ->
 	gen_server:call(?SERVER,{create_simulation,SimInfo}).
+
+-spec delete(SimName::binary()|string(),CAName::binary()|string())-> ok | generic_error().
+delete(SimName,CAName)->
+	gen_server:call(?SERVER,{delete_simulation,utils:safe_binary(SimName),utils:safe_binary(CAName)}).
 
 -spec update(SimInfo::simulation())-> ok | generic_error().
 update(SimInfo) when is_record(SimInfo,simulation) ->
@@ -177,6 +181,17 @@ handle_call({create_simulation,SimInfo}, _From, State = #simengine_state{}) ->
 						sim_states = maps:put(SimInfo#simulation.name,SimState,State#simengine_state.sim_states )}};
 				Error -> { reply, {error,Error} , State}
 			end
+	end;
+handle_call({delete_simulation,SimName,_CAName}, _From, State = #simengine_state{}) ->
+	case sim_exists(SimName) of
+		false ->
+			{reply,?ERROR_SIM_UNKNOWN};
+		true->
+			?L_IA("Deleting simulation ~s.",[binary_to_list(SimName)]),
+			delete_sim(SimName),
+			Directory = filename:join(["certs_db",binary_to_list(SimName)]),
+			os:cmd("rm -rf " ++ Directory),
+			{reply,ok,State}
 	end;
 handle_call({update_simulation,SimInfo}, _From, State = #simengine_state{}) ->
 	case sim_exists(SimInfo#simulation.name) of
@@ -644,6 +659,12 @@ sim_exists(SimName)->
 		[] -> false;
 		_ -> true
 	end.
+
+delete_sim(SimName) ->
+	{atomic,Result} = mnesia:transaction( fun() ->
+																					mnesia:dirty_delete(simulations,SimName)
+	                                      end),
+	Result.
 
 create_sim(SimInfo) when is_record(SimInfo,simulation) ->
 	{atomic,Result}=mnesia:transaction(fun() ->

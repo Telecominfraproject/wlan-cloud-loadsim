@@ -171,7 +171,7 @@ message_loop(APS) ->
 				false ->
 					message_loop(APS);
 				true ->
-					case (APS#ap_state.check_monitor_tick rem 50) of
+					case APS#ap_state.check_monitor_tick of
 						2 ->
 							?L_IA("~p: Resetting Wifi_Associated_Clients table.~n",[APS#ap_state.id]),
 							NewState = send_associated_clients_table(false,APS),

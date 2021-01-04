@@ -463,4 +463,6 @@ mac_to_int(M)->
 	Ints = [ list_to_integer(X,16) || X<-Tokens],
 	binary:list_to_bin(Ints).
 
+clear() ->
+	io:format("\033[2J").
 

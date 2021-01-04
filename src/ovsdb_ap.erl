@@ -464,8 +464,6 @@ send_response(TableName,Response,APS) ->
 	                #{ TableName => Response }]},
 	self() ! {send_raw, APS#ap_state.id, jsx:encode(FullResponse)}.
 
-%send_dhcp_lease_table(false,APS) ->
-%	APS;
 send_dhcp_lease_table(DevState,APS) ->
 	TableName = <<"DHCP_leased_IP">>,
 	TableData = maps:get(TableName,APS#ap_state.tables),

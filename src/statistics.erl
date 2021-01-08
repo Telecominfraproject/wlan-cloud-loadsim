@@ -136,7 +136,7 @@ add_new_report(Node,Type,Report)->
 	try
 	  JSON = jiffy:encode( #{ type => report, name => Type , node => Node, data => Report } ),
 		web_socket_handler:send_frame( JSON ),
-	  io:format("NODE: ~p stats.~n",[Node])
+	  io:format("STATS: NODE: ~p Type: ~p Report:~p ~n",[Node,Type,Report])
 %%	  _ = file:write_file(filename:join([utils:priv_dir(),"stats.json"]),JSON,[append]),
 %%	  _ = file:write_file(filename:join([utils:priv_dir(),"stats.json"]),<<"\n">>,[append]),
 %%	  _ = file:write_file(filename:join([utils:priv_dir(),"stats.json"]),<<"\n">>,[append])

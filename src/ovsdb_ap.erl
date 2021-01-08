@@ -318,7 +318,7 @@ process_received_data (Data, APS) ->
 		end
 	catch
 		error:{N,Error} ->
-			?L_IA("JSON decode error: '~s' after ~B bytes",[Error,N]),
+			?L_IA("JSON decode error: '~p' after ~B bytes",[Error,N]),
 			APS#ap_state{ trail_data = Data };
 		_:_ ->
 			APS#ap_state{ trail_data = <<>>}

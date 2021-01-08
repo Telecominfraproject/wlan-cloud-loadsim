@@ -318,7 +318,7 @@ get_server(ovsdb_server)->
 	{ list_to_binary(ServerName),list_to_integer(Port)}.
 
 s1(X)->
-	_ = import_ca("sim1","mypassword","tip2-cakey.pem","tip2-cacert.pem"),
+	_ = import_ca("sim1","mypassword","tip-cakey.pem","tip-cacert.pem"),
 	c1(X).
 
 p1()->
@@ -330,8 +330,8 @@ c1(X)->
 	                          num_devices = X,
 	                          opensync_server_port = 6643,
 	                          opensync_server_name = <<"debfarm1-node-a.arilia.com">>,
-	                          nodes = ['simnode1@renegademac.arilia.com']  },
-%%	                          nodes = ['simnode1@debfarm1-node-c.arilia.com'] },
+%%	                          nodes = ['simnode1@renegademac.arilia.com']  },
+	                          nodes = ['simnode1@debfarm1-node-c.arilia.com'] },
 		simengine:create(Simulation).
 
 t1_key_h() ->

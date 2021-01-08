@@ -26,14 +26,15 @@
 -spec init( Req :: cowboy_req:req(), State ::ws_state() ) -> { cowboy_websocket, cowboy_req:req(), State::ws_state() }.
 init(Req, State) ->
 	%% io:format("Web socket init.~p..~n",[self()]),
-	{cowboy_websocket,Req,State}.
+	Opts = #{compress => true},
+	{cowboy_websocket,Req,State,Opts}.
 
 -spec websocket_init(State::ws_state())-> call_result().
 websocket_init(_State)->
 	Pids = persistent_term:get(web_socket_pids,sets:new()),
 	NewPids = sets:add_element(self(),Pids),
 	persistent_term:put(web_socket_pids,NewPids),
-	{ok,TRef} = timer:send_interval(5000,ping),
+	{ok,TRef} = timer:send_interval(20000,ping),
 	%% io:format("Web socket starting. ~p..~n",[self()]),
 	{ok,#conn_state{ pid = self(), keep_alive = TRef }}.
 

@@ -6,14 +6,15 @@
 %%% @end
 %%% Created : 11. Dec 2020 8:52 p.m.
 %%%-------------------------------------------------------------------
--module(op).
+-module('op.erl').
 -author("stephb").
 
 -include("../include/mqtt_definitions.hrl").
 -include("../include/opensync_stats.hrl").
 
 %% API
--compile(export_all).
+%% -compile(export_all).
+-dialyzer(no_unused).
 
 m1()->
 	<<48,229,2,0,35,47,97,112,47,79,112,101,110,95,65,80,95,50,49,80,49,48,67,54,

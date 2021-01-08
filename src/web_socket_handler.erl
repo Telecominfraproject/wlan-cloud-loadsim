@@ -26,7 +26,6 @@
 -spec init( Req :: cowboy_req:req(), State ::ws_state() ) -> { cowboy_websocket, cowboy_req:req(), State::ws_state() }.
 init(Req, State) ->
 	%% io:format("Web socket init.~p..~n",[self()]),
-	Opts = #{compress => true},
 	{cowboy_websocket,Req,State}.
 
 -spec websocket_init(State::ws_state())-> call_result().

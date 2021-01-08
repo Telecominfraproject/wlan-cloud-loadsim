@@ -23,8 +23,6 @@
 %% comm API
 -export([ set_mqtt_conf/2,set_ssid/2,publish/1,set_ovsdb_manager/2]).
 
--type ovsdb_request()::#{ term() => term()}.
-
 %%%============================================================================
 %%% API
 %%%============================================================================
@@ -315,8 +313,8 @@ process_received_data (Data, APS) ->
 		case ovsdb_process:do(JSONToProcess,APS) of
 			{reply,ResponseData,NewState} ->
 				?L_IA("~p: Sending back ~p bytes.~n",[APS#ap_state.id,size(ResponseData)]),
-				log_packet(ResponseData,APS),
-				NewState2 = sslsend(ResponseData,APS),
+				log_packet(ResponseData,NewState),
+				NewState2 = sslsend(ResponseData,NewState),
 				process_received_data(TrailingData,NewState2#ap_state{ trail_data = <<>> });
 			{noreply,NewState} ->
 				process_received_data(TrailingData,NewState#ap_state{ trail_data = <<>>})

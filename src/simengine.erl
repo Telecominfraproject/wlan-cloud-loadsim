@@ -679,10 +679,13 @@ update_sim(SimInfo) when is_record(SimInfo,simulation) ->
 	Result.
 
 get_sim(SimName) ->
-	{atomic,Result} = mnesia:transaction( fun() ->
-		mnesia:read(simulations,SimName)
-											end),
-	Result.
+	Return = mnesia:transaction(  fun() ->
+																	mnesia:read(simulations,SimName)
+																end),
+	case Return of
+		{aborted,{no_exists,simulations}} -> [];
+		{atomic,Result} ->Result
+	end.
 
 list_sims()->
 	Return = mnesia:transaction( fun()->

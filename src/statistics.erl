@@ -43,6 +43,7 @@ creation_info() ->
 	       modules => [?MODULE]} ].
 
 submit_report(Type,Report)->
+	io:format(">STATS submitting report~n"),
 	gen_server:cast(?SERVER,{stats_report,node(),Type,Report}).
 
 %% @doc Spawns the server and registers the local name (unique)
@@ -134,7 +135,8 @@ add_new_report(Node,Type,Report)->
 	                    end ),
 	try
 	  JSON = jiffy:encode( #{ type => report, name => Type , node => Node, data => Report } ),
-		web_socket_handler:send_frame( JSON )
+		web_socket_handler:send_frame( JSON ),
+	  io:format("NODE: ~p stats.~n",[Node])
 %%	  _ = file:write_file(filename:join([utils:priv_dir(),"stats.json"]),JSON,[append]),
 %%	  _ = file:write_file(filename:join([utils:priv_dir(),"stats.json"]),<<"\n">>,[append]),
 %%	  _ = file:write_file(filename:join([utils:priv_dir(),"stats.json"]),<<"\n">>,[append])

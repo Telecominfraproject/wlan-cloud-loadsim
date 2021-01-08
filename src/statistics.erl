@@ -43,7 +43,7 @@ creation_info() ->
 	       modules => [?MODULE]} ].
 
 submit_report(Type,Report)->
-	io:format(">STATS submitting report~n"),
+%	io:format(">STATS submitting report~n"),
 	gen_server:cast(?SERVER,{stats_report,node(),Type,Report}).
 
 %% @doc Spawns the server and registers the local name (unique)

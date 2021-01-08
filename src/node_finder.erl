@@ -53,7 +53,7 @@ start_link() ->
 	{ok, State :: #node_finder_state{}} | {ok, State :: #node_finder_state{}, timeout() | hibernate} |
 	{stop, Reason :: term()} | ignore).
 init([]) ->
-	{ ok , Ref } = timer:apply_interval(10000,?MODULE,broadcaster,[self()]),
+	{ ok , Ref } = timer:apply_interval(2000,?MODULE,broadcaster,[self()]),
 	{ok, #node_finder_state{ broadcaster = Ref }}.
 
 %% @private

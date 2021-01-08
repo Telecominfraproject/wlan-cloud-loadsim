@@ -197,7 +197,7 @@ message_loop(APS) ->
 			case S == APS#ap_state.socket of
 				true ->
 					NewStats = APS#ap_state.stats#ap_statistics{ rx_bytes = APS#ap_state.stats#ap_statistics.rx_bytes + size(Data)},
-					NewState = process_received_data( << (APS#ap_state.trail_data)/binary, Data/binary>>,APS#ap_state{stats = NewStats}),
+					NewState = process_received_data( Data,APS#ap_state{stats = NewStats}),
 					message_loop(NewState);
 				false->
 					message_loop(APS)

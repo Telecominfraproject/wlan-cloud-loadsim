@@ -81,85 +81,60 @@
         </div>
 
         <div class="col">
-
             <div v-if="importCA">
-
                 <h2 class="h5">Import CA</h2>
-
                 <fieldset class="form-grid border border-secondary p-3">
-
                     <label class="form-label">Name</label>
                     <div><input type="text" class="form-control form-control-sm" v-model="casForm.name"/></div>
-
                     <label class="form-label">Key File</label>
                     <div>
                         <input class="form-control form-control-sm" type="file" ref="keyFile" @change="loadText($event, 'key')">
                     </div>
-
                     <label class="form-label">Cert File</label>
                     <div>
                         <input class="form-control form-control-sm" type="file" ref="certFile" @change="loadText($event, 'cert')">
                     </div>
-
                     <label class="form-label">Password</label>
                     <div><input type="text" class="form-control form-control-sm" v-model="casForm.password"/></div>
-
                     <div></div>
                     <div>
                         <button class="btn btn-secondary btn-sm" v-on:click="saveCA()">Import CA</button>
                         <button class="btn btn-light btn-sm" v-on:click="loadImportCasForm()">Cancel</button>
                     </div>
-                    
-
                 </fieldset>
-
             </div>
             <div v-else>
-
                 <h2 class="h5">Simulation</h2>
-
                 <fieldset class="form-grid p-3">
-
                     <label class="form-label">Current Simulation</label>
                     <div><select class="form-select form-select-sm" v-model="simulation" v-on:change="selectSimulation()">
                         <option value=""></option>
                         <option v-for="(simulation, index) in simulations" :key="index" v-bind:value="simulation">{{ simulation }}</option>
                     </select></div>
-
                 </fieldset>
                 <fieldset class="form-grid border border-secondary p-3">
-
                     <label class="form-label">Name</label>
                     <div><input type="text" class="form-control form-control-sm" v-model="form.name"/></div>
-
                     <label class="form-label">CA</label>
                     <div><select class="form-select form-select-sm" v-model="form.caname"><option v-for="(ca, index) in cas" :key="index" v-bind:value="ca">{{ ca }}</option></select></div>
-
                     <label class="form-label">Number of Devices</label>
                     <div><input type="number" class="form-control form-control-sm" v-model="form.num_devices" /></div>
-
                     <label class="form-label">Nodes</label>
                     <div class="d-grid">
                         <label class="" v-for="(node, index) in nodesNodes" :key="index">
                             <input type="checkbox" v-model="form.nodes" :value="node" /> {{ node }}
                         </label>
                     </div>
-
                     <label class="form-label">Server Name</label>
                     <div><input type="text" class="form-control form-control-sm" v-model="form.server"/></div>
-
                     <label class="form-label">Port</label>
                     <div><input type="number" class="form-control form-control-sm" v-model="form.port" /></div>
-
                     <button class="btn btn-secondary btn-sm" v-on:click="saveSimulation()">Save</button>
-
                 </fieldset>
             </div>
-
         </div>
 
         <div class="col">
-
             <h2 class="h5">Nodes</h2>
             <table class="table table-sm">
                 <thead>
@@ -186,14 +161,35 @@
         </div>
     </div>
 
-    <div class="p-3">
-        <div id="charts"></div>
-        <h2 class="h3">Output</h2>
-        <div class="output">
-            <code v-for="(msg, index) in output" :key="index">{{ msg }}</code>
-        </div>
-    </div>
+    <div class="controls p-3">
 
+        <div class="col">
+            <h2 class="h3">Kernel Utilization</h2>
+            <div id="charts"></div>
+        </div>
+
+        <div class="col">
+            <div id="charts2">
+                <div id="mqtt_client_stats">
+                    <h2 class="h3">MQTT Clients</h2>
+                </div>
+                <div id="mqtt_client_handler">
+                    <h2 class="h3">MQTT Client Manager</h2>
+                </div>
+                <div id="ovsdb_clients">
+                    <h2 class="h3">OVSDB Clients</h2>
+                </div>
+            </div>
+        </div>
+
+        <div class="col">
+            <div class="output">
+                <h2 class="h3">Logging</h2>
+                <code v-for="(msg, index) in output" :key="index">{{ msg }}</code>
+            </div>
+        </div>
+
+    </div>
 </div>
 
 <!--
@@ -239,6 +235,12 @@
                 nodesData: [],
                 num_charts: 0,
                 charts: [],
+                mqtt_client_stats_data: [],
+                mqtt_client_stats_chart: null,
+                mqtt_client_handler_data: [],
+                mqtt_client_handler_chart: null,
+                ovsdb_clients_data: [],
+                ovsdb_clients_chart: null,
                 streamInterval: null,
                 streamIntervalTime: 250,
                 streamTimeSince: 0,
@@ -259,9 +261,7 @@
 
             // use a set for nodes
             this.nodes = new Set();
-
             this.setup();
-
         },
         methods: {
 
@@ -287,27 +287,27 @@
 
                 this.socket.onmessage = (event) => {
                     console.log(event);
-                    // try to pull data into a basic chart
-                    // this.output.push(event.data.length);
-                    // this.output.push(event.data);
                     const Payload = JSON.parse(event.data);
                     if (Payload.name === 'os_details') {
-                        // this.output.push('Valid report');
                         this.testLogKernel(Payload);
-                    } else {
-                        // this.output=[];
-                        // this.output.push(Payload);
+                    } else if (Payload.name === 'mqtt_client_stats') {
+                        this.mqtt_client_stats(Payload);
+                    } else if (Payload.name === 'mqtt_client_handler') {
+                        this.mqtt_client_handler(Payload);
+                    } else if (Payload.name === 'ovsdb_clients') {
+                        this.ovsdb_clients(Payload);
                     }
+                    else
+                        this.output.push(Payload);
                 }
 
                 this.socket.onopen = (event) => {
                     console.log(event);
-                    this.output.push('Websocket opened');
                     this.socketOpen = true;
                 }
 
                 this.socket.onclose = (event) => {
-                    this.output.push('Websocket closed');
+                    console.log(event);
                     this.socketOpen = false;
                 }
 
@@ -513,42 +513,21 @@
                 }
             },
 
-            fakeStream: function() {
-                if( this.streamInterval ) {
-                    console.log('Stopping fake stream...');
-                    clearInterval( this.streamInterval );
-                    this.streamOn = false;
-                } else {
-                    console.log('Starting fake stream...');
-                    this.streamInterval = setInterval(() => {
-                        if( this.streamIndex + 1 >= window.tmpStats.length ) {
-                            this.streamIndex = 0;
-                        }
-                        this.testLogKernel(window.tmpStats[ this.streamIndex ]);
-                        this.streamIndex++;
-                        this.streamTimeSince = this.streamIntervalTime * this.streamIndex;
-                    }, this.streamIntervalTime);
-                    this.streamOn = true;
-                }
-            },
-
             testLogKernel: function( data ) {
                 let idx = null;
                 if( !data.node ) {
-                    // this.output.push('Bad node');
                     return;
                 }
                 if( data.node in this.nodesDict ) {
-                    // this.output.push("Node found");
                     idx = this.nodesDict[data.node];
                 } else {
-                    // this.output.push("New Node");
                     idx = this.num_charts;
-                    this.nodesData.push([]);
                     this.nodesDict[data.node] = idx;
                     // canvas for chart
                     const el = document.createElement('canvas');
                     el.setAttribute('id', `chart-${idx}`);
+                    el.setAttribute('width','500');
+                    el.setAttribute('height','500');
                     const charts = document.getElementById('charts');
                     const newDiv = document.createElement('div');
                     newDiv.id = `chart-col-div-${idx}`;
@@ -570,17 +549,103 @@
                 }
                 if( data.data ) {
                     console.log(data.data.kernel_utilization);
-                    // this.output.push(data.node);
-                    // this.output.push(data.data.kernel_utilization);
+                    if ( this.charts[idx].data.datasets[0].data.length === 15 )
+                    {
+                        this.charts[idx].data.datasets[0].data.shift();
+                        this.charts[idx].data.labels.shift();
+                    }
                     this.charts[idx].data.datasets[0].data.push(data.data.kernel_utilization);
-                    this.charts[idx].data.labels.push( this.streamTimeSince );
+                    this.charts[idx].data.labels.push( this.makeLabel() );
                     this.charts[idx].update();
                 } else {
                     console.log('No kernel utilization');
                 }
             },
 
+            mqtt_client_stats: function(data) {
+                if(this.mqtt_client_stats_chart===null)
+                {
+                    const el = document.createElement('canvas');
+                    el.setAttribute('id', `mqtt_client_stats_chart`);
+                    el.setAttribute('width','500');
+                    el.setAttribute('height','500');
+                    const mqtt_client_stats_div = document.getElementById('mqtt_client_stats');
+                    mqtt_client_stats_div.appendChild(el);
+                    const chart = new Chart(el, {
+                        type: 'line',
+                        data: {
+                            labels: [],
+                            datasets: [{
+                                label: '',
+                                data: this.mqtt_client_stats_data,
+                            }]
+                        },
+                    });
+                    this.mqtt_client_stats_chart = chart;
+                }
+                this.mqtt_client_stats_chart.update();
+            },
+
+            mqtt_client_handler: function(data) {
+                if(this.mqtt_client_handler_chart===null)
+                {
+                    const el = document.createElement('canvas');
+                    el.setAttribute('id', `mqtt_client_handler_chart`);
+                    el.setAttribute('width','500');
+                    el.setAttribute('height','500');
+                    const mqtt_client_handler_div = document.getElementById('mqtt_client_handler');
+                    mqtt_client_handler_div.appendChild(el);
+                    const chart = new Chart(el, {
+                        type: 'line',
+                        data: {
+                            labels: [],
+                            datasets: [{
+                                label: '',
+                                data: this.mqtt_client_handler_data,
+                            }]
+                        },
+                    });
+                    this.mqtt_client_handler_chart = chart;
+                }
+                this.mqtt_client_handler_chart.update();
+            },
+
+            ovsdb_clients: function(data) {
+                if(this.ovsdb_clients_chart===null)
+                {
+                    const el = document.createElement('canvas');
+                    el.setAttribute('id', `ovsdb_clients_chart`);
+                    el.setAttribute('width','500');
+                    el.setAttribute('height','500');
+                    const ovsdb_clients_div = document.getElementById('ovsdb_clients');
+                    ovsdb_clients_div.appendChild(el);
+                    const chart = new Chart(el, {
+                        type: 'line',
+                        data: {
+                            labels: [],
+                            datasets: [{
+                                label: '',
+                                data: this.ovsdb_clients_data,
+                            }]
+                        },
+                    });
+                    this.ovsdb_clients_chart = chart;
+                }
+                this.ovsdb_clients_chart.update();
+            },
+
+        makeLabel: function() {
+                const now = new Date();
+                const secs = now.getSeconds();
+                const mins = now.getMinutes();
+                if(secs<10){
+                    return mins + ":0" + secs;
+                }
+                else
+                    return mins + ":" + secs;
+            }
         },
+
         computed: {
             fakeStreamLabel: function() {
                 return this.streamOn ? 'Stop Fake Stream' : 'Start Fake Stream'

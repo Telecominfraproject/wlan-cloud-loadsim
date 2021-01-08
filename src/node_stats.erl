@@ -85,7 +85,7 @@ init([]) ->
 		manager ->
 			NodeFinder = undefined ;
 		_ ->
-			{ok,NodeFinder} = timer:apply_interval(7500,?MODULE,find_manager,[self(),NodeId])
+			{ok,NodeFinder} = timer:apply_interval(5000,?MODULE,find_manager,[self(),NodeId])
 	end,
 	{ok,TRef} = timer:apply_interval(2000,?MODULE,update_stats,[]),
 	{ok, #node_state{ node_type = NodeType, updater_timer = TRef, node_finder_timer = NodeFinder, nodeid = NodeId }}.

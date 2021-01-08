@@ -116,7 +116,7 @@ start_link() ->
 	{ok, State :: #mqtt_client_manager_state{}} | {ok, State :: #mqtt_client_manager_state{}, timeout() | hibernate} |
 	{stop, Reason :: term()} | ignore).
 init([]) ->
-	{ok,TRef} = timer:apply_interval(5000,?MODULE,update_stats_daemon,[]),
+	{ok,TRef} = timer:apply_interval(2000,?MODULE,update_stats_daemon,[]),
 	{ok, #mqtt_client_manager_state{
 		stats_updater = TRef,
 		connect_avg_time = utils:new_avg() }}.

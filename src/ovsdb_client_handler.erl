@@ -194,7 +194,7 @@ handle_cast ({set_state,NewState},#state{}=State) ->
 			utils:select( State#state.update_stats_timer == none, ok, timer:cancel(State#state.update_stats_timer) ),
 			{ noreply, State#state{ state = init, config = #{}, clients_pid = #{}, clients_serial = #{}, update_stats_timer = none }};
 		started ->
-			{ok,TRef} = timer:apply_interval(?MGR_REPORT_INTERVAL,?MODULE,update_stats,[]),
+			{ok,TRef} = timer:apply_interval(2000,?MODULE,update_stats,[]),
 			{ noreply, State#state{ update_stats_timer = TRef }};
 		paused->
 			utils:select( State#state.update_stats_timer == none, ok, timer:cancel(State#state.update_stats_timer) ),

@@ -661,10 +661,13 @@ sim_exists(SimName)->
 	end.
 
 delete_sim(SimName) ->
-	{atomic,Result} = mnesia:transaction( fun() ->
+	Return = mnesia:transaction( fun() ->
 																					mnesia:dirty_delete(simulations,SimName)
 	                                      end),
-	Result.
+	case Return of
+		{aborted,{no_exists,simulations}} -> [];
+		{atomic,Result} ->Result
+	end.
 
 create_sim(SimInfo) when is_record(SimInfo,simulation) ->
 	{atomic,Result}=mnesia:transaction(fun() ->

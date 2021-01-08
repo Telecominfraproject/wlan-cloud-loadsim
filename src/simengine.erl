@@ -185,7 +185,7 @@ handle_call({create_simulation,SimInfo}, _From, State = #simengine_state{}) ->
 handle_call({delete_simulation,SimName,_CAName}, _From, State = #simengine_state{}) ->
 	case sim_exists(SimName) of
 		false ->
-			{reply,?ERROR_SIM_UNKNOWN};
+			{reply,?ERROR_SIM_UNKNOWN,State};
 		true->
 			?L_IA("Deleting simulation ~s.",[binary_to_list(SimName)]),
 			delete_sim(SimName),

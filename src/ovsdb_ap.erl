@@ -149,7 +149,7 @@ message_loop(APS) ->
 			message_loop(start_connection(APS2#ap_state{ normal_reconnect = true, manager_addr = Manager }));
 
 		{set_mqtt_conf,Conf} ->
-			?L_IA("~p: Just got MQTT settings: ~p~n",[APS#ap_state.id]),
+			?L_IA("~p: Just got MQTT settings: ~p~n",[APS#ap_state.id,Conf]),
 			message_loop(check_mqtt(Conf,APS));
 
 		{set_ssid,SSID} = M ->
@@ -222,6 +222,10 @@ message_loop(APS) ->
 				false ->
 					message_loop(APS)
 			end;
+
+		{client_stats,_AP,_Statistics} ->
+			io:format(">>>>MUST UPDATE STATS!!!~n"),
+			message_loop(APS);
 
 		{send_raw, _AP, RawData} ->
 			% io:format("~p: Data sent back: ~p~n",[APS#ap_state.id,RawData]),

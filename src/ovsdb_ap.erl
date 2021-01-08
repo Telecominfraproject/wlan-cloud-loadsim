@@ -227,13 +227,13 @@ message_loop(APS) ->
 			% io:format("~p: Data sent back: ~p~n",[APS#ap_state.id,RawData]),
 			?L_IA("~p: Sending internal ~p bytes.~n",[APS#ap_state.id,size(RawData)]),
 			log_packet(RawData,APS),
-			NewState = sslsend(APS#ap_state.socket,RawData),
+			NewState = sslsend(RawData,APS),
 			message_loop(NewState);
 
 		{publish,TableData} when is_map(TableData)->
 			?L_IA("~p: Sending monitored data.~n",[APS#ap_state.id]),
 			Data = jiffy:encode(TableData),
-			NewState = sslsend(APS#ap_state.socket,Data),
+			NewState = sslsend(Data,APS),
 			message_loop(NewState);
 
 		{down, _AP} ->
@@ -249,6 +249,7 @@ message_loop(APS) ->
 %%% internal functions
 %%%============================================================================
 
+-spec sslsend(Data::binary(),State::ap_state()) -> NewState::ap_state().
 sslsend(Data,APS)->
 	try
 		case APS#ap_state.socket == none of
@@ -311,7 +312,7 @@ process_received_data (Data, APS) ->
 			{reply,ResponseData,NewState} ->
 				?L_IA("~p: Sending back ~p bytes.~n",[APS#ap_state.id,size(ResponseData)]),
 				log_packet(ResponseData,APS),
-				NewState2 = sslsend(NewState#ap_state.socket,ResponseData),
+				NewState2 = sslsend(ResponseData,APS),
 				process_received_data(TrailingData,NewState2#ap_state{ trail_data = <<>> });
 			{noreply,NewState} ->
 				process_received_data(TrailingData,NewState#ap_state{ trail_data = <<>>})

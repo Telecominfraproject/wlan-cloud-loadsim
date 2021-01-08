@@ -685,20 +685,26 @@ get_sim(SimName) ->
 	Result.
 
 list_sims()->
-	{atomic,Result} = mnesia:transaction( fun()->
-																					mnesia:foldr( fun(E,A)->
-																						[ binary_to_list(E#simulation.name) | A ]
-																												end, [], simulations)
-																				end),
-	Result.
+	Return = mnesia:transaction( fun()->
+		mnesia:foldr( fun(E,A)->
+										[ binary_to_list(E#simulation.name) | A ]
+		              end, [], simulations)
+	                             end),
+	case Return of
+		{aborted,{no_exists,simulations}} -> [];
+		{atomic,Result} ->Result
+	end.
 
 list_sims_full()->
-	{atomic,Result} = mnesia:transaction( fun()->
-		mnesia:foldr( fun(E,A)->
-			[ E | A ]
-		              end, [], simulations)
-	                                      end),
-	Result.
+	Return = mnesia:transaction( fun()->
+																	mnesia:foldr( fun(E,A)->
+																		[ E | A ]
+		                              end, [], simulations)
+	                             end),
+	case Return of
+		{aborted,{no_exists,simulations}} -> [];
+		{atomic,Result} ->Result
+	end.
 
 -spec set_assets_created(SimInfo::simulation(), Value::boolean())->ok.
 set_assets_created(SimInfo,Value)->

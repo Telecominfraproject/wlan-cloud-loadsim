@@ -138,7 +138,7 @@ message_loop(APS) ->
 			?L_IA("~p: Redirecting to ~p.~n",[APS#ap_state.id,Manager]),
 			log_packet(binary:list_to_bin([<<"Redirecting to ">>,Manager]),APS),
 			[_Protocol,NewHost,NewPort] = string:tokens(binary_to_list(Manager),":"),
-			sslclose(APS#ap_state.socket),
+			_ = sslclose(APS#ap_state.socket),
 			APS1 = stop_timers(APS),
 			APS2 = APS1#ap_state{   ovsdb_server_name = list_to_binary(NewHost),
 		                          ovsdb_server_port = list_to_integer(NewPort),
@@ -153,7 +153,7 @@ message_loop(APS) ->
 			message_loop(check_mqtt(Conf,APS));
 
 		{set_ssid,SSID} = M ->
-			case APS#ap_state.mqtt == running of
+			_ = case APS#ap_state.mqtt == running of
 				true ->     mqtt_client_manager:set_ssid(APS#ap_state.caname,APS#ap_state.id,SSID);
 				false-> _ = timer:send_after( 5000 , M ) %% resent a notification in 5 seconds if MQTT is not running
 			end,
@@ -289,13 +289,13 @@ start_timers(APS)->
 
 -spec stop_timers(APS::ap_state()) -> NewAPS::ap_state().
 stop_timers(APS)->
-	stop_timer(APS#ap_state.publish_timer),
-	stop_timer(APS#ap_state.mqtt_update_timer),
+	_ = stop_timer(APS#ap_state.publish_timer),
+	_ = stop_timer(APS#ap_state.mqtt_update_timer),
 	APS#ap_state{ mqtt_update_timer = none, publish_timer = none}.
 
 
 %--------cancel_simulation/1----------------shutdown and exit simulation (AP exits)
--spec process_received_data(Data::binary(),APS::ap_state()) -> { TrailingData::binary(), JSON::ovsdb_request(), NewState::ap_state()}.
+-spec process_received_data(Data::binary(),APS::ap_state()) -> NewState::ap_state().
 process_received_data (<<>>, APS) ->
 	APS;
 process_received_data (Data, APS) ->
@@ -359,7 +359,7 @@ start_connection(APS0) ->
 	NewState.
 
 disconnect(APS)->
-	sslclose(APS#ap_state.socket),
+	_ = sslclose(APS#ap_state.socket),
 	APS1 = stop_timers(APS),
 	ovsdb_client_handler:set_ap_status( paused , APS1#ap_state.id),
 	APS1#ap_state{ status = ready, socket = none, mqtt_update_timer = none, reconnect_timer = none, normal_reconnect = false }.
@@ -374,7 +374,7 @@ try_reconnect (#ap_state{ reconnecting = false, retries = Retries }=APS0) when R
 	Reconnect_ms = random_reconnect_timer(APS0),
 	{ok,ReconnectionTimer} = timer:send_after(Reconnect_ms, re_connect ),
 	?L_I(?DBGSTR("socket closed by server, trying to reconnect in ~B seconds.",[Reconnect_ms div 1000])),
-	sslclose(APS0#ap_state.socket),
+	_ = sslclose(APS0#ap_state.socket),
 	APS1 = stop_timers(APS0),
 	APS2 = case APS1#ap_state.redirected of
 		true ->
@@ -391,7 +391,7 @@ try_reconnect (#ap_state{ reconnecting = false, retries = Retries }=APS0) when R
 try_reconnect (#ap_state{ reconnecting = false, retries = Retries}=APS0) ->
 	Reconnect_ms = random_reconnect_timer(APS0),
 	{ok,ReconnectionTimer} = timer:send_after(Reconnect_ms, re_connect ),
-	sslclose(APS0#ap_state.socket),
+	_ = sslclose(APS0#ap_state.socket),
 	APS = stop_timers(APS0),
 	?L_I(?DBGSTR("socket closed by server, trying to reconnect in ~B seconds.",[Reconnect_ms div 1000])),
 	ovsdb_client_handler:set_ap_status( reconnecting , APS#ap_state.id),
@@ -444,7 +444,7 @@ request_mqtt_updates (#ap_state{ caname = CAName, id = ID} = APS) ->
 report_statistics (#ap_state{status=ready}=APS) ->
 	APS;
 report_statistics (APS) ->
-	ovsdb_client_handler:push_ap_stats(APS#ap_statistics{ end_stamp = os:system_time()},APS#ap_state.id),
+	ovsdb_client_handler:push_ap_stats(APS#ap_state.stats#ap_statistics{ end_stamp = os:system_time()},APS#ap_state.id),
 	NewStats = #ap_statistics{ start_stamp = os:system_time() },
 	APS#ap_state{ stats = NewStats }.
 
@@ -479,13 +479,13 @@ send_dhcp_lease_table(DevState,APS) ->
 																							<<"_uuid">> => [<<"uuid">>,NewUUID ]},
 									            <<"old">> => #{<<"_version">> => CurrentVersion }} ,
 									% io:format("~p: DHCP_LEASE_TRANSACTION (on): ~p~n",[APS#ap_state.id,NewRow]),
-									send_response( TableName, #{ NewUUID => maps:remove(<<"_uuid">>,NewRow)}, APS ),
+									_=send_response( TableName, #{ NewUUID => maps:remove(<<"_uuid">>,NewRow)}, APS ),
 									{ maps:put(NewUUID,NewLeaseVersion,TmpNewTable),
 										maps:put(NewUUID,NewRow,TmpResponse) };
 								false->
 									NewRow = #{ UUID => #{<<"old">> => maps:remove(<<"_uuid">>,V) } },
 									% io:format("~p: DHCP_LEASE_TRANSACTION (off): ~p~n",[APS#ap_state.id,NewRow]),
-									send_response( TableName, NewRow, APS ),
+									_=send_response( TableName, NewRow, APS ),
 									{ maps:put(UUID,V,TmpNewTable),
 									  maps:put(UUID,NewRow,TmpResponse) }
 							end

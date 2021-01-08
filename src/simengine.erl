@@ -190,7 +190,7 @@ handle_call({delete_simulation,SimName,_CAName}, _From, State = #simengine_state
 			?L_IA("Deleting simulation ~s.",[binary_to_list(SimName)]),
 			delete_sim(SimName),
 			Directory = filename:join(["certs_db",binary_to_list(SimName)]),
-			os:cmd("rm -rf " ++ Directory),
+			_ = os:cmd("rm -rf " ++ Directory),
 			{reply,ok,State}
 	end;
 handle_call({update_simulation,SimInfo}, _From, State = #simengine_state{}) ->

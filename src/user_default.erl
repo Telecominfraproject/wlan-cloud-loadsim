@@ -117,7 +117,7 @@ create_simulation(SimName,CAName) when is_list(SimName),is_list(CAName) ->
 remove_simulation(SimName,CAName)->
 	simengine:delete(SimName,CAName).
 
--spec show_simulation(SimName::string())-> {ok,Attributes::attribute_list()} | generic_error().
+-spec show_simulation(SimName::string())-> { ok,Simulation::simulation() } | generic_error().
 show_simulation(SimName) when is_list(SimName) ->
 	simengine:get(SimName).
 
@@ -513,10 +513,10 @@ auto(NumberOfDevices)->
 	Nodes = wait_for_nodes(),
 	persistent_term:put(current_simulation,SimName),
 	BinSim = list_to_binary(SimName),
-	remove_ca(SimName),
-	remove_simulation(SimName,SimName),
+	_ = remove_ca(SimName),
+	_ = remove_simulation(SimName,SimName),
 	io:format("~nImporting TIP certificate...~n"),
-	import_ca(get_currrent_simulation(),"mypassword","tip-cakey.pem","tip-cacert.pem"),
+	_ = import_ca(get_currrent_simulation(),"mypassword","tip-cakey.pem","tip-cacert.pem"),
 	io:format("Simulation will be built for nodes: ~p.~n",[Nodes]),
 	Simulation = #simulation{ name = BinSim,
 	                          ca = BinSim,
@@ -524,38 +524,43 @@ auto(NumberOfDevices)->
 	                          opensync_server_port = 6643,
 	                          opensync_server_name = <<"opensync-controller.wan.local">>,
 	                          nodes = Nodes  },
-	simengine:create(Simulation),
+	_ = simengine:create(Simulation),
 	io:format("Creating assets for simulation..."),
 	{ok,ID} = simengine:prepare(SimName,#{},utils:noop_mfa()),
 	wait_job_id(ID),
 	io:format("~nAll assets created and ready to run the simulation. Type \"run().\" to start.~n~n").
 
-
+-spec run() -> any().
 run()->
 	run("sim1",20).
 
+-spec run(SimName::binary()|string(),DelayInSeconds::non_neg_integer()) -> any().
 run(_SimName,0)->
 	throw("Nodes are not on-line, simulation cannot proceed.");
 run(SimName,Delay)->
 	io:format("Making sure all nodes are on-line first..."),
-	{ok,SimInfo} = show_simulation(SimName),
-	Nodes = wait_for_nodes(),
-	case lists:subtract(SimInfo#simulation.nodes,Nodes) of
-		[] ->
-			io:format("~n.~nAll nodes on-line.~nPushing simulation assets to all nodes..."),
-			{ok,ID1} = push_simulation(SimName),
-			wait_job_id(ID1),
-			io:format(".Done.~n"),
-			io:format("Starting simulation assets on all nodes..."),
-			{ok,ID2} = start_simulation(SimName),
-			wait_job_id(ID2),
-			io:format(".Done.~n");
-		_ ->
-			io:format("."),
-			timer:sleep(1000),
-			run(SimName,Delay-1)
-	end,
-	io:format("~nSimulation ~s is now running.~n",[SimName]).
+	case show_simulation(SimName) of
+		{ok,SimInfo} ->
+			Nodes = wait_for_nodes(),
+			case lists:subtract(SimInfo#simulation.nodes,Nodes) of
+				[] ->
+					io:format("~n.~nAll nodes on-line.~nPushing simulation assets to all nodes..."),
+					{ok,ID1} = push_simulation(SimName),
+					wait_job_id(ID1),
+					io:format(".Done.~n"),
+					io:format("Starting simulation assets on all nodes..."),
+					{ok,ID2} = start_simulation(SimName),
+					wait_job_id(ID2),
+					io:format(".Done.~n");
+				_ ->
+					io:format("."),
+					timer:sleep(1000),
+					run(SimName,Delay-1)
+			end,
+			io:format("~nSimulation ~s is now running.~n",[SimName]);
+		Error ->
+			io:format("~nAne error occured while trying to start the simulation. ~p~n",[Error])
+	end.
 
 
 

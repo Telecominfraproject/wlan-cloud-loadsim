@@ -339,7 +339,7 @@ do( ?HTTP_GET , Req , #request_state{ resource = <<"nodes">> , id = nothing } = 
 			restutils:create_paginated_return("Nodes",NamesOnly,PaginationInfo,stringlist);
 		<<"detailed">> ->
 			{SubList,PaginationInfo} = restutils:paginate_record_list(PaginationParameters,AllNodes),
-			restutils:create_paginated_return("HardwareDefinitions",SubList,PaginationInfo,nodes);
+			restutils:create_paginated_return("Nodes",SubList,PaginationInfo,nodes);
 		<<"simple">> ->
 			{SubList,PaginationInfo} = restutils:paginate_record_list(PaginationParameters,AllNodes),
 			NamesOnly = [ atom_to_list(X) || {X,_Role} <- SubList ],

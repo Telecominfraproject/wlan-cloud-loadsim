@@ -16,10 +16,28 @@
             flex-direction: column;
         }
         .controls {
-            background: #e9ecef;
+            background: skyblue;
             display: grid;
-            grid-template-columns: minmax(144px, 320px) 1fr 1.5fr;
+            grid-template-columns: 1fr 1fr 1fr;
             grid-gap: 1rem;
+        }
+        .dashboard {
+            background-color: skyblue;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+            grid-template-rows: 320px 320px 320px 320px;
+            grid-gap: 15px;
+        }
+        .dashboard > div {
+            background-color: rgba(255, 255, 255, 0.5);
+            text-align: center;
+            padding: 20px 0;
+            font-size: 30px;
+            border-top-left-radius: 15px;
+            border-top-right-radius: 15px;
+            border-bottom-left-radius: 15px;
+            border-bottom-right-radius: 15px;
+            box-shadow: 10px 5px 5px #1b4460;
         }
         .actions {
             display: grid;
@@ -35,14 +53,19 @@
         .table-sm {
             font-size: 0.75rem;
         }
+        .clear-logs {
+            display: grid;
+            grid-template-columns: 120px;
+            grid-gap: 1rem;
+        }
         .output {
-            background: var(--bs-light);
+            background: skyblue;
             white-space: pre;
             max-width: 100%;
             overflow: auto;
             display: flex;
             flex-direction: column;
-            font-size: 0.875rem;
+            font-size: 1rem;
         }
     </style>
 
@@ -161,35 +184,102 @@
         </div>
     </div>
 
-    <div class="controls p-3">
-
-        <div class="col">
-            <h2 class="h3">Kernel Utilization</h2>
-            <div id="charts"></div>
+    <div class="dashboard">
+        <!-- Row 1 -->
+        <div class="col" id="cell11">
+            <h3 class="h3" id="cell11-title"></h3>
         </div>
 
-        <div class="col">
-            <div id="charts2">
-                <div id="mqtt_client_stats">
-                    <h2 class="h3">MQTT Clients</h2>
-                </div>
-                <div id="mqtt_client_handler">
-                    <h2 class="h3">MQTT Client Manager</h2>
-                </div>
-                <div id="ovsdb_clients">
-                    <h2 class="h3">OVSDB Clients</h2>
-                </div>
-            </div>
+        <div class="col" id="cell12">
+            <h2 class="h3" id="cell12-title"></h2>
         </div>
 
-        <div class="col">
-            <div class="output">
-                <h2 class="h3">Logging</h2>
-                <code v-for="(msg, index) in output" :key="index">{{ msg }}</code>
-            </div>
+        <div class="col" id="cell13">
+            <h2 class="h3" id="cell13-title"></h2>
+        </div>
+
+        <div class="col" id="cell14">
+            <h2 class="h3" id="cell14-title"></h2>
+        </div>
+
+        <div class="col" id="cell15">
+            <h2 class="h3" id="cell15-title"></h2>
+        </div>
+
+        <!-- Row 2 -->
+        <div class="col" id="cell21">
+            <h2 class="h3" id="cell21-title"></h2>
+        </div>
+
+        <div class="col" id="cell22">
+            <h2 class="h3" id="cell22-title"></h2>
+        </div>
+
+        <div class="col" id="cell23">
+            <h2 class="h3" id="cell23-title"></h2>
+        </div>
+
+        <div class="col" id="cell24">
+            <h2 class="h3" id="cell24-title"></h2>
+        </div>
+
+        <div class="col" id="cell25">
+            <h2 class="h3" id="cell25-title"></h2>
+        </div>
+
+        <!-- Row 3 -->
+        <div class="col" id="cell31">
+            <h2 class="h3" id="cell31-title"></h2>
+        </div>
+
+        <div class="col" id="cell32">
+            <h2 class="h3" id="cell32-title"></h2>
+        </div>
+
+        <div class="col" id="cell33">
+            <h2 class="h3" id="cell33-title"></h2>
+        </div>
+
+        <div class="col" id="cell34">
+            <h2 class="h3" id="cell34-title"></h2>
+        </div>
+
+        <div class="col" id="cell35">
+            <h2 class="h3" id="cell35-title"></h2>
+        </div>
+
+        <!-- Row 4 -->
+        <div class="col" id="cell41">
+            <h2 class="h3" id="cell41-title"></h2>
+        </div>
+
+        <div class="col" id="cell42">
+            <h2 class="h3" id="cell42-title"></h2>
+        </div>
+
+        <div class="col" id="cell43">
+            <h2 class="h3" id="cell43-title"></h2>
+        </div>
+
+        <div class="col" id="cell44">
+            <h2 class="h3" id="cell44-title"></h2>
+        </div>
+
+        <div class="col" id="cell45">
+            <h2 class="h3" id="cell45-title"></h2>
         </div>
 
     </div>
+
+    <div class="output">
+        <div class="clear-logs">
+            <h2 class="h3">Logging</h2>
+            <button class="btn btn-sm btn-secondary"
+                    v-on:click="clearLogs()">Clear logs</button>
+        </div>
+        <code v-for="(msg, index) in output" :key="index">{{ msg }}</code>
+    </div>
+
 </div>
 
 <!--
@@ -345,9 +435,9 @@
                 this.apiGet('/nodes')
                     .then((response) => {
                         const data = response.data;
-                        if(data.Data && data.Data.HardwareDefinitions) {
+                        if(data.Data && data.Data.Nodes) {
                             // expecting array of objects
-                            this.nodes = data.Data.HardwareDefinitions[0];
+                            this.nodes = data.Data.Nodes[0];
                         }
                     });
             },
@@ -526,14 +616,10 @@
                     // canvas for chart
                     const el = document.createElement('canvas');
                     el.setAttribute('id', `chart-${idx}`);
-                    el.setAttribute('width','500');
-                    el.setAttribute('height','500');
-                    const charts = document.getElementById('charts');
-                    const newDiv = document.createElement('div');
-                    newDiv.id = `chart-col-div-${idx}`;
-                    newDiv.className = 'col';
-                    newDiv.appendChild(el);
-                    charts.appendChild(newDiv);
+                    const chart_cell = document.getElementById(`cell${idx+1}1`);
+                    chart_cell.appendChild(el);
+                    const tokens = data.node.split("@");
+                    document.getElementById(`cell${idx+1}1-title`).innerHTML = "KU:" + tokens[0];
                     const chart = new Chart(el, {
                         type: 'line',
                         data: {
@@ -567,9 +653,8 @@
                 {
                     const el = document.createElement('canvas');
                     el.setAttribute('id', `mqtt_client_stats_chart`);
-                    el.setAttribute('width','500');
-                    el.setAttribute('height','500');
-                    const mqtt_client_stats_div = document.getElementById('mqtt_client_stats');
+                    const mqtt_client_stats_div = document.getElementById('cell12');
+                    document.getElementById('cell12-title').innerHTML = "MQTT Clients";
                     mqtt_client_stats_div.appendChild(el);
                     const chart = new Chart(el, {
                         type: 'line',
@@ -591,9 +676,8 @@
                 {
                     const el = document.createElement('canvas');
                     el.setAttribute('id', `mqtt_client_handler_chart`);
-                    el.setAttribute('width','500');
-                    el.setAttribute('height','500');
-                    const mqtt_client_handler_div = document.getElementById('mqtt_client_handler');
+                    const mqtt_client_handler_div = document.getElementById('cell22');
+                    document.getElementById('cell22-title').innerHTML = "MQTT Client Manager";
                     mqtt_client_handler_div.appendChild(el);
                     const chart = new Chart(el, {
                         type: 'line',
@@ -615,9 +699,8 @@
                 {
                     const el = document.createElement('canvas');
                     el.setAttribute('id', `ovsdb_clients_chart`);
-                    el.setAttribute('width','500');
-                    el.setAttribute('height','500');
-                    const ovsdb_clients_div = document.getElementById('ovsdb_clients');
+                    const ovsdb_clients_div = document.getElementById('cell32');
+                    document.getElementById('cell32-title').innerHTML = "OpenSync Clients";
                     ovsdb_clients_div.appendChild(el);
                     const chart = new Chart(el, {
                         type: 'line',
@@ -633,6 +716,10 @@
                 }
                 this.ovsdb_clients_chart.update();
             },
+
+        clearLogs: function() {
+          this.output = [];
+        },
 
         makeLabel: function() {
                 const now = new Date();

@@ -32,6 +32,7 @@ init([]) ->
 			statistics:creation_info() ++
 			node_stats:creation_info() ++
 			animals:creation_info() ++
+			tip_stats:creation_info() ++
       simengine:creation_info();
 		node ->
 			?L_I("Simulation Node starting."),

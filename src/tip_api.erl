@@ -12,7 +12,8 @@
 -include("../include/simengine.hrl").
 
 %% API
--export([login/1,tip_locations/0,clients/0,equipments/0]).
+-export([login/1,tip_locations/0,clients/0,equipments/0,client_ids/0,client_ids_for_equipment/1,equipment_ids/0,
+	client_macs_for_equipment/1]).
 
 login(SimName)->
 	_=inets:start(),
@@ -78,6 +79,22 @@ get_all(BaseURI,Cursor,Acc)->
 equipments()->
 	get_all("/portal/equipment/forCustomer?customerId=2&").
 
+equipment_ids()->
+	E = equipments(),
+	[ X || #{ <<"id">> := X } <- E ].
+
 clients()->
 	get_all("/portal/client/session/forCustomer?customerId=2&").
 
+client_ids()->
+	C = clients(),
+	[ X || #{ <<"equipmentId">> := X } <- C ].
+
+client_ids_for_equipment(E)->
+	Query = uri_string:compose_query([{"equipmentIds",integer_to_list(E)},{"customerId","2"}]),
+	get_all("/portal/client/session/forCustomer?" ++ Query ++ "&" ).
+
+client_macs_for_equipment(E)->
+	Query = uri_string:compose_query([{"equipmentIds",integer_to_list(E)},{"customerId","2"}]),
+	C = get_all("/portal/client/session/forCustomer?" ++ Query ++ "&" ),
+	[ X || #{ <<"macAddress">> := #{ <<"addressAsString">> := X }} <- C ].

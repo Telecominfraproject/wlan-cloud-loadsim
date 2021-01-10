@@ -24,7 +24,7 @@
          prepare/3,start/3,stop/3,cancel/3,pause/3,restart/3,push/3,
          sim_exists/1,prepare_assets/5,push_assets/5,start_assets/5,stop_assets/5,cancel_assets/5,
 				 pause_assets/5,restarts_assets/5,update/1,list_actions/0,get_action/1,
-				 sim_action_to_json/1,delete/2]).
+				 sim_action_to_json/1,delete/2,list_simulation_states/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -36,23 +36,13 @@
 %% -define(SERVER, ?MODULE).
 %% -define(START_SERVER,{local,?MODULE}).
 
--record(sim_state,{
-	pushed = false :: boolean(),
-	current_op_pid = none :: none | pid(),
-	current_op = none :: none | preparing | pushing | starting | pausing | stopping | restarting | cancelling ,
-	state = created :: created | prepared | pushed | started | paused | stopped | restarted | cancelled ,
-	start = none :: none | erlang:timestamp(),
-	current_cb = none :: none | notification_cb(),
-	outstanding_nodes = [] :: [node()],
-	sim_info :: simulation()
-	}).
-
 -record(simengine_state, {
 			sim_states = #{} :: #{ SimName::binary() => #sim_state{}},
 			sim_actions = #{} :: #{ ID::binary() => #sim_action{}}
 }).
 
 -type sim_operation_res() :: { ok , JobId:: binary() }.
+-type sim_state() :: #sim_state{}.
 
 %%%===================================================================
 %%% API
@@ -113,6 +103,10 @@ restart(SimName,Attributes,{_M,_F,_A}=Notification)->
 list_actions()->
 	gen_server:call(?SERVER,list_actions).
 
+-spec list_simulation_states() -> {ok,[sim_state()]}.
+list_simulation_states()->
+	gen_server:call(?SERVER,list_simulation_states).
+
 -spec get_action(JobID::binary()|string()) -> {ok,sim_action()}| generic_error().
 get_action(JobID)->
 	gen_server:call(?SERVER,{get_action,utils:safe_binary(JobID)}).
@@ -165,9 +159,11 @@ handle_call({get_action,JobID}, _From, State = #simengine_state{}) ->
 		Job->
 			{reply,{ok,Job},State}
 	end;
+
 handle_call(list_actions, _From, State = #simengine_state{}) ->
 	ListOfActions = maps:fold(fun(_,V,A) -> [V|A] end,[],State#simengine_state.sim_actions),
 	{reply,{ok,ListOfActions},State};
+
 handle_call({create_simulation,SimInfo}, _From, State = #simengine_state{}) ->
 	case sim_exists(SimInfo#simulation.name) of
 		true ->
@@ -182,6 +178,7 @@ handle_call({create_simulation,SimInfo}, _From, State = #simengine_state{}) ->
 				Error -> { reply, {error,Error} , State}
 			end
 	end;
+
 handle_call({delete_simulation,SimName,_CAName}, _From, State = #simengine_state{}) ->
 	case sim_exists(SimName) of
 		false ->
@@ -193,6 +190,7 @@ handle_call({delete_simulation,SimName,_CAName}, _From, State = #simengine_state
 			_ = os:cmd("rm -rf " ++ Directory),
 			{reply,ok,State}
 	end;
+
 handle_call({update_simulation,SimInfo}, _From, State = #simengine_state{}) ->
 	case sim_exists(SimInfo#simulation.name) of
 		false ->
@@ -207,6 +205,7 @@ handle_call({update_simulation,SimInfo}, _From, State = #simengine_state{}) ->
 					{ reply, {error,Error} , State}
 			end
 	end;
+
 handle_call({prepare,SimName,Attributes,Notification},_From,State = #simengine_state{}) ->
 	case get_sim(SimName) of
 		[]->
@@ -529,15 +528,19 @@ handle_call({restart,SimName,Attributes,Notification}, _From, State = #simengine
 			end
 	end;
 
-handle_call({get,SimName}, _From, State = #simengine_state{}) ->
-	case get_sim(SimName) of
+handle_call({get,SimName}, _From, State = #simengine_state{}) ->case get_sim(SimName) of
 		[] ->
 			{ reply, ?ERROR_SIM_UNKNOWN, State };
 		[SimInfo] ->
 			{reply, {ok,SimInfo}, State}
 	end;
+
 handle_call(list_simulations, _From, State = #simengine_state{}) ->
 	{ reply, {ok, list_sims()}, State };
+
+handle_call(list_simulation_states, _From, State = #simengine_state{}) ->
+	{ reply, {ok, State#simengine_state.sim_states}, State };
+
 handle_call(_Request, _From, State = #simengine_state{}) ->
 	{reply, ok, State}.
 

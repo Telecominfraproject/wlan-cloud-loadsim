@@ -34,6 +34,17 @@
 	start_os_time = 1 :: pos_integer(),
 	end_os_time = 1 :: pos_integer()}).
 
+-record(sim_state,{
+	pushed = false :: boolean(),
+	current_op_pid = none :: none | pid(),
+	current_op = none :: none | preparing | pushing | starting | pausing | stopping | restarting | cancelling ,
+	state = created :: created | prepared | pushed | started | paused | stopped | restarted | cancelled ,
+	start = none :: none | erlang:timestamp(),
+	current_cb = none :: none | notification_cb(),
+	outstanding_nodes = [] :: [node()],
+	sim_info :: simulation()
+}).
+
 -type simulation()::#simulation{}.
 -type sim_action()::#sim_action{}.
 

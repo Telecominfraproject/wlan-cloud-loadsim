@@ -69,7 +69,7 @@ connect(NodeName) ->
 			{ok,Role} = node_stats:node_type(),
 			manager:connect(Role);
 		_ ->
-			io:format("Cannot connect to node ~p. Please verify your network cookie and the FQDN is pingable.~n")
+			io:format("Cannot connect to node ~p. Please verify your network cookie and the FQDN is pingable.~n",[NodeName])
 	end.
 
 -spec configuration() -> { ok , Configuration::term() }.

@@ -21,6 +21,35 @@ servers:
 security: 
   - ApiKeyAuth: []
 
+tags:
+- name: OUIs
+  description:
+    OUIs represent the manufacturer of a hardware device. The first 3 bytes of a MAC address are the OUI.
+- name: Nodes
+  description:
+    Nodes represent the physical or virtuala computers running the OWLS software. Nodes
+    can be either a manager, a simulation node, or a monitor node.
+- name: Manufacturers
+  description:
+    Manufacturers or mkmakers of devices. Each manufacturer maybe assigned 1 or more OUI.
+- name: CA
+  description:
+    Certificate authorities (CAs) are necessary to create keys for devices and services.
+- name: Simulations
+  description:
+    A simulation holds the information details for a set of devices participating
+    in a simulation.
+- name: Actions
+  description:
+    Actions operate on simulations. They allow you to start, stop, cancel, or resume.
+    This also allows you to specify the devices that should be targetted for the actions.
+    This culd be all the devices in a simulation or a subset.
+- name: Devices
+  description:
+    This lets you see the automatically created devices.
+- name: Hardware
+  description:
+    This shows the previsouly defined hardware devices.
 paths:
   /ouis:
     get:
@@ -558,6 +587,7 @@ paths:
                 # prepare,push,start,stop,pause,cancel,restart
                 action:
                   type: string
+                  enum: [start,stop,pause,cancel,resume]
                 simulation:
                   type: string
                 parameters:

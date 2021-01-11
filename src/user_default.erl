@@ -64,7 +64,13 @@ connected()->
 -spec connect(NodeName::string()) -> { ok , none | node() }.
 connect(NodeName) ->
 	Node = list_to_atom(NodeName),
-	manager:connect(Node).
+	case net_adm:ping(Node) of
+		pong ->
+			{ok,Role} = node_stats:node_type(),
+			manager:connect(Role);
+		_ ->
+			io:format("Cannot connect to node ~p. Please verify your network cookie and the FQDN is pingable.~n")
+	end.
 
 -spec configuration() -> { ok , Configuration::term() }.
 configuration()->

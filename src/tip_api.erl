@@ -19,7 +19,7 @@ login(SimName)->
 	_=inets:start(),
 	try
 		{ok,Sim} = simengine:get(SimName),
-		io:format("Trying to log into: ~p...~n",[Sim#simulation.opensync_server_name]),
+		% io:format("Trying to log into: ~p...~n",[Sim#simulation.opensync_server_name]),
 		ServerName = binary_to_list(Sim#simulation.opensync_server_name),
 		LoginURIBase = "https://" ++ ServerName ++ ":" ++ integer_to_list(9051),
 		LoginURI =  LoginURIBase ++ "/management/v1/oauth2/token",
@@ -29,9 +29,12 @@ login(SimName)->
 		%% io:format("R=~p  ~p~n",[ResultCode,Map]),
 		persistent_term:put(tip_access_token,binary_to_list(maps:get(<<"access_token">>,Map))),
 		persistent_term:put(tip_uri_base,LoginURIBase),
-		io:format("TIP Logged in.~n")
+		%% io:format("TIP Logged in.~n"),
+		ok
 	catch
-		_:_ -> io:format("Could not log into TIP.~n")
+		_:_ ->
+			io:format("Could not log into TIP.~n"),
+			error
 	end.
 
 token()->
@@ -60,19 +63,19 @@ get_all(BaseURI)->
 
 get_all(BaseURI,Cursor,Acc)->
 	PC = create_pagination_context(Cursor),
-	io:format("Context: ~s~n",[PC]),
+	% io:format("Context: ~s~n",[PC]),
 	URI = uri_base() ++ BaseURI ++ PC,
 	{ok,{{_,200,_},_Headers,Body}} = httpc:request(get,{URI,[{"Authorization","Bearer " ++ token()}]},[],[]),
 	M = jiffy:decode(Body,[return_maps]),
 	Array = maps:get(<<"items">>,M),
 	NewContext = maps:get(<<"context">>,M),
-	L = length(Array),
+	% L = length(Array),
 	case  maps:get(<<"lastPage">>,NewContext) of
 		true ->
-			io:format("Total elements: ~p~n",[length(Acc)+length(Array)]),
+			% io:format("Total elements: ~p~n",[length(Acc)+length(Array)]),
 			Acc ++ Array;
 		false ->
-			io:format("Just got ~p elements so far ~p ~n",[L,length(Acc)+L]),
+			% io:format("Just got ~p elements so far ~p ~n",[L,length(Acc)+L]),
 			get_all(BaseURI,NewContext,Acc ++ Array)
 	end.
 

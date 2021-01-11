@@ -9,10 +9,15 @@
 -module(tip_stats).
 -author("stephb").
 
+-include("../include/common.hrl").
+-include("../include/simengine.hrl").
+-include("../include/inventory.hrl").
+
+
 -behaviour(gen_server).
 
 %% API
--export([start_link/0,creation_info/0,create_sim_report/0,run_sim_report/1,register/2]).
+-export([start_link/0,creation_info/0,create_sim_report/0,run_sim_report/1,register/2,deregister/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -43,6 +48,9 @@ creation_info() ->
 register( SimName, Pid ) ->
 	gen_server:call(?SERVER,{register_reporting_pid,SimName,Pid}).
 
+deregister( SimName, Pid ) ->
+	gen_server:call(?SERVER,{deregister_reporting_pid,SimName,Pid}).
+
 lookup( SimName ) ->
 	gen_server:call(?SERVER,{lookup,SimName}).
 
@@ -66,6 +74,7 @@ start_link() ->
 	{ok, State :: #tip_stats_state{}} | {ok, State :: #tip_stats_state{}, timeout() | hibernate} |
 	{stop, Reason :: term()} | ignore).
 init([]) ->
+	timer:apply_after(5000,?MODULE,create_sim_report,[]),
 	{ok, #tip_stats_state{}}.
 
 %% @private
@@ -81,7 +90,7 @@ init([]) ->
 handle_call(list_reporters, _From, State = #tip_stats_state{}) ->
 	{reply, {ok,State#tip_stats_state.reporting_pids}, State};
 handle_call({lookup,SimName}, _From, State = #tip_stats_state{}) ->
-	case maps:find(SimName,State#tip_stats_state.reporting_pids,undefined) of
+	case maps:get(SimName,State#tip_stats_state.reporting_pids,undefined) of
 		undefined ->
 			{reply,error,State};
 		Pid ->
@@ -89,6 +98,17 @@ handle_call({lookup,SimName}, _From, State = #tip_stats_state{}) ->
 	end;
 handle_call({register_reporting_pid,SimName,Pid}, _From, State = #tip_stats_state{}) ->
 	{reply, ok, State#tip_stats_state{ reporting_pids = maps:put( SimName, Pid, State#tip_stats_state.reporting_pids )}};
+handle_call({deregister_reporting_pid,SimName,Pid}, _From, State = #tip_stats_state{}) ->
+	case maps:get(SimName,State#tip_stats_state.reporting_pids,undefined) of
+		undefined -> { reply, ok, State };
+		ThePid ->
+			case ThePid == Pid of
+				true ->
+					{ reply, ok , State#tip_stats_state{ reporting_pids = maps:remove(SimName,State#tip_stats_state.reporting_pids)}};
+				false ->
+					{ reply, ok, State }
+			end
+  end;
 handle_call(_Request, _From, State = #tip_stats_state{}) ->
 	{reply, ok, State}.
 
@@ -137,12 +157,12 @@ create_sim_report()->
 	% do not run it.
 	case simengine:list_simulations() of
 		{ ok , [] } ->
-			% make sure we come back here again
-			timer:apply_after(2000,?MODULE,create_sim_report,[]);
+			timer:apply_after(2000,tip_stats,create_sim_report,[]);
 		{ ok , SimulationList } ->
-			create_missing_reports(SimulationList);
+			create_missing_reports(SimulationList),
+			timer:apply_after(2000,tip_stats,create_sim_report,[]);
 		_ ->
-			timer:apply_after(2000,?MODULE,create_sim_report,[])
+			timer:apply_after(2000,tip_stats,create_sim_report,[])
 	end,
 	ok.
 
@@ -151,7 +171,28 @@ run_sim_report(SimName) ->
 	% do calls to get the number of equipment, sessions, etc
 	% compute the number for this simulation: APS, clients.
 	%
-	?MODULE:register(SimName,self()),
+	tip_stats:register(SimName,self()),
+	{ok,SimInfo} = simengine:get(SimName),
+	tip_api:login(SimName),
+	TipEquipmentListLength = length(tip_api:equipment_ids()),
+	TipClientListLength = length(tip_api:clients()),
+	{ok,SimStates} = simengine:list_simulation_states(),
+	State = case maps:get(SimName,SimStates,undefined) of
+		undefined ->
+			unknown;
+		SimState ->
+			SimState#sim_state.state
+	end,
+
+	Report = #{
+		simulation_name => SimName,
+		max_clients => number_of_clients(SimInfo#simulation.ca,SimInfo#simulation.name),
+		max_devices => SimInfo#simulation.num_devices,
+		tip_clients => TipClientListLength,
+		tip_devices => TipEquipmentListLength,
+		state => State },
+	statistics:submit_report(<<"simulation_state">>,Report),
+	tip_stats:deregister(SimName,self()),
 	ok.
 
 create_missing_reports([])->
@@ -161,7 +202,18 @@ create_missing_reports([H|T])->
 		{ok,_Pid} ->
 			create_missing_reports(T);
 		_ ->
-			spawn_link(?MODULE,run_sim_report,[H]),
+			spawn_link(tip_stats,run_sim_report,[H]),
 			create_missing_reports(T)
 	end.
+
+number_of_clients(CAName,SimName)->
+	{ ok , AllClients } = inventory:list_clients(CAName),
+	lists:foldl(fun(Client,A)->
+								case inventory:get_client(SimName,Client) of
+									{ok,ClientInfo} ->
+										A + length(ClientInfo#client_info.wifi_clients);
+									_ ->
+										A
+								end
+	            end,0,AllClients).
 

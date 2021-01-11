@@ -42,6 +42,7 @@ creation_info() ->
 	       type => worker,
 	       modules => [?MODULE]} ].
 
+-spec submit_report( Type::binary(), Report::#{}) -> no_return().
 submit_report(Type,Report)->
 %	io:format(">STATS submitting report~n"),
 	gen_server:cast(?SERVER,{stats_report,node(),Type,Report}).

@@ -222,7 +222,7 @@ message_loop(APS) ->
 			end;
 
 		{client_stats,_AP,_Statistics} ->
-			io:format(">>>>MUST UPDATE STATS!!!~n"),
+			%% io:format(">>>>MUST UPDATE STATS!!!~n"),
 			message_loop(APS);
 
 		{send_raw, _AP, RawData} ->

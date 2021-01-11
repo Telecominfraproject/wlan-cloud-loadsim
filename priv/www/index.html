@@ -747,7 +747,6 @@
             },
 
             update_simulation_state: function(data) {
-                this.output.push(data);
                 if (this.simulation_state_chart === null) {
                     const el = document.createElement('canvas');
                     el.setAttribute('id', `simulation_state_client_chart`);

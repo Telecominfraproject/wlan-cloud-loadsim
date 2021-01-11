@@ -25,8 +25,8 @@
         .dashboard {
             background-color: skyblue;
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
-            grid-template-rows: 320px 320px 320px;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            grid-template-rows: 350px 350px 350px;
             grid-gap: 15px;
             border-width: 15px 15px;
             border-style: solid;
@@ -216,16 +216,11 @@
         </div>
 
         <div class="col" id="cell13">
-            <h2 class="h3" id="cell13-title">Client sessions</h2>
-            <p class="bignumber">82%</p>
+            <h2 class="h3" id="cell13-title"></h2>
         </div>
 
         <div class="col" id="cell14">
             <h2 class="h3" id="cell14-title"></h2>
-        </div>
-
-        <div class="col" id="cell15">
-            <h2 class="h3" id="cell15-title"></h2>
         </div>
 
         <!-- Row 2 -->
@@ -245,10 +240,6 @@
             <h2 class="h3" id="cell24-title"></h2>
         </div>
 
-        <div class="col" id="cell25">
-            <h2 class="h3" id="cell25-title"></h2>
-        </div>
-
         <!-- Row 3 -->
         <div class="col" id="cell31">
             <h2 class="h3" id="cell31-title"></h2>
@@ -264,10 +255,6 @@
 
         <div class="col" id="cell34">
             <h2 class="h3" id="cell34-title"></h2>
-        </div>
-
-        <div class="col" id="cell35">
-            <h2 class="h3" id="cell35-title"></h2>
         </div>
 
     </div>
@@ -323,15 +310,17 @@
                 },
                 // stream suff
                 nodesDict: {},
-                nodesData: [],
+                nodesData: [ [], [], [] ],
                 num_charts: 0,
                 charts: [],
-                mqtt_client_stats_data: [],
+                mqtt_client_stats_data: [[], []],
                 mqtt_client_stats_chart: null,
-                mqtt_client_handler_data: [],
+                mqtt_client_handler_data: [[],[]],
                 mqtt_client_handler_chart: null,
-                ovsdb_clients_data: [],
+                ovsdb_clients_data: [[],[]],
                 ovsdb_clients_chart: null,
+                simulation_state_chart: null,
+                simulation_state_data: [[],[]],
                 streamInterval: null,
                 streamIntervalTime: 250,
                 streamTimeSince: 0,
@@ -365,6 +354,11 @@
                 this.getCas();
                 this.getNodes();
                 this.getSimulations();
+
+                setInterval(
+                    () => this.getNodes(),
+                    3000
+                );
             },
             setupWebsocket: function() {
                 if( !this.wss ) {
@@ -379,15 +373,18 @@
                     console.log(event);
                     const Payload = JSON.parse(event.data);
                     if (Payload.name === 'os_details') {
-                        this.testLogKernel(Payload);
+                        this.logKernel(Payload);
                     } else if (Payload.name === 'mqtt_client_stats') {
                         this.mqtt_client_stats(Payload);
                     } else if (Payload.name === 'mqtt_client_handler') {
                         this.mqtt_client_handler(Payload);
                     } else if (Payload.name === 'ovsdb_clients') {
                         this.ovsdb_clients(Payload);
-                    } else if(Payload.type === 'logs')
+                    } else if (Payload.type === 'logs') {
                         this.output.push(Payload.node + ": " + Payload.data + "\n");
+                    } else if (Payload.name === 'simulation_state') {
+                        this.update_simulation_state(Payload);
+                    }
                 }
 
                 this.socket.onopen = (event) => {
@@ -434,7 +431,12 @@
                     .then((response) => {
                         const data = response.data;
                         if(data.Data && data.Data.Nodes) {
-                            // expecting array of objects
+                            var i;
+                            for(i=0;i<data.Data.Nodes[0].length;i++) {
+                                data.Data.Nodes[0][i].total = Math.trunc(data.Data.Nodes[0][i].total);
+                                data.Data.Nodes[0][i].allocated = Math.trunc(data.Data.Nodes[0][i].allocated);
+                                data.Data.Nodes[0][i].worst = Math.trunc(data.Data.Nodes[0][i].worst);
+                            }
                             this.nodes = data.Data.Nodes[0];
                         }
                     });
@@ -601,7 +603,7 @@
                 }
             },
 
-            testLogKernel: function( data ) {
+            logKernel: function( data ) {
                 let idx = null;
                 if( !data.node ) {
                     return;
@@ -617,7 +619,7 @@
                     const chart_cell = document.getElementById(`cell${idx+1}1`);
                     chart_cell.appendChild(el);
                     const tokens = data.node.split("@");
-                    document.getElementById(`cell${idx+1}1-title`).innerHTML = "KU:" + tokens[0];
+                    document.getElementById(`cell${idx+1}1-title`).innerHTML = tokens[0];
                     const chart = new Chart(el, {
                         type: 'line',
                         options: {
@@ -633,27 +635,25 @@
                         data: {
                             labels: [],
                             datasets: [{
-                                label: data.node,
-                                data: this.nodesData[idx],
-                            }]
+                                    label: 'avg1',
+                                    borderColor: "#7dab16",
+                                    data: this.nodesData[idx][0],
+                                },{
+                                    label: 'avg5',
+                                    borderColor: "#244c9b",
+                                    data: this.nodesData[idx][1],
+                                },{
+                                    label: 'avg15',
+                                    borderColor: "#e7558f",
+                                    data: this.nodesData[idx][2],
+                                }]
                         },
                     });
                     this.charts[idx] = chart;
                     this.num_charts = this.num_charts + 1;
                 }
-                if( data.data ) {
-                    console.log(data.data.kernel_utilization);
-                    if ( this.charts[idx].data.datasets[0].data.length === 15 )
-                    {
-                        this.charts[idx].data.datasets[0].data.shift();
-                        this.charts[idx].data.labels.shift();
-                    }
-                    this.charts[idx].data.datasets[0].data.push(data.data.kernel_utilization);
-                    this.charts[idx].data.labels.push( this.makeLabel() );
-                    this.charts[idx].update();
-                } else {
-                    console.log('No kernel utilization');
-                }
+                let theData = [ data.data.cpu_avg1, data.data.cpu_avg5, data.data.cpu_avg15 ];
+                this.updateChartData(this.charts[idx], theData);
             },
 
             mqtt_client_stats: function(data) {
@@ -668,15 +668,23 @@
                         type: 'line',
                         data: {
                             labels: [],
-                            datasets: [{
-                                label: '',
-                                data: this.mqtt_client_stats_data,
-                            }]
+                            datasets: [
+                                {
+                                    label: 'connected',
+                                    borderColor: "#7dab16",
+                                    data: this.mqtt_client_stats_data[0],
+                                },{
+                                    label: 'reconnecting',
+                                    borderColor: "#244c9b",
+                                    data: this.mqtt_client_stats_data[1],
+                                }
+                            ]
                         },
                     });
                     this.mqtt_client_stats_chart = chart;
                 }
-                this.mqtt_client_stats_chart.update();
+                let theData = [ data.data.connected, data.data.reconnecting ];
+                this.updateChartData(this.mqtt_client_stats_chart, theData);
             },
 
             mqtt_client_handler: function(data) {
@@ -691,20 +699,26 @@
                         type: 'line',
                         data: {
                             labels: [],
-                            datasets: [{
-                                label: '',
-                                data: this.mqtt_client_handler_data,
-                            }]
+                            datasets: [
+                                {
+                                    label: 'connections',
+                                    borderColor: "#7dab16",
+                                    data: this.mqtt_client_handler_data[0],
+                                },{
+                                    label: 'errors',
+                                    borderColor: "#244c9b",
+                                    data: this.mqtt_client_handler_data[1],
+                                }]
                         },
                     });
                     this.mqtt_client_handler_chart = chart;
                 }
-                this.mqtt_client_handler_chart.update();
+                let theData = [data.data.current_connections,data.data.errors];
+                this.updateChartData(this.mqtt_client_handler_chart, theData);
             },
 
             ovsdb_clients: function(data) {
-                if(this.ovsdb_clients_chart===null)
-                {
+                if (this.ovsdb_clients_chart === null) {
                     const el = document.createElement('canvas');
                     el.setAttribute('id', `ovsdb_clients_chart`);
                     const ovsdb_clients_div = document.getElementById('cell32');
@@ -714,16 +728,67 @@
                         type: 'line',
                         data: {
                             labels: [],
-                            datasets: [{
-                                label: '',
-                                data: this.ovsdb_clients_data,
-                            }]
+                            datasets: [
+                                {
+                                    label: 'running',
+                                    borderColor: "#7dab16",
+                                    data: this.ovsdb_clients_data[0],
+                                },{
+                                    label: 'reconnecting',
+                                    borderColor: "#244c9b",
+                                    data: this.ovsdb_clients_data[1],
+                                }]
                         },
                     });
                     this.ovsdb_clients_chart = chart;
                 }
-                this.ovsdb_clients_chart.update();
+                let theData = [data.data.running,data.data.reconnecting];
+                this.updateChartData(this.ovsdb_clients_chart, theData);
             },
+
+            update_simulation_state: function(data) {
+                this.output.push(data);
+                if (this.simulation_state_chart === null) {
+                    const el = document.createElement('canvas');
+                    el.setAttribute('id', `simulation_state_client_chart`);
+                    const ovsdb_clients_div = document.getElementById('cell13');
+                    document.getElementById('cell13-title').innerHTML = "TIP Data";
+                    ovsdb_clients_div.appendChild(el);
+                    const chart = new Chart(el, {
+                        type: 'line',
+                        data: {
+                            labels: [],
+                            datasets: [                                {
+                                label: 'APs',
+                                borderColor: "#7dab16",
+                                data: this.simulation_state_data[0],
+                            },{
+                                label: 'Sessions',
+                                borderColor: "#244c9b",
+                                data: this.simulation_state_data[1],
+                            }]
+                        },
+                    });
+                    this.simulation_state_chart = chart;
+                }
+                let theData = [100*(data.data.tip_devices/data.data.max_devices),100*(data.data.tip_clients/data.data.max_clients)];
+                this.updateChartData(this.simulation_state_chart,theData);
+            },
+
+        updateChartData: function(the_chart,dataValues) {
+            let i=0;
+            if(the_chart.data.datasets[0].data.length === 30) {
+                for(i=0;i<dataValues.length;i++) {
+                    the_chart.data.datasets[i].data.shift();
+                }
+                the_chart.data.labels.shift();
+            }
+            for(i=0;i<dataValues.length;i++) {
+                the_chart.data.datasets[i].data.push(dataValues[i]);
+            }
+            the_chart.data.labels.push(this.makeLabel());
+            the_chart.update();
+        },
 
         clearLogs: function() {
           this.output = [];

@@ -67,6 +67,8 @@ connect(NodeName) ->
 	case net_adm:ping(Node) of
 		pong ->
 			{ok,Role} = node_stats:node_type(),
+			global:sync(),
+			timer:sleep(2000),
 			manager:connect(Role);
 		_ ->
 			io:format("Cannot connect to node ~p. Please verify your network cookie and the FQDN is pingable.~n",[NodeName])

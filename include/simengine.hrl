@@ -8,6 +8,8 @@
 %%%-------------------------------------------------------------------
 -author("stephb").
 
+-include("../include/common.hrl").
+
 -record( simulation, { name = <<>> :: binary(),
 	ca = <<>> :: binary(),
 	num_devices = 0 :: integer(),

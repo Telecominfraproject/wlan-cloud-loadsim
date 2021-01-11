@@ -107,11 +107,11 @@ handle_call({connect,NodeName,Type}, _From, State = #manager_state{}) ->
 			{reply, ok, State#manager_state{ nodes = NewNodes }}
 	end;
 handle_call({disconnect,NodeName}, _From, State = #manager_state{}) ->
-	case sets:is_element(NodeName,State#manager_state.nodes) of
+	case maps:is_key(NodeName,State#manager_state.nodes) of
 		false ->
 			{reply,ok,State};
 		true ->
-			NewNodes = sets:del_element(NodeName,State#manager_state.nodes),
+			NewNodes = maps:remove(NodeName,State#manager_state.nodes),
 			NewStats = maps:remove(NodeName,State#manager_state.stats),
 			erlang:monitor_node(NodeName,false),
 			?RL_IA("Node ~p is disconnecting.",[NodeName]),

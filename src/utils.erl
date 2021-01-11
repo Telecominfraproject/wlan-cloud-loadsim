@@ -76,7 +76,6 @@ priv_dir()->
 app_env(Key,Default)->
 	application:get_env(app_name(),Key,Default).
 
-
 print_nodes_info(Nodes)->
 	io:format("---------------------------------------------------------------------------------------------------------~n"),
 	io:format("|Node name                             | Total       | Allocated   | Biggest      |  Procs  | Type      |~n"),

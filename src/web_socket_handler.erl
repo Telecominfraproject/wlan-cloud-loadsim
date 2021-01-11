@@ -10,7 +10,8 @@
 -author("stephb").
 
 %% API
--export([init/2,websocket_init/1,websocket_handle/2,websocket_info/2,terminate/3,send_frame/1]).
+-export([init/2,websocket_init/1,websocket_handle/2,websocket_info/2,terminate/3,send_frame/1,
+	send_logs/3,send_logs/4]).
 
 -type in_frame() :: ping | pong | {text | binary | ping | pong, binary()}.
 -type out_frame() :: cow_ws:frame().
@@ -66,8 +67,42 @@ terminate(_Reason,_PartialReq,_State)->
 -spec send_frame(Data::binary()|string())->ok.
 send_frame(Data)->
 	Pids = persistent_term:get(web_socket_pids,sets:new()),
-	sets:fold( fun(E,A) ->
-%%						io:format("sending to ~p~n",[E]),
-							E ! { frame, text, Data }, A
-	           end,[], Pids ),
+	_= case sets:is_empty(Pids) of
+		false ->
+			sets:fold( fun(E,A) ->
+		%%						io:format("sending to ~p~n",[E]),
+									E ! { frame, text, Data }, A
+			           end,[], Pids );
+		true ->
+			ok
+	end,
+	ok.
+
+send_logs( Severity, Node , Message, Args )->
+	Pids = persistent_term:get(web_socket_pids,sets:new()),
+	_ = case sets:is_empty(Pids) of
+				false ->
+					FormattedMessage = lists:flatten(io_lib:format(Message,Args)),
+					LogMessage = #{ type => logs, node => Node, severity => Severity , data => list_to_binary(FormattedMessage) },
+					Data = jiffy:encode(LogMessage),
+					sets:fold(  fun(E,A) ->
+												E ! { frame, text, Data }, A
+											end,[], Pids );
+				true ->
+					ok
+			end,
+	ok.
+
+send_logs( Severity, Node , Message )->
+	Pids = persistent_term:get(web_socket_pids,sets:new()),
+	_ = case sets:is_empty(Pids) of
+		    false ->
+			    LogMessage = #{ type => logs, node => Node, severity => Severity , data => list_to_binary(Message) },
+			    Data = jiffy:encode(LogMessage),
+			    sets:fold(  fun(E,A) ->
+				    E ! { frame, text, Data }, A
+			                end,[], Pids );
+		    true ->
+			    ok
+	    end,
 	ok.

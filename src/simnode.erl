@@ -59,8 +59,6 @@ creation_info() ->
 		type => worker,
 		modules => [?MODULE]} ].
 
-%% ovsdb_server
-
 -spec pause( all | [UUID::binary()], Attributes::attribute_list()) -> ok | generic_error().
 pause(UIDS,Attributes ) ->
 	gen_server:call(?SERVER,{pause,UIDS,Attributes}).
@@ -140,42 +138,42 @@ handle_call({set_configuration,Configuration}, _From, State = #simnode_state{}) 
 	safe_execute( State#simnode_state.ap_client_handler, set_configuration, [Configuration]),
 	safe_execute( State#simnode_state.mqtt_server_handler, set_configuration, [Configuration]),
 	safe_execute( State#simnode_state.ovsdb_server_handler, set_configuration, [Configuration]),
-	?L_I("Configuration sent to all handlers."),
+	?RL_I("Configuration sent to all handlers."),
 	{ reply, ok , State#simnode_state{ sim_configuration = Configuration } };
 
 handle_call({start,UIDs,Attributes}, _From, State = #simnode_state{}) ->
 	safe_execute( State#simnode_state.ap_client_handler, start, [UIDs,Attributes]),
 	safe_execute( State#simnode_state.mqtt_server_handler, start, [UIDs,Attributes]),
 	safe_execute( State#simnode_state.ovsdb_server_handler, start, [UIDs,Attributes]),
-	?L_I("START sent to all handlers."),
+	?RL_I("START sent to all handlers."),
 	{ reply, ok , State};
 
 handle_call({stop,UIDs,Attributes}, _From, State = #simnode_state{}) ->
 	safe_execute( State#simnode_state.ap_client_handler, stop, [UIDs,Attributes]),
 	safe_execute( State#simnode_state.mqtt_server_handler, stop, [UIDs,Attributes]),
 	safe_execute( State#simnode_state.ovsdb_server_handler, stop, [UIDs,Attributes]),
-	?L_I("STOP sent to all handlers."),
+	?RL_I("STOP sent to all handlers."),
 	{ reply, ok , State};
 
 handle_call({pause,UIDs,Attributes}, _From, State = #simnode_state{}) ->
 	safe_execute( State#simnode_state.ap_client_handler, pause, [UIDs,Attributes]),
 	safe_execute( State#simnode_state.mqtt_server_handler, pause, [UIDs,Attributes]),
 	safe_execute( State#simnode_state.ovsdb_server_handler, pause, [UIDs,Attributes]),
-	?L_I("PAUSE sent to all handlers."),
+	?RL_I("PAUSE sent to all handlers."),
 	{ reply, ok , State};
 
 handle_call({restart,UIDs,Attributes}, _From, State = #simnode_state{}) ->
 	safe_execute( State#simnode_state.ap_client_handler, restart, [UIDs,Attributes]),
 	safe_execute( State#simnode_state.mqtt_server_handler, restart, [UIDs,Attributes]),
 	safe_execute( State#simnode_state.ovsdb_server_handler, restart, [UIDs,Attributes]),
-	?L_I("RESTART sent to all handlers."),
+	?RL_I("RESTART sent to all handlers."),
 	{ reply, ok , State};
 
 handle_call({cancel,UIDs,Attributes}, _From, State = #simnode_state{}) ->
 	safe_execute( State#simnode_state.ap_client_handler, cancel, [UIDs,Attributes]),
 	safe_execute( State#simnode_state.mqtt_server_handler, cancel, [UIDs,Attributes]),
 	safe_execute( State#simnode_state.ovsdb_server_handler, cancel, [UIDs,Attributes]),
-	?L_I("CANCEL sent to all handlers."),
+	?RL_I("CANCEL sent to all handlers."),
 	{ reply, ok , State};
 
 handle_call(get_configuration, _From, State = #simnode_state{}) ->
@@ -217,6 +215,7 @@ handle_info(_Info, State = #simnode_state{}) ->
 -spec(terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
 		State :: simnode_state()) -> term()).
 terminate(_Reason, _State = #simnode_state{}) ->
+	?RL_I("Node going down."),
 	ok.
 
 %% @private

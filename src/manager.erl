@@ -102,7 +102,7 @@ handle_call({connect,NodeName,Type}, _From, State = #manager_state{}) ->
 			Result = rpc:call(NodeName,utils,get_addr,[]),
 			NewNodes = maps:put(NodeName,Type,State#manager_state.nodes),
 			manager:report_event(node_connect,#{ connecting_node => NodeName, address => Result}),
-			?L_IA("Node ~p is connecting (~p).",[NodeName,Type]),
+			?RL_IA("Node ~p is connecting (~p).",[NodeName,Type]),
 			report_event(nodeup,#{ nodename => NodeName }),
 			{reply, ok, State#manager_state{ nodes = NewNodes }}
 	end;
@@ -114,7 +114,7 @@ handle_call({disconnect,NodeName}, _From, State = #manager_state{}) ->
 			NewNodes = sets:del_element(NodeName,State#manager_state.nodes),
 			NewStats = maps:remove(NodeName,State#manager_state.stats),
 			erlang:monitor_node(NodeName,false),
-			?L_IA("Node ~p is disconnecting.",[NodeName]),
+			?RL_IA("Node ~p is disconnecting.",[NodeName]),
 			manager:report_event(node_disconnect,#{ disconnecting_node => NodeName }),
 			{reply, ok, State#manager_state{ nodes = NewNodes , stats = NewStats }}
 	end;
@@ -131,15 +131,19 @@ handle_call(_Request, _From, State = #manager_state{}) ->
 	{stop, Reason :: term(), NewState :: #manager_state{}}).
 handle_cast({log_info,NodeName,Message}, State = #manager_state{}) ->
 	_=lager:info("~p: "++Message,[NodeName]),
+	web_socket_handler:send_logs(info,NodeName,Message),
 	{noreply, State};
 handle_cast({log_info,NodeName,Message,Args}, State = #manager_state{}) ->
 	_=lager:info("~p: "++Message,[NodeName|Args]),
+	web_socket_handler:send_logs(info,NodeName,Message,Args),
 	{noreply, State};
 handle_cast({log_error,NodeName,Message}, State = #manager_state{}) ->
 	_=lager:error("~p: "++Message,[NodeName]),
+	web_socket_handler:send_logs(error,NodeName,Message),
 	{noreply, State};
 handle_cast({log_error,NodeName,Message,Args}, State = #manager_state{}) ->
 	_=lager:error("~p: "++Message,[NodeName|Args]),
+	web_socket_handler:send_logs(error,NodeName,Message,Args),
 	{noreply, State};
 handle_cast({event,NodeName,Event,EventData}, State = #manager_state{}) ->
 	try

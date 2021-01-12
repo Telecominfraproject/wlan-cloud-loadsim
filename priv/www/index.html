@@ -77,9 +77,10 @@
             color: black;
         }
         .bignumber {
-            text-shadow: 2px 2px 5px red;
-            font-size: 90px;
+            text-shadow: 2px 2px 5px grey;
+            font-size: 110px;
             font-family: Arial, Helvetica, sans-serif;
+            color: black
         }
         logline {
             white-space: pre;
@@ -220,7 +221,8 @@
         </div>
 
         <div class="col" id="cell14">
-            <h2 class="h3" id="cell14-title"></h2>
+            <h2 class="h3" id="cell14-title">Sessions</h2>
+            <div class="bignumber" id="session_count"></div>
         </div>
 
         <!-- Row 2 -->
@@ -237,7 +239,8 @@
         </div>
 
         <div class="col" id="cell24">
-            <h2 class="h3" id="cell24-title"></h2>
+            <h2 class="h3" id="cell24-title">APs</h2>
+            <div class="bignumber" id="hardware_count"></div>
         </div>
 
         <!-- Row 3 -->
@@ -770,7 +773,13 @@
                     });
                     this.simulation_state_chart = chart;
                 }
-                let theData = [100*(data.data.tip_devices/data.data.max_devices),100*(data.data.tip_clients/data.data.max_clients)];
+                dev_pct = (100*(data.data.tip_devices/data.data.max_devices)).toFixed(1);
+                sess_pct = (100*(data.data.tip_clients/data.data.max_clients)).toFixed(1);
+                document.getElementById('session_count').innerHTML = sess_pct + '%';
+                document.getElementById('hardware_count').innerHTML = dev_pct + '%';
+                document.getElementById('session_count').style.color = this.pick_color(sess_pct);
+                document.getElementById('hardware_count').style.color = this.pick_color(dev_pct);
+                let theData = [dev_pct,sess_pct];
                 this.updateChartData(this.simulation_state_chart,theData);
             },
 
@@ -791,6 +800,16 @@
 
         clearLogs: function() {
           this.output = [];
+        },
+
+        pick_color: function(value) {
+            if (value < 75) {
+                return 'red';
+            }
+            else if (value < 95) {
+                return 'yellow';
+            }
+            return 'green';
         },
 
         makeLabel: function() {

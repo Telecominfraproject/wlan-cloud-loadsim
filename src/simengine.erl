@@ -255,7 +255,7 @@ handle_call({push,SimName,Attributes,Notification}, _From, State = #simengine_st
 				true->
 					case S#sim_state.pushed of
 						true ->
-							{reply,?ERROR_SIM_ASSETS_ALREADY_PUSHED};
+							{reply,?ERROR_SIM_ASSETS_ALREADY_PUSHED,State};
 						false->
 							case length(S#sim_state.outstanding_nodes)>0 of
 								true->
@@ -298,7 +298,7 @@ handle_call({start,SimName,Attributes,Notification}, _From, State = #simengine_s
 				true->
 					case not S#sim_state.pushed of
 						true ->
-							{reply,?ERROR_SIM_ASSETS_NOT_PUSHED};
+							{reply,?ERROR_SIM_ASSETS_NOT_PUSHED,State};
 						false->
 							case length(S#sim_state.outstanding_nodes)>0 of
 								true->
@@ -346,7 +346,7 @@ handle_call({stop,SimName,Attributes,Notification}, _From, State = #simengine_st
 				true->
 					case not S#sim_state.pushed of
 						true ->
-							{reply,?ERROR_SIM_ASSETS_NOT_PUSHED};
+							{reply,?ERROR_SIM_ASSETS_NOT_PUSHED,State};
 						false->
 							case length(S#sim_state.outstanding_nodes)>0 of
 								true->
@@ -395,7 +395,7 @@ handle_call({pause,SimName,Attributes,Notification}, _From, State = #simengine_s
 				true->
 					case not S#sim_state.pushed of
 						true ->
-							{reply,?ERROR_SIM_ASSETS_NOT_PUSHED};
+							{reply,?ERROR_SIM_ASSETS_NOT_PUSHED,State};
 						false->
 							case length(S#sim_state.outstanding_nodes)>0 of
 								true->
@@ -444,7 +444,7 @@ handle_call({cancel,SimName,Attributes,Notification}, _From, State = #simengine_
 				true->
 					case not S#sim_state.pushed of
 						true ->
-							{reply,?ERROR_SIM_ASSETS_NOT_PUSHED};
+							{reply,?ERROR_SIM_ASSETS_NOT_PUSHED,State};
 						false->
 							case length(S#sim_state.outstanding_nodes)>0 of
 								true->
@@ -493,7 +493,7 @@ handle_call({restart,SimName,Attributes,Notification}, _From, State = #simengine
 				true->
 					case not S#sim_state.pushed of
 						true ->
-							{reply,?ERROR_SIM_ASSETS_NOT_PUSHED};
+							{reply,?ERROR_SIM_ASSETS_NOT_PUSHED,State};
 						false->
 							case length(S#sim_state.outstanding_nodes)>0 of
 								true->
@@ -516,10 +516,11 @@ handle_call({restart,SimName,Attributes,Notification}, _From, State = #simengine
 												start_os_time = os:system_time()
 											},
 											NewActions = maps:put(JobId,SimAction,State#simengine_state.sim_actions),
-											{reply,{ok,JobId},State#simengine_state{ sim_states = maps:put(SimName,
-											                                                               S#sim_state{current_op_pid = OpPid, current_op = restarting , outstanding_nodes = [node()] },
-											                                                               State#simengine_state.sim_states),
-											                                         sim_actions = NewActions }};
+											{reply,{ok,JobId},State#simengine_state{
+												sim_states = maps:put(SimName,
+                                                S#sim_state{current_op_pid = OpPid, current_op = restarting , outstanding_nodes = [node()] },
+                                                State#simengine_state.sim_states),
+		                                         sim_actions = NewActions }};
 										false->
 											{ reply, ?ERROR_SIM_MUST_BE_PAUSED_OR_STOPPED }
 									end

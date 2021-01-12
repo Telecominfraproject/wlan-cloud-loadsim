@@ -45,7 +45,7 @@
         }
         .actions {
             display: grid;
-            grid-template-columns: minmax(96px, 50%);
+            grid-template-columns: 1fr 1fr;
             grid-gap: 0.5rem;
         }
         .form-grid {
@@ -89,6 +89,22 @@
             color: black;
             line-height: 0.8;
         }
+        .spinner {
+            margin-top: 7px;
+            margin-left: 10px;
+            border: 0.25rem solid;
+            border-color: transparent #a923b1 #a923b1;
+            border-radius: 1em;
+            width: 1em;
+            height: 1em;
+            animation: rotation 1s infinite linear;
+        }
+
+        @keyframes rotation {
+            100% {
+                transform: rotate(360deg);
+            }
+        }
     </style>
 
 </head>
@@ -97,31 +113,29 @@
     <div class="controls p-3">
 
         <div class="col">
-            <h1 class="h3">^(OvO)^ OWLS</h1>
-
-            <label class="form-label" for="apiBase">API base</label>
-            <div class="d-flex mb-3">
-                <input type="text" name="apiBase" v-model="apiBase" class="form-control form-control-sm w-75" />
-                <button class="btn btn-sm btn-secondary w-25" v-on:click="setup()">Set</button>
+            <div>
+                <img src="/assets/android-chrome-192x192.png" alt="Cute little owl.">
             </div>
-
             <div class="actions">
                 <button class="btn btn-sm btn-secondary"
                         v-on:click="loadImportCasForm()">Import CA</button>
+                <div></div>
                 <button class="btn btn-sm btn-secondary"
                         v-on:click="newSimulation()">Create Simulation</button>
-                <button class="btn btn-sm btn-secondary"
+                <div></div>
+                <button class="btn btn-sm btn-secondary" id="prepare_button"
                         v-on:click="sendAction('prepare')">Prepare Assets</button>
-                <button class="btn btn-sm btn-secondary"
+                <div class="spinner" id="prepare_loader"></div>
+                <button class="btn btn-sm btn-secondary" id="push_button"
                         v-on:click="sendAction('push')">Push Simulation</button>
-                <button class="btn btn-sm btn-secondary"
+                <div class="spinner" id="push_loader"></div>
+                <button class="btn btn-sm btn-secondary" id="start_button"
                         v-on:click="sendAction('start')">Start Simulation</button>
-                <button class="btn btn-sm btn-secondary"
+                <div class="spinner" id="start_loader"></div>
+                <button class="btn btn-sm btn-secondary" id="stop_button"
                         v-on:click="sendAction('stop')">Stop Simulation</button>
-                <button class="btn btn-sm btn-secondary"
-                        v-on:click="setupWebsocket()">Start WebSocket</button>
-                <button class="btn btn-sm btn-secondary"
-                        v-on:click="closeWebsocket()">Stop WebSocket</button>
+                <div class="spinner" id="stop_loader"></div>
+                <div></div>
             </div>
         </div>
 
@@ -174,6 +188,8 @@
                     <div><input type="text" class="form-control form-control-sm" v-model="form.server"/></div>
                     <label class="form-label">Port</label>
                     <div><input type="number" class="form-control form-control-sm" v-model="form.port" /></div>
+                    <label class="form-label">Assets created</label>
+                    <div id="assets_created">{{ form.assets_created }}</div>
                     <button class="btn btn-secondary btn-sm" v-on:click="saveSimulation()">Save</button>
                 </fieldset>
             </div>
@@ -284,19 +300,19 @@
     const App = {
         data() {
             return {
-                apiBase: 'http://localhost:9090',
+                apiBase: location.protocol + location.hostname + ':' + location.port,
                 apiPrefix: '/api/v1',
                 output: [],
                 socket: null,
                 socketOpen: false,
-                wss: 'ws://localhost:9090/ws',
+                wss: 'ws:' + location.hostname + ':' + location.port + '/ws',
                 msg: 'Hello World',
                 importCA: false,
                 casForm: {
                     name: null,
                     key: null,
                     cert: null,
-                    password: null,
+                    password: null
                 },
                 nodes: null,
                 cas: [],
@@ -310,6 +326,7 @@
                     server: null,
                     port: null,
                     nodes: null,
+                    assets_created: null
                 },
                 // stream suff
                 nodesDict: {},
@@ -352,11 +369,12 @@
                 // save URL for future use
                 localStorage.setItem('apiBase', this.apiBase);
 
-                ApiURL = new URL(this.apiBase);
-                this.wss = "ws://" + ApiURL.hostname + ":" + ApiURL.port + "/ws";
+                // ApiURL = new URL(this.apiBase);
+                // this.wss = "ws://" + ApiURL.hostname + ":" + ApiURL.port + "/ws";
                 this.getCas();
                 this.getNodes();
                 this.getSimulations();
+                this.setupWebsocket();
 
                 setInterval(
                     () => this.getNodes(),
@@ -373,7 +391,6 @@
                 this.socket = new WebSocket(this.wss);
 
                 this.socket.onmessage = (event) => {
-                    console.log(event);
                     const Payload = JSON.parse(event.data);
                     if (Payload.name === 'os_details') {
                         this.logKernel(Payload);
@@ -411,10 +428,6 @@
                 console.log(`Sending message '${this.msg}'...`);
                 // should check if socket is good before
                 this.socket.send(this.msg)
-            },
-
-            loadImportCasForm: function() {
-                this.importCA = !this.importCA;
             },
 
             getCas: function() {
@@ -461,6 +474,8 @@
             newSimulation() {
                 this.simulation = '';
                 this.simulationNew = true;
+                this.form.assets_created = false;
+                document.getElementById('prepare_button').hidden = false ;
                 this.resetProps( this.form );
             },
 
@@ -483,6 +498,7 @@
                                 if( data[k] !== undefined )
                                     this.form[k] = data[k];
                             });
+                            document.getElementById('prepare_button').disabled = this.form.assets_created ;
                         }
                     });
             },
@@ -563,11 +579,51 @@
                         }
                     ]
                 };
+
+                let job_id = null;
+
                 this.apiPost(`/actions`, payload)
                     .then(response => {
-                        console.log(response);
+                        job_id = response.data.id ;
+                        this.output.push("Action post\n");
+                        this.output.push(job_id);
+                        this.output.push("After\n");
+                        this.output.push(job_id);
+
+                        if(job_id !== null) {
+                            this.check_job_status(job_id);
+                        }
                     });
             },
+
+            check_job_status: function(job_id) {
+                this.output.push("Start checking job\n");
+                this.apiGetSimple(`/actions/${job_id}`)
+                    .then(response => {
+                        this.output.push("\nRESPONSE of job status\n");
+                        this.output.push(response.data);
+                        if( response.data.status !== 'completed' ) {
+                            this.check_job_status(job_id);
+                        }
+                        else
+                        {
+                            return "Done";
+                        }
+                    });
+
+            },
+
+            apiGetSimple: async function( path ) {
+                const url = `${this.apiBase}${this.apiPrefix}${path}`;
+                this.output.push("simple get");
+                this.output.push(url);
+                const response = await fetch( url );
+                return {
+                    status: response.status,
+                    data: await response.json()
+                }
+            },
+
 
             // basic helper to read files
             // event, name is the key to store data after in casForm

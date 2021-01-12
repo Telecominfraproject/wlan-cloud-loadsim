@@ -623,6 +623,29 @@ paths:
         403:
           $ref: '#/components/responses/Unauthorized'
 
+  /actions/{id}:
+    get:
+      description: Get simulation action details
+      tags: [ Actions ]
+      summary: Get the status of a given job
+      operationId: getActionsDetails
+      parameters:
+        - in: path
+          description: The name of the simulation we are interested in.
+          name: id
+          schema:
+            type: string
+          required: true
+      responses:
+        200:
+          description: Contains the details of the given action
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionDetails'
+        403:
+          $ref: '#/components/responses/Unauthorized'
+
 components:
   responses:
     NotFound:

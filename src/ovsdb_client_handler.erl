@@ -406,7 +406,7 @@ create_aps(Cfg,ManagerPid) ->
 									[{C,Pid}|A]
 								end, [], Clients),
 	ovsdb_client_handler:set_state(configured),
-	?RL_IA("CONFIG APS: Sending message back: ~p ~p~n",[CallBackPid, CallBackMessage]),
+	?RL_I("CONFIG APS: Sending confirmtion message back."),
 	CallBackPid ! CallBackMessage.
 
 start_aps(Which,Options,ClientPids)->
@@ -415,7 +415,7 @@ start_aps(Which,Options,ClientPids)->
 			ovsdb_ap:start_ap(K), [K|A]
 		end, [], utils:select( Which == all , ClientPids , Which )),
 	ovsdb_client_handler:set_state(started),
-	?RL_IA("STARTING APS: Sending message back: ~p ~p~n",[CallBackPid, CallBackMessage]),
+	?RL_I("STARTING APS: Sending message back."),
 	CallBackPid ! CallBackMessage.
 
 stop_aps(Which,Options,ClientPids)->
@@ -424,7 +424,7 @@ stop_aps(Which,Options,ClientPids)->
 		ovsdb_ap:stop_ap(K), [K|A]
 	              end, [], utils:select( Which == all , ClientPids , Which )),
 	ovsdb_client_handler:set_state(stopped),
-	?RL_IA("STOP APS: Sending message back: ~p ~p~n",[CallBackPid, CallBackMessage]),
+	?RL_I("STOP APS: Sending message back."),
 	CallBackPid ! CallBackMessage.
 
 pause_aps(Which,Options,ClientPids)->
@@ -433,7 +433,7 @@ pause_aps(Which,Options,ClientPids)->
 		ovsdb_ap:pause_ap(K), [K|A]
 	              end, [], utils:select( Which == all , ClientPids , Which )),
 	ovsdb_client_handler:set_state(paused),
-	?RL_IA("PAUSE APS: Sending message back: ~p ~p~n",[CallBackPid, CallBackMessage]),
+	?RL_I("PAUSE APS: Sending message back."),
 	CallBackPid ! CallBackMessage.
 
 cancel_aps(Which,Options,ClientPids)->
@@ -442,7 +442,7 @@ cancel_aps(Which,Options,ClientPids)->
 									ovsdb_ap:cancel_ap(K), [K|A]
 	              end, [], utils:select( Which == all , ClientPids , Which )),
 	ovsdb_client_handler:set_state(cancelled),
-	?RL_IA("CANCEL APS: Sending message back: ~p ~p~n",[CallBackPid, CallBackMessage]),
+	?RL_I("CANCEL APS: Sending message back."),
 	CallBackPid ! CallBackMessage.
 
 %%------------------------------------------------------------------------------

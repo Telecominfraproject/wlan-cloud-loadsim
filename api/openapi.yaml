@@ -478,6 +478,29 @@ paths:
         403:
           $ref: '#/components/responses/Unauthorized'
 
+  /simulations/{id}/state:
+    get:
+      tags: [ Simulations ]
+      summary: Get the state for a simulation.
+      operationId: getSimulationStateDetails
+      description: Retrieve the simulation state details.
+      parameters:
+        - in: path
+          description: The name of the simulation we are interested in.
+          name: id
+          schema:
+            type: string
+          required: true
+      responses:
+        200:
+          description: Successful retrieval of simulation state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimulationStateDetails'
+        403:
+          $ref: '#/components/responses/Unauthorized'
+
   /simulations/{id}/devices/{serial}:
     get:
       tags: [ Devices ]
@@ -967,7 +990,7 @@ components:
             $ref: '#/components/schemas/SimulationDetails'
                 
     NodeDetails:
-      description: Detaails of a node
+      description: Details of a node
       readOnly: true
       properties:
         node:
@@ -982,7 +1005,21 @@ components:
           type: number
         type:
           type: string
-        
+
+    SimulationStateDetails:
+      description: Details of the state of a simulation
+      readOnly: true
+      properties:
+        pushed:
+          type: boolean
+        current_operation:
+          type: string
+        state:
+          type: string
+        start_time:
+          type: string
+          format: date-time
+
     SimulationDetails:
       description: Details of the simulation
       properties:

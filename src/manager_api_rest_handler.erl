@@ -126,7 +126,7 @@ resource_exists(Req, #request_state{ method = ?HTTP_GET, resource = <<"simulatio
 		{error,_Reason} ->  {false,Req,State}
 	end;
 resource_exists(Req, #request_state{ method = ?HTTP_GET, resource = <<"simulations">>, subres = <<"state">>, subid=nothing }=State) ->
-	case simengine:get(State#request_state.id) of
+	case simengine:get_simulation_state(State#request_state.id) of
 		{ok,Record}    -> 	{true, Req, State#request_state{ looked_up = Record }};
 		{error,_Reason} ->  {false,Req,State}
 	end;

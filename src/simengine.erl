@@ -140,6 +140,7 @@ init([]) ->
 	NewStates = lists:foldl( fun(E,A)->
 			maps:put( E#simulation.name, #sim_state{
 				pushed = false,
+				start = os:system_time(),
 				state = utils:select(E#simulation.assets_created,prepared,created),
 				sim_info = E },A )
 		end,maps:new(),Simulations),
@@ -176,7 +177,12 @@ handle_call({create_simulation,SimInfo}, _From, State = #simengine_state{}) ->
 			?L_IA("Creating simulation ~s.",[binary_to_list(SimInfo#simulation.name)]),
 			case create_sim(SimInfo) of
 				ok ->
-					SimState = #sim_state{ sim_info = SimInfo },
+					SimState = #sim_state{
+						start = os:system_time(),
+						state = created,
+						current_op = none,
+						pushed = false,
+						sim_info = SimInfo },
 					{reply, ok, State#simengine_state{
 						sim_states = maps:put(SimInfo#simulation.name,SimState,State#simengine_state.sim_states )}};
 				Error -> { reply, {error,Error} , State}
@@ -192,7 +198,7 @@ handle_call({delete_simulation,SimName,_CAName}, _From, State = #simengine_state
 			delete_sim(SimName),
 			Directory = filename:join(["certs_db",binary_to_list(SimName)]),
 			_ = os:cmd("rm -rf " ++ Directory),
-			{reply,ok,State}
+			{reply,ok,State#simengine_state{ sim_states = maps:remove(SimName,State#simengine_state.sim_states)}}
 	end;
 
 handle_call({update_simulation,SimInfo}, _From, State = #simengine_state{}) ->
@@ -239,8 +245,12 @@ handle_call({prepare,SimName,Attributes,Notification},_From,State = #simengine_s
 								start_os_time = os:system_time()
 								},
 							NewActions = maps:put(JobId,SimAction,State#simengine_state.sim_actions),
-							{reply,{ok,JobId},State#simengine_state{ sim_states = maps:put(SimName,
-							                                                       S#sim_state{current_op_pid = OpPid, current_op = preparing , outstanding_nodes = [node()] },
+							{reply,{ok,JobId},State#simengine_state{
+								sim_states = maps:put(SimName,
+								                      S#sim_state{current_op_pid = OpPid,
+								                                  current_op = preparing ,
+								                                  start = os:system_time(),
+								                                  outstanding_nodes = [node()] },
 							                                                       State#simengine_state.sim_states),
 								sim_actions = NewActions }}
 					end
@@ -282,6 +292,7 @@ handle_call({push,SimName,Attributes,Notification}, _From, State = #simengine_st
 									NewActions = maps:put(JobId,SimAction,State#simengine_state.sim_actions),
 									{reply,{ok,JobId},State#simengine_state{ sim_states = maps:put(SimName,
 									                                                               S#sim_state{current_op_pid = OpPid, current_op = pushing ,
+			                                                                           start = os:system_time(),
 			                                                                           outstanding_nodes = SimInfo#simulation.nodes },
 									                                                               State#simengine_state.sim_states),
 									                                         sim_actions = NewActions }}
@@ -329,6 +340,7 @@ handle_call({start,SimName,Attributes,Notification}, _From, State = #simengine_s
 											NewActions = maps:put(JobId,SimAction,State#simengine_state.sim_actions),
 											{reply,{ok,JobId},State#simengine_state{ sim_states = maps:put(SimName,
 											                                                               S#sim_state{current_op_pid = OpPid, current_op = starting ,
+											                                                                           start = os:system_time(),
 											                                                                           outstanding_nodes = SimInfo#simulation.nodes },
 											                                                               State#simengine_state.sim_states),
 											                                         sim_actions = NewActions }}
@@ -533,7 +545,8 @@ handle_call({restart,SimName,Attributes,Notification}, _From, State = #simengine
 			end
 	end;
 
-handle_call({get,SimName}, _From, State = #simengine_state{}) ->case get_sim(SimName) of
+handle_call({get,SimName}, _From, State = #simengine_state{}) ->
+	case get_sim(SimName) of
 		[] ->
 			{ reply, ?ERROR_SIM_UNKNOWN, State };
 		[SimInfo] ->
@@ -544,7 +557,7 @@ handle_call({get_simulation_state,SimName}, _From, State = #simengine_state{}) -
 	case maps:get(SimName,State#simengine_state.sim_states,undefined) of
 		undefined ->
 			{ reply, {error,?ERROR_SIM_UNKNOWN},State};
-		{ok,SimState} ->
+		SimState ->
 			{ reply, {ok,SimState},State}
 	end;
 
@@ -582,25 +595,25 @@ handle_info({ SimName,Node,MsgType,TimeStamp,JobId}=_Msg, State = #simengine_sta
 		NewSimState = case MsgType of
 				prepare_done->
 					?L_IA("Node ~p prepared. Took ~p seconds.~n",[Node,Elapsed]),
-					SimState#sim_state{ outstanding_nodes = NewNodes, state = prepared };
+					SimState#sim_state{ outstanding_nodes = NewNodes, state = prepared, current_op = none };
 				push_done ->
 					?L_IA("Node ~p push done. Took ~p seconds.~n",[Node,Elapsed]),
-					SimState#sim_state{ outstanding_nodes = NewNodes , pushed = true , state = pushed };
+					SimState#sim_state{ outstanding_nodes = NewNodes , pushed = true , state = pushed, current_op = none };
 				start_done ->
 					?L_IA("Node ~p start done. Took ~p seconds.~n",[Node,Elapsed]),
-					SimState#sim_state{ outstanding_nodes = NewNodes, state = started };
+					SimState#sim_state{ outstanding_nodes = NewNodes, state = started, current_op = none };
 				stop_done ->
 					?L_IA("Node ~p stop done. Took ~p seconds.~n",[Node,Elapsed]),
-					SimState#sim_state{ outstanding_nodes = NewNodes , state = stopped };
+					SimState#sim_state{ outstanding_nodes = NewNodes , state = stopped, current_op = none  };
 				pause_done ->
 					?L_IA("Node ~p pause done. Took ~p seconds.~n",[Node,Elapsed]),
-					SimState#sim_state{ outstanding_nodes = NewNodes, state = paused };
+					SimState#sim_state{ outstanding_nodes = NewNodes, state = paused, current_op = none  };
 				cancel_done ->
 					?L_IA("Node ~p cancel done. Took ~p seconds.~n",[Node,Elapsed]),
-					SimState#sim_state{ outstanding_nodes = NewNodes, state = cancelled };
+					SimState#sim_state{ outstanding_nodes = NewNodes, state = cancelled, current_op = none  };
 				restart_done ->
 					?L_IA("Node ~p restart done. Took ~p seconds.~n",[Node,Elapsed]),
-					SimState#sim_state{ outstanding_nodes = NewNodes, state = started }
+					SimState#sim_state{ outstanding_nodes = NewNodes, state = started, current_op = none  }
 			end,
 			SimAction = maps:get(JobId,State#simengine_state.sim_actions,undefined),
 			NewCount = SimAction#sim_action.done_count+1,

@@ -267,7 +267,7 @@ handle_call ({api_cmd_stop, Which, Options},_,State) ->
 			io:format(">>>5~n"),
 			{reply, {error,simulation_most_receive_new_configuration},State};
 		_ ->
-			io:format(">>>6~n"),
+			io:format(">>>6: state: ~p~n",[State#state.state]),
 			{reply, ok, State}
 	end;
 

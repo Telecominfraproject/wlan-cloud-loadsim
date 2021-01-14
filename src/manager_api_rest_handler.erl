@@ -125,6 +125,11 @@ resource_exists(Req, #request_state{ method = ?HTTP_GET, resource = <<"simulatio
 		{ok,Record}    -> 	{true, Req, State#request_state{ looked_up = Record }};
 		{error,_Reason} ->  {false,Req,State}
 	end;
+resource_exists(Req, #request_state{ method = ?HTTP_GET, resource = <<"simulations">>, subres = <<"state">>, subid=nothing }=State) ->
+	case simengine:get(State#request_state.id) of
+		{ok,Record}    -> 	{true, Req, State#request_state{ looked_up = Record }};
+		{error,_Reason} ->  {false,Req,State}
+	end;
 resource_exists(Req, #request_state{ method = ?HTTP_GET, resource = <<"simulations">>, subres = <<"devices">>}=State) ->
 	case inventory:get_client(State#request_state.id,State#request_state.subid) of
 		{ok,Record}    -> 	{true, Req, State#request_state{ looked_up = Record }};
@@ -218,6 +223,17 @@ do( ?HTTP_GET ,Req,#request_state{ resource = <<"simulations">>, subres = <<"dev
 		_:_ ->
 			create_error(102,"Cannot find the device.",Req,State)
 	end;
+
+%%%===================================================================
+%%% Simulation State Management
+%%%===================================================================
+do( ?HTTP_GET ,Req,#request_state{resource = <<"simulations">>, subres = <<"state">>, subid = nothing }=State)->
+	S = State#request_state.looked_up,
+	SimState = #{ pushed => S#sim_state.pushed,
+								current_operation => S#sim_state.current_op,
+								state => S#sim_state.state,
+								start_time => list_to_binary(calendar:system_time_to_rfc3339(S#sim_state.start,[{unit,nanosecond}]))},
+	create_response(jiffy:encode(SimState),Req,State);
 
 %%%===================================================================
 %%% Simulation Management

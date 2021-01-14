@@ -24,7 +24,7 @@
          prepare/3,start/3,stop/3,cancel/3,pause/3,restart/3,push/3,
          sim_exists/1,prepare_assets/5,push_assets/5,start_assets/5,stop_assets/5,cancel_assets/5,
 				 pause_assets/5,restarts_assets/5,update/1,list_actions/0,get_action/1,
-				 sim_action_to_json/1,delete/2,list_simulation_states/0]).
+				 sim_action_to_json/1,delete/2,list_simulation_states/0,get_simulation_state/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -106,6 +106,10 @@ list_actions()->
 -spec list_simulation_states() -> {ok,[sim_state()]}.
 list_simulation_states()->
 	gen_server:call(?SERVER,list_simulation_states).
+
+-spec get_simulation_state(SimName::string()|binary()) -> {ok,sim_state()} | generic_error().
+get_simulation_state(SimName)->
+	gen_server:call(?SERVER,{get_simulation_state,utils:safe_binary(SimName)}).
 
 -spec get_action(JobID::binary()|string()) -> {ok,sim_action()}| generic_error().
 get_action(JobID)->
@@ -534,6 +538,14 @@ handle_call({get,SimName}, _From, State = #simengine_state{}) ->case get_sim(Sim
 			{ reply, ?ERROR_SIM_UNKNOWN, State };
 		[SimInfo] ->
 			{reply, {ok,SimInfo}, State}
+	end;
+
+handle_call({get_simulation_state,SimName}, _From, State = #simengine_state{}) ->
+	case maps:get(SimName,State#simengine_state.sim_states,undefined) of
+		undefined ->
+			{ reply, {error,?ERROR_SIM_UNKNOWN},State};
+		{ok,SimState} ->
+			{ reply, {ok,SimState},State}
 	end;
 
 handle_call(list_simulations, _From, State = #simengine_state{}) ->

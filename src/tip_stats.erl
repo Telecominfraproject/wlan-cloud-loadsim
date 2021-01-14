@@ -172,26 +172,31 @@ run_sim_report(SimName) ->
 	% compute the number for this simulation: APS, clients.
 	%
 	tip_stats:register(SimName,self()),
-	{ok,SimInfo} = simengine:get(SimName),
-	tip_api:login(SimName),
-	TipEquipmentListLength = length(tip_api:equipment_ids()),
-	TipClientListLength = length(tip_api:clients()),
-	{ok,SimStates} = simengine:list_simulation_states(),
-	State = case maps:get(SimName,SimStates,undefined) of
-		undefined ->
-			unknown;
-		SimState ->
-			SimState#sim_state.state
-	end,
+	try
+		{ok,SimInfo} = simengine:get(SimName),
+		tip_api:login(SimName),
+		TipEquipmentListLength = length(tip_api:equipment_ids()),
+		TipClientListLength = length(tip_api:clients()),
+		{ok,SimStates} = simengine:list_simulation_states(),
+		State = case maps:get(SimName,SimStates,undefined) of
+			undefined ->
+				unknown;
+			SimState ->
+				SimState#sim_state.state
+		end,
 
-	Report = #{
-		simulation_name => SimName,
-		max_clients => number_of_clients(SimInfo#simulation.ca,SimInfo#simulation.name),
-		max_devices => SimInfo#simulation.num_devices,
-		tip_clients => TipClientListLength,
-		tip_devices => TipEquipmentListLength,
-		state => State },
-	statistics:submit_report(<<"simulation_state">>,Report),
+		Report = #{
+			simulation_name => SimName,
+			max_clients => number_of_clients(SimInfo#simulation.ca,SimInfo#simulation.name),
+			max_devices => SimInfo#simulation.num_devices,
+			tip_clients => TipClientListLength,
+			tip_devices => TipEquipmentListLength,
+			state => State },
+		statistics:submit_report(<<"simulation_state">>,Report)
+	catch
+		_:_ ->
+			ok
+	end,
 	tip_stats:deregister(SimName,self()),
 	ok.
 

@@ -33,7 +33,7 @@ login(SimName)->
 		ok
 	catch
 		_:_ ->
-			io:format("Could not log into TIP.~n"),
+			?L_I("Could not log into TIP.~n"),
 			error
 	end.
 

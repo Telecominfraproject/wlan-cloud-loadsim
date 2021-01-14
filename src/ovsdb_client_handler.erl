@@ -195,7 +195,7 @@ handle_cast ({set_state,NewState},#state{}=State) ->
 			{ noreply, State#state{ state = init, config = #{}, clients_pid = #{}, clients_serial = #{}, update_stats_timer = none }};
 		started ->
 			{ok,TRef} = timer:apply_interval(2000,?MODULE,update_stats,[]),
-			{ noreply, State#state{ update_stats_timer = TRef }};
+			{ noreply, State#state{ update_stats_timer = TRef, state = NewState }};
 		paused->
 			utils:select( State#state.update_stats_timer == none, ok, timer:cancel(State#state.update_stats_timer) ),
 			{noreply, State#state{state=NewState,update_stats_timer = none}};

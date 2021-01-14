@@ -246,21 +246,28 @@ handle_call ({api_cmd_start,Which,Options},_From, State) ->
 	end;
 
 handle_call ({api_cmd_stop, Which, Options},_,State) ->
+	io:format("Actively stopping:~n"),
 	case State#state.state of
 		configured ->
+			io:format(">>>1~n"),
 			spawn_link(?MODULE,stop_aps,[Which,Options,State#state.clients_pid]),
 			{reply, ok, State#state{ state = stopping }};
 		paused ->
+			io:format(">>>2~n"),
 			spawn_link(?MODULE,stop_aps,[Which,Options,State#state.clients_pid]),
 			{reply, ok, State#state{ state = stopping }};
 		stopped ->
+			io:format(">>>3~n"),
 			{reply, ok, State};
 		started ->
+			io:format(">>>4~n"),
 			spawn_link(?MODULE,stop_aps,[Which,Options,State#state.clients_pid]),
 			{reply, ok, State#state{ state = stopping }};
 		cancelled ->
+			io:format(">>>5~n"),
 			{reply, {error,simulation_most_receive_new_configuration},State};
 		_ ->
+			io:format(">>>6~n"),
 			{reply, ok, State}
 	end;
 

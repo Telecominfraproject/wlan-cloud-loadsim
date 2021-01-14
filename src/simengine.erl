@@ -355,17 +355,21 @@ handle_call({stop,SimName,Attributes,Notification}, _From, State = #simengine_st
 		[] ->
 			{ reply, ?ERROR_SIM_UNKNOWN, State };
 		[SimInfo] ->
+			io:format("S>>>1~n"),
 			S = maps:get(SimName,State#simengine_state.sim_states),
 			case SimInfo#simulation.assets_created of
 				false->
+					io:format("S>>>2~n"),
 					{reply,?ERROR_SIM_NO_ASSETS_EXIST,State};
 				true->
 					case not S#sim_state.pushed of
 						true ->
+							io:format("S>>>3~n"),
 							{reply,?ERROR_SIM_ASSETS_NOT_PUSHED,State};
 						false->
 							case length(S#sim_state.outstanding_nodes)>0 of
 								true->
+									io:format("S>>>4~n"),
 									{reply,?ERROR_SIM_OPERATION_IN_PROGRESS,State};
 								false->
 									case ((S#sim_state.state==started) or (S#sim_state.state==paused))  of
@@ -385,6 +389,7 @@ handle_call({stop,SimName,Attributes,Notification}, _From, State = #simengine_st
 												start_os_time = os:system_time()
 											},
 											NewActions = maps:put(JobId,SimAction,State#simengine_state.sim_actions),
+											io:format("S>>>5~n"),
 											{reply,{ok,JobId},State#simengine_state{ sim_states = maps:put(SimName,
 											                                                               S#sim_state{current_op_pid = OpPid,
 											                                                                           current_op = stopping ,
@@ -792,11 +797,12 @@ start_assets(SimInfo,Attributes,SimEnginePid,{M,F,A}=_Notification,JobId)->
 
 -spec stop_assets(SimInfo::simulation(), Attributes::#{atom()=>term()}, ManagerPis::pid(),Notification::notification_cb(),JobId::binary())->ok.
 stop_assets(SimInfo,Attributes,SimEnginePid,{M,F,A}=_Notification,JobId)->
-	?L_IA("~s: Stopping all assets.",[binary_to_list(SimInfo#simulation.name)]),
+	io:format("~s: Stopping all assets.",[binary_to_list(SimInfo#simulation.name)]),
 	_Results = lists:reverse(lists:foldl(fun(Node,Acc) ->
 		R = rpc:call(Node,simnode,stop,[all,Attributes#{ callback => {SimEnginePid,{SimInfo#simulation.name, Node,stop_done,erlang:timestamp(),JobId}} }]),
 		[R|Acc] end,[],SimInfo#simulation.nodes)),
 	apply(M,F,A),
+	io:format("Stopping assets~n"),
 	ok.
 
 -spec pause_assets(SimInfo::simulation(), Attributes::#{atom()=>term()}, ManagerPis::pid(),Notification::notification_cb(),JobId::binary())->ok.

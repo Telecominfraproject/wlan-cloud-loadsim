@@ -152,7 +152,7 @@ handle_call({stop,UIDs,Attributes}, _From, State = #simnode_state{}) ->
 	safe_execute( State#simnode_state.ap_client_handler, stop, [UIDs,Attributes]),
 	safe_execute( State#simnode_state.mqtt_server_handler, stop, [UIDs,Attributes]),
 	safe_execute( State#simnode_state.ovsdb_server_handler, stop, [UIDs,Attributes]),
-	io:format("STOP sent to all handlers."),
+	?RL_I("STOP sent to all handlers."),
 	{ reply, ok , State};
 
 handle_call({pause,UIDs,Attributes}, _From, State = #simnode_state{}) ->

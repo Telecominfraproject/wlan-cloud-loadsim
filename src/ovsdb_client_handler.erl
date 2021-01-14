@@ -246,28 +246,21 @@ handle_call ({api_cmd_start,Which,Options},_From, State) ->
 	end;
 
 handle_call ({api_cmd_stop, Which, Options},_,State) ->
-	io:format("Actively stopping:~n"),
 	case State#state.state of
 		configured ->
-			io:format(">>>1~n"),
 			spawn_link(?MODULE,stop_aps,[Which,Options,State#state.clients_pid]),
 			{reply, ok, State#state{ state = stopping }};
 		paused ->
-			io:format(">>>2~n"),
 			spawn_link(?MODULE,stop_aps,[Which,Options,State#state.clients_pid]),
 			{reply, ok, State#state{ state = stopping }};
 		stopped ->
-			io:format(">>>3~n"),
 			{reply, ok, State};
 		started ->
-			io:format(">>>4~n"),
 			spawn_link(?MODULE,stop_aps,[Which,Options,State#state.clients_pid]),
 			{reply, ok, State#state{ state = stopping }};
 		cancelled ->
-			io:format(">>>5~n"),
 			{reply, {error,simulation_most_receive_new_configuration},State};
 		_ ->
-			io:format(">>>6: state: ~p~n",[State#state.state]),
 			{reply, ok, State}
 	end;
 
@@ -413,7 +406,7 @@ create_aps(Cfg,ManagerPid) ->
 									[{C,Pid}|A]
 								end, [], Clients),
 	ovsdb_client_handler:set_state(configured),
-	?L_IA("CONFIG APS: Sending message back: ~p ~p~n",[CallBackPid, CallBackMessage]),
+	?RL_IA("CONFIG APS: Sending message back: ~p ~p~n",[CallBackPid, CallBackMessage]),
 	CallBackPid ! CallBackMessage.
 
 start_aps(Which,Options,ClientPids)->
@@ -422,7 +415,7 @@ start_aps(Which,Options,ClientPids)->
 			ovsdb_ap:start_ap(K), [K|A]
 		end, [], utils:select( Which == all , ClientPids , Which )),
 	ovsdb_client_handler:set_state(started),
-	io:format("STARTING APS: Sending message back: ~p ~p~n",[CallBackPid, CallBackMessage]),
+	?RL_IA("STARTING APS: Sending message back: ~p ~p~n",[CallBackPid, CallBackMessage]),
 	CallBackPid ! CallBackMessage.
 
 stop_aps(Which,Options,ClientPids)->
@@ -431,7 +424,7 @@ stop_aps(Which,Options,ClientPids)->
 		ovsdb_ap:stop_ap(K), [K|A]
 	              end, [], utils:select( Which == all , ClientPids , Which )),
 	ovsdb_client_handler:set_state(stopped),
-	io:format("STOP APS: Sending message back: ~p ~p~n",[CallBackPid, CallBackMessage]),
+	?RL_IA("STOP APS: Sending message back: ~p ~p~n",[CallBackPid, CallBackMessage]),
 	CallBackPid ! CallBackMessage.
 
 pause_aps(Which,Options,ClientPids)->
@@ -440,7 +433,7 @@ pause_aps(Which,Options,ClientPids)->
 		ovsdb_ap:pause_ap(K), [K|A]
 	              end, [], utils:select( Which == all , ClientPids , Which )),
 	ovsdb_client_handler:set_state(paused),
-	?L_IA("PAUSE APS: Sending message back: ~p ~p~n",[CallBackPid, CallBackMessage]),
+	?RL_IA("PAUSE APS: Sending message back: ~p ~p~n",[CallBackPid, CallBackMessage]),
 	CallBackPid ! CallBackMessage.
 
 cancel_aps(Which,Options,ClientPids)->
@@ -449,7 +442,7 @@ cancel_aps(Which,Options,ClientPids)->
 									ovsdb_ap:cancel_ap(K), [K|A]
 	              end, [], utils:select( Which == all , ClientPids , Which )),
 	ovsdb_client_handler:set_state(cancelled),
-	?L_IA("CANCEL APS: Sending message back: ~p ~p~n",[CallBackPid, CallBackMessage]),
+	?RL_IA("CANCEL APS: Sending message back: ~p ~p~n",[CallBackPid, CallBackMessage]),
 	CallBackPid ! CallBackMessage.
 
 %%------------------------------------------------------------------------------

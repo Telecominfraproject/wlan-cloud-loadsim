@@ -592,6 +592,7 @@ handle_info({ SimName,Node,MsgType,TimeStamp,JobId}=_Msg, State = #simengine_sta
 		NewNodes = lists:delete(Node,SimState#sim_state.outstanding_nodes),
 		Now = erlang:timestamp(),
 		Elapsed = timer:now_diff(Now,TimeStamp) / 1000000,
+		io:format("SIMENGINE-MSG: SimName:~p MsgType:~p~n",[SimName,MsgType]),
 		NewSimState = case MsgType of
 				prepare_done->
 					?L_IA("Node ~p prepared. Took ~p seconds.~n",[Node,Elapsed]),

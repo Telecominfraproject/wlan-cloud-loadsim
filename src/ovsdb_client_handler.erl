@@ -415,7 +415,7 @@ start_aps(Which,Options,ClientPids)->
 			ovsdb_ap:start_ap(K), [K|A]
 		end, [], utils:select( Which == all , ClientPids , Which )),
 	ovsdb_client_handler:set_state(started),
-	?L_IA("STARTING APS: Sending message back: ~p ~p~n",[CallBackPid, CallBackMessage]),
+	io:format("STARTING APS: Sending message back: ~p ~p~n",[CallBackPid, CallBackMessage]),
 	CallBackPid ! CallBackMessage.
 
 stop_aps(Which,Options,ClientPids)->
@@ -424,7 +424,7 @@ stop_aps(Which,Options,ClientPids)->
 		ovsdb_ap:stop_ap(K), [K|A]
 	              end, [], utils:select( Which == all , ClientPids , Which )),
 	ovsdb_client_handler:set_state(stopped),
-	?L_IA("STOP APS: Sending message back: ~p ~p~n",[CallBackPid, CallBackMessage]),
+	io:format("STOP APS: Sending message back: ~p ~p~n",[CallBackPid, CallBackMessage]),
 	CallBackPid ! CallBackMessage.
 
 pause_aps(Which,Options,ClientPids)->

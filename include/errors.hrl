@@ -28,5 +28,6 @@
 -define(ERROR_SIM_MUST_BE_PAUSED_OR_STOPPED,{error,must_be_paused_or_stopped}).
 -define(ERROR_SIM_ACTION_UNKNOWN,{error,sim_action_unknown}).
 -define(ERROR_CA_CANNOT_IMPORT_KEY,{error,key_not_imported}).
+-define(ERROR_CA_UNKNOWN,{error,ca_unknown}).
 
 -endif.

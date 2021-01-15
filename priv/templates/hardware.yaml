@@ -2,8 +2,8 @@ Version: 1.0
 
 Devices:
   - Id : tp_link_ea8300
-    Description: TP Link Home Gateway
-    Vendor: TP-Link Technologies Ltd
+    Description: Cisco-Linksys LLC
+    Vendor: Cisco-Linksys LLC
     Model: EA8300
     Radios: 3
     HWType: ath10k

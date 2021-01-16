@@ -26,7 +26,8 @@
 	make_client/2,make_clients/5,generate_client_batch/6,get_client/2,
 	all_files_exist/1,valid_ca_name/1,valid_password/1,
 	delete_server/2,import_ca/2,create_tables/0,
-	list_clients/1,generate_single_client/4]).
+	list_clients/1,generate_single_client/4,
+	delete_all_records/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -873,3 +874,12 @@ list_ca_clients(CAName) ->
 																			end,[],clients)
 				              end).
 
+delete_all_records(clients) ->
+	mnesia:clear_table(clients),
+	ok;
+delete_all_records(servers) ->
+	mnesia:clear_table(servers),
+	ok;
+delete_all_records(cas) ->
+	mnesia:clear_table(cas),
+	ok.

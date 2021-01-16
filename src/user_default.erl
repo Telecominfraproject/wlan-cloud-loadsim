@@ -571,6 +571,6 @@ run(SimName,Delay)->
 	end.
 
 -spec show_simulation_state(SimName::string()|binary()) -> {ok,SimState::#sim_state{}} | generic_error().
-show_simulation_state(SimName)->
+show_simulation_state(_SimName)->
 	ok.
 

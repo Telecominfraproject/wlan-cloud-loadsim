@@ -81,7 +81,10 @@ is_authorized(Req, State) ->
 %	    {{false, <<"Bearer">>}, Req, State}
 %	end.
 
-delete_resource(Req, State) ->
+delete_resource(Req, #request_state{ resource = <<"simulations">> } = State) ->
+	S = State#request_state.looked_up,
+	simengine:delete(S#simulation.name,S#simulation.ca),
+	?L_IA("Deleted simulation: ~p~n",S#simulation.name),
 	{ true , Req , State }.
 
 resource_exists(Req, #request_state{ method = ?HTTP_GET, resource = <<"nodes">>, id=nothing }=State) ->
@@ -136,6 +139,11 @@ resource_exists(Req, #request_state{ method = ?HTTP_GET, resource = <<"simulatio
 		{error,_Reason} ->  {false,Req,State}
 	end;
 resource_exists(Req, #request_state{ method = ?HTTP_GET, resource = <<"simulations">>, subres = nothing }=State) ->
+	case simengine:get(State#request_state.id) of
+		{ok,Record}    -> 	{true, Req, State#request_state{ looked_up = Record }};
+		{error,_Reason} ->  {false,Req,State}
+	end;
+resource_exists(Req, #request_state{ method = ?HTTP_DELETE, resource = <<"simulations">>, subres = nothing }=State) ->
 	case simengine:get(State#request_state.id) of
 		{ok,Record}    -> 	{true, Req, State#request_state{ looked_up = Record }};
 		{error,_Reason} ->  {false,Req,State}

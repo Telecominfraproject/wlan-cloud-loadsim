@@ -189,16 +189,29 @@ handle_call({create_simulation,SimInfo}, _From, State = #simengine_state{}) ->
 			end
 	end;
 
-handle_call({delete_simulation,SimName,_CAName}, _From, State = #simengine_state{}) ->
+handle_call({delete_simulation,SimName,CAName}, _From, State = #simengine_state{}) ->
 	case sim_exists(SimName) of
 		false ->
 			{reply,?ERROR_SIM_UNKNOWN,State};
 		true->
-			?L_IA("Deleting simulation ~s.",[binary_to_list(SimName)]),
-			delete_sim(SimName),
-			Directory = filename:join(["certs_db",binary_to_list(SimName)]),
-			_ = os:cmd("rm -rf " ++ Directory),
-			{reply,ok,State#simengine_state{ sim_states = maps:remove(SimName,State#simengine_state.sim_states)}}
+			case inventory:get_ca(CAName) of
+				{ok,CAInfo} ->
+					?L_IA("Deleting simulation ~s.",[binary_to_list(SimName)]),
+					delete_sim(SimName),
+					CADir = binary_to_list(CAInfo#ca_info.dir_name),
+					Dirs = [ "clients" , "servers" , "newcerts" ],
+					Files = [ "index.txt", "index.txt.attr", "index.txt.old", "index.txt.attr.old", "serial.txt", "serial.txt.old" ],
+					[ file:del_dir_r(filename:join([CADir,X])) || X<-Dirs ],
+					[ file:make_dir(filename:join([CADir,X])) || X<-Dirs ],
+					[ file:delete(filename:join([CADir,X])) || X<-Files ],
+					ok = file:write_file( filename:join([CADir, "index.txt"]),<<>>),
+					ok = file:write_file( filename:join([CADir, "serial.txt"]),<<$0,$1>>),
+					inventory:delete_all_records(clients),
+					inventory:delete_all_records(servers),
+					{reply,ok,State#simengine_state{ sim_states = maps:remove(SimName,State#simengine_state.sim_states)}};
+				_ ->
+					{reply,?ERROR_CA_UNKNOWN,State}
+			end
 	end;
 
 handle_call({update_simulation,SimInfo}, _From, State = #simengine_state{}) ->

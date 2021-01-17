@@ -12,6 +12,12 @@
             height: 100%;
             background: skyblue;
         }
+        :root {
+            --borderWidth: 7px;
+            --height: 24px;
+            --width: 12px;
+            --borderColor: #78b13f;
+        }
         #app {
             display: flex;
             flex-direction: column;
@@ -26,14 +32,15 @@
             background-color: skyblue;
             display: grid;
             grid-template-columns: 1fr 1fr 1fr 1fr;
-            grid-template-rows: 350px 350px 350px;
+            grid-template-rows: 1fr 1fr 1fr;
             grid-gap: 15px;
             border-width: 15px 15px;
             border-style: solid;
             border-color: skyblue;
         }
         .dashboard > div {
-            place-items: center ;
+            position: relative;
+            place-items: center;
             background-color: rgba(255, 255, 255, 0.5);
             text-align: center;
             padding: 20px 0;
@@ -44,15 +51,44 @@
             border-bottom-right-radius: 15px;
             box-shadow: 10px 5px 5px #1b4460;
         }
+        .sim_state {
+            display: grid;
+            grid-template-columns: 25% auto;
+            font-size: 16px;
+            font-family: Arial, Helvetica, sans-serif;
+            color: black;
+        }
+        .sim_state > div {
+            text-align: left;
+            margin-left: 15px;
+        }
         .actions {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 80% 10% 10%;
             grid-gap: 0.5rem;
         }
         .form-grid {
             display: grid;
             grid-template-columns: 40% 60%;
             grid-gap: 0.5rem;
+            font-size: 0.875rem;
+        }
+        .sim-grid-actions {
+            margin-top: 15px;
+            display: grid;
+            text-align: center;
+            align-content: center;
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-gap: 1rem;
+            font-size: 0.875rem;
+        }
+        .ca-grid-actions {
+            margin-top: 15px;
+            display: grid;
+            text-align: center;
+            align-content: center;
+            grid-template-columns: 1fr 1fr;
+            grid-gap: 1rem;
             font-size: 0.875rem;
         }
         .table-sm {
@@ -83,12 +119,15 @@
             font-family: Arial, Helvetica, sans-serif;
             color: black
         }
-        .logline {
-            white-space: pre;
-            font-family: Arial, Helvetica, sans-serif;
-            font-size: 16px;
-            color: black;
-            line-height: 0.8;
+        .check {
+            text-align: center;
+            align-content: center;
+            display: inline-block;
+            transform: rotate(45deg);
+            height: var(--height);
+            width: var(--width);
+            border-bottom: var(--borderWidth) solid var(--borderColor);
+            border-right: var(--borderWidth) solid var(--borderColor);
         }
         .spinner {
             margin-top: 7px;
@@ -120,39 +159,31 @@
                 <button class="btn btn-sm btn-secondary"
                         v-on:click="loadImportcas_form()">Import CA</button>
                 <div></div>
-                <button class="btn btn-sm btn-secondary"
-                        v-on:click="newSimulation()">Create Simulation</button>
                 <div></div>
+
                 <button class="btn btn-sm btn-secondary" id="prepare_button"
-                        v-bind:disabled="sim_form.assets_created"
+                        v-bind:disabled="bool_val(sim_form.assets_created || sim_state.current_operation === 'preparing')"
                         v-on:click="sendAction('prepare')">Prepare Assets</button>
-                <div v-if="show_prepare_spinner">
-                    <div class="spinner" id="prepare_loader"></div>
-                </div>
-                <div v-else>
-                </div>
+                <div class="check" v-bind:style="{visibility:is_visible( sim_form.assets_created )}"></div>
+                <div class="spinner" v-bind:style="{ visibility: is_visible(show_prepare_spinner)}" ></div>
+
                 <button class="btn btn-sm btn-secondary" id="push_button"
+                        v-bind:disabled="bool_val(sim_form.assets_created===false || sim_state.pushed || sim_state.current_operation==='pushing')"
                         v-on:click="sendAction('push')">Push Simulation</button>
-                <div v-if="show_push_spinner">
-                    <div class="spinner" id="push_loader"></div>
-                </div>
-                <div v-else>
-                </div>
+                <div class="check" v-bind:style="{visibility:is_visible( sim_state.pushed )}"></div>
+                <div class="spinner" v-bind:style="{ visibility: is_visible( show_push_spinner ) }"></div>
+
                 <button class="btn btn-sm btn-secondary" id="start_button"
+                        v-bind:disabled="bool_val(sim_state.state==='started' || sim_state.pushed===false)"
                         v-on:click="sendAction('start')">Start Simulation</button>
-                <div v-if="show_start_spinner">
-                    <div class="spinner" id="start_loader"></div>
-                </div>
-                <div v-else>
-                </div>
+                <div class="check" v-bind:style="{visibility:is_visible( sim_state.state === 'started' )}"></div>
+                <div class="spinner"v-bind:style="{ visibility: is_visible( show_start_spinner ) }"></div>
+
                 <button class="btn btn-sm btn-secondary" id="stop_button"
+                        v-bind:disabled="bool_val(sim_state.state !== 'started')"
                         v-on:click="sendAction('stop')">Stop Simulation</button>
-                <div v-if="show_stop_spinner">
-                    <div class="spinner" id="stop_loader"></div>
-                </div>
-                <div v-else>
-                </div>
-                <div></div>
+                <div class="check" v-bind:style="{visibility:is_visible(show_stop_check)}"></div>
+                <div class="spinner" v-bind:style="{ visibility: is_visible( show_stop_spinner ) }"></div>
             </div>
         </div>
 
@@ -173,11 +204,11 @@
                     <label class="form-label">Password</label>
                     <div><input type="text" class="form-control form-control-sm" v-model="cas_form.password"/></div>
                     <div></div>
-                    <div>
-                        <button class="btn btn-secondary btn-sm" v-on:click="saveCA()">Import CA</button>
-                        <button class="btn btn-light btn-sm" v-on:click="loadImportcas_form()">Cancel</button>
-                    </div>
                 </fieldset>
+                <div class="ca-grid-actions">
+                    <button class="btn btn-secondary btn-sm" v-on:click="saveCA()">Import CA</button>
+                    <button class="btn btn-light btn-sm" v-on:click="unloadImportcas_form()">Done</button>
+                </div>
             </div>
             <div v-else>
                 <h2 class="h5">Simulation</h2>
@@ -190,11 +221,11 @@
                 </fieldset>
                 <fieldset class="form-grid border border-secondary p-3">
                     <label class="form-label">Name</label>
-                    <div><input type="text" class="form-control form-control-sm" v-model="sim_form.name"/></div>
+                    <div><input type="text" class="form-control form-control-sm" v-model.trim="sim_form.name"/></div>
                     <label class="form-label">CA</label>
-                    <div><select class="form-select form-select-sm" v-model="sim_form.caname"><option v-for="(ca, index) in cas" :key="index" v-bind:value="ca">{{ ca }}</option></select></div>
+                    <div><select class="form-select form-select-sm" v-model.trim="sim_form.caname"><option v-for="(ca, index) in cas" :key="index" v-bind:value="ca">{{ ca }}</option></select></div>
                     <label class="form-label">Number of Devices</label>
-                    <div><input type="number" class="form-control form-control-sm" v-model="sim_form.num_devices" /></div>
+                    <div><input type="number" class="form-control form-control-sm" v-model.number="sim_form.num_devices" /></div>
                     <label class="form-label">Nodes</label>
                     <div class="d-grid">
                         <label class="" v-for="(node, index) in nodesNodes" :key="index">
@@ -202,13 +233,17 @@
                         </label>
                     </div>
                     <label class="form-label">Server Name</label>
-                    <div><input type="text" class="form-control form-control-sm" v-model="sim_form.server"/></div>
+                    <div><input type="text" class="form-control form-control-sm" v-model.trim="sim_form.server"/></div>
                     <label class="form-label">Port</label>
-                    <div><input type="number" class="form-control form-control-sm" v-model="sim_form.port" /></div>
+                    <div><input type="number" class="form-control form-control-sm" v-model.number="sim_form.port" /></div>
                     <label class="form-label">Assets created</label>
                     <div id="assets_created">{{ sim_form.assets_created }}</div>
-                    <button class="btn btn-secondary btn-sm" v-on:click="saveSimulation()">Save</button>
                 </fieldset>
+                <div class="sim-grid-actions">
+                    <button class="btn btn-secondary btn-sm" v-on:click="saveSimulation()">Save</button>
+                    <button class="btn btn-secondary btn-sm" v-on:click="deleteSimulation()">Delete</button>
+                    <button class="btn btn-secondary btn-sm" v-on:click="newSimulation()">New</button>
+                </div>
             </div>
         </div>
 
@@ -239,7 +274,59 @@
         </div>
     </div>
 
-    <div class="dashboard" id="dashboard"></div>
+    <div class="dashboard" id="dashboard">
+        <!-- Row 1 -->
+        <div class="col" id="cell11">
+            <h3 class="h3" id="cell11-title"></h3>
+        </div>
+        <div class="col" id="cell12">
+            <h3 class="h3" id="cell12-title"></h3>
+        </div>
+        <div class="col" id="cell13">
+            <h3 class="h3" id="cell13-title"></h3>
+        </div>
+        <div class="col" id="cell14">
+            <h3 class="h3" id="cell14-title">Sessions</h3>
+            <text class="bignumber" id="session_count"
+               v-bind:style="{ color: pick_color(session_pct) }" >{{ session_pct}}%</text>
+        </div>
+
+        <!-- Row 2 -->
+        <div class="col" id="cell21">
+            <h3 class="h3" id="cell21-title"></h3>
+        </div>
+        <div class="col" id="cell22">
+            <h3 class="h3" id="cell22-title"></h3>
+        </div>
+        <div class="col" id="cell23">
+            <h3 class="h3" id="cell23-title"></h3>
+        </div>
+        <div class="col" id="cell24">
+            <h3 class="h3" id="cell24-title">APs</h3>
+            <p class="bignumber" id="ap_count"
+                v-bind:style="{ color: pick_color(ap_pct)}">{{ ap_pct }}%</p>
+        </div>
+
+        <!-- Row 3 -->
+        <div class="col" id="cell31">
+            <h3 class="h3" id="cell31-title"></h3>
+        </div>
+        <div class="col" id="cell32">
+            <h3 class="h3" id="cell32-title"></h3>
+        </div>
+        <div class="col" id="cell33">
+            <h3 class="h3" id="cell33-title"></h3>
+        </div>
+        <div class="col" id="cell34">
+            <h3 class="h3" id="cell34-title">Simulation State</h3>
+            <div class="sim_state">
+                <div>Pushed:</div><div>{{sim_state.pushed}}</div>
+                <div>Operation:</div><div>{{sim_state.current_operation}}</div>
+                <div>State:</div><div>{{sim_state.state}}</div>
+                <div>Started:</div><div>{{sim_state.start_time}}</div>
+            </div>
+        </div>
+    </div>
 
     <div class="output">
         <h2 class="h3">Logging</h2>
@@ -257,7 +344,8 @@
   start of scripts
 -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.4/dist/Chart.min.js" integrity="sha256-t9UJPrESBeG2ojKTIcFLPGF7nHi2vEc7f5A2KpH/UBU=" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/vue@3.0.4/dist/vue.global.js"></script>
+<script src="https://unpkg.com/vue@next"></script>
+<!-- <script src="https://unpkg.com/vue@3.0.4/dist/vue.global.js"></script> -->
 
 <script>
     const App = {
@@ -268,7 +356,7 @@
                 wss: 'ws:' + location.hostname + ':' + location.port + '/ws',
                 output: [],
                 socket: null,
-                msg: 'Hello World',
+                msg: '',
                 importCA: false,
                 cas_form: {
                     name: null,
@@ -277,22 +365,34 @@
                     password: null
                 },
                 sim_form: {
-                    name: null,
-                    caname: null,
-                    num_devices: null,
-                    server: null,
-                    port: null,
-                    nodes: null,
-                    assets_created: null
+                    name: '',
+                    caname: '',
+                    num_devices: 0,
+                    server: '',
+                    port: '',
+                    nodes: '',
+                    assets_created: false
                 },
 
                 ap_pct: 0,
                 session_pct: 0,
 
+                sim_state: {
+                    pushed: false,
+                    current_operation: 'none',
+                    state: 'none',
+                    start_time: ''
+                },
+
                 show_prepare_spinner: false,
                 show_push_spinner: false,
                 show_start_spinner: false,
                 show_stop_spinner: false,
+
+                show_prepare_check: false,
+                show_push_check: false,
+                show_start_check: false,
+                show_stop_check: false,
 
                 nodes_stats_table: null,
 
@@ -325,9 +425,6 @@
         },
 
         mounted: function() {
-            this.createGrid(3,4);
-            this.createTile(1,4,'Sessions','session_count');
-            this.createTile(2,4,'APs','ap_count');
         },
 
         created: function() {
@@ -362,35 +459,28 @@
                     () => this.getNodes(),
                     4000
                 );
+
+                setInterval(
+                    () => this.getSimulationState(),
+                    4000
+                );
             },
 
-            createTile: function(Row,Col,Title,Id) {
-                let CellName = `cell${Row}${Col}-title`;
-                document.getElementById(CellName).innerHTML = Title;
-                let c14 = document.getElementById(CellName);
-                let newTile = document.createElement('div');
-                newTile.id = Id;
-                newTile.className = 'bignumber';
-                c14.appendChild(newTile);
+            bool_val: function(Value) {
+                return Value;
             },
 
-            createGrid: function(Rows,Cols) {
-                let r,c;
+            loadImportcas_form: function() {
+                this.importCA = true ;
+            },
 
-                DashBoard = document.getElementById('dashboard');
+            unloadImportcas_form: function() {
+                this.importCA = false ;
+            },
 
-                for(r=0;r<Rows;r++) {
-                    for(c=0;c<Cols;c++) {
-                        let iDiv = document.createElement('div');
-                        iDiv.id = `cell${r+1}${c+1}`;
-                        iDiv.className = 'col';
-                        let tDiv = document.createElement('h3');
-                        tDiv.id = `cell${r+1}${c+1}-title`;
-                        tDiv.className = 'h3';
-                        iDiv.appendChild(tDiv);
-                        DashBoard.appendChild(iDiv);
-                    }
-                }
+            is_visible: function(v) {
+                if(v) return 'visible';
+                return 'hidden';
             },
 
             setupWebsocket: function() {
@@ -427,6 +517,32 @@
                     console.log(event);
                 }
 
+            },
+
+            reset_sim_form: function() {
+                this.sim_form.name = '' ;
+                this.sim_form.caname = '';
+                this.sim_form.num_devices = 0 ;
+                this.sim_form.server = '' ;
+                this.sim_form.port = 6643 ;
+                this.sim_form.nodes = [] ;
+                this.sim_form.assets_created = false;
+            },
+
+            reset_cas_form: function() {
+                this.cas_form.name = '' ;
+                this.cas_form.key = '';
+                this.cas_form.cert = '' ;
+                this.cas_form.password = '';
+                this.$refs.keyFile.value = null;
+                this.$refs.certFile.value = null;
+            },
+
+            reset_sim_state_form: function() {
+                this.sim_state.pushed = false;
+                this.sim_state.current_operation = 'none';
+                this.sim_state.state = 'none';
+                this.sim_state.start_time = '';
             },
 
             // send a msg through the socket...
@@ -469,7 +585,7 @@
                 fetch( location )
                     .then(response => response.json())
                     .then(data => {
-                        console.log(data);
+                        // console.log(data);
                         this.simulations = data.Data.Simulations;
                         this.simulation = this.simulations[0];
                         this.selectSimulation();
@@ -480,9 +596,8 @@
             newSimulation() {
                 this.simulation = '';
                 this.simulationNew = true;
-                this.sim_form.assets_created = false;
-                // document.getElementById('prepare_button').hidden = false ;
-                this.resetProps( this.sim_form );
+                this.reset_sim_form();
+                this.reset_sim_state_form();
             },
 
             selectSimulation() {
@@ -491,22 +606,23 @@
                 if( !sim ) {
                     this.newSimulation();
                 }
-                const location = this.apiBase + this.apiPrefix + `/simulations/${sim}`;
-                fetch( location )
-                    .then(response => response.json())
-                    .then(data => {
-                        console.log(data);
-                        if( data && data.name ) {
-                            this.simulationNew = false;
-                            let keys = Object.keys(this.sim_form);
-                            keys.forEach( (k) => {
-                                console.log(data[k])
-                                if( data[k] !== undefined )
-                                    this.sim_form[k] = data[k];
-                            });
-                            // document.getElementById('prepare_button').disabled = this.sim_form.assets_created ;
-                        }
-                    });
+                else {
+                    const location = this.apiBase + this.apiPrefix + `/simulations/${sim}`;
+                    fetch(location)
+                        .then(response => response.json())
+                        .then(data => {
+                            // console.log(data);
+                            if (data && data.name) {
+                                this.simulationNew = false;
+                                let keys = Object.keys(this.sim_form);
+                                keys.forEach((k) => {
+                                    // console.log(data[k])
+                                    if (data[k] !== undefined)
+                                        this.sim_form[k] = data[k];
+                                });
+                            }
+                        });
+                }
             },
 
             saveSimulation: function() {
@@ -515,9 +631,12 @@
                     console.log('Missing simulation name');
                     return;
                 }
+                this.simulation = this.sim_form.name;
+                this.sim_form.num_devices = Number(this.sim_form.num_devices);
+                this.sim_form.port = Number(this.sim_form.port);
                 this.apiPost( `/simulations/${id}`, this.sim_form )
                     .then(response => {
-                        console.log(response)
+                        // console.log(response)
                         if( response.name ) {
                             if(this.simulationNew) {
                                 this.simulationNew = false;
@@ -525,11 +644,25 @@
                                 this.simulation = response.name;
                             }
                         }
-                    });
+                        this.selectSimulation();
+                        this.$alert(`Simulation ${this.sim_form.name} saved.`,'Simulations...','info');
+                       });
+                this.selectSimulation();
+            },
+
+            deleteSimulation: function() {
+                if(this.sim_form.name === '') {
+                    return;
+                }
+                this.apiDelete(`/simulations/${this.sim_form.name}`);
+                this.reset_sim_form();
+                this.reset_sim_state_form();
+                this.simulation = '';
+                this.simulationNew = true;
             },
 
             saveCA: function() {
-                console.log(JSON.stringify(this.cas_form));
+                // console.log(JSON.stringify(this.cas_form));
                 // block if name exists
                 if( this.cas.includes( this.cas_form.name ) ) {
                     console.log(`CA name ${this.cas_form.name} already exists!`);
@@ -539,27 +672,13 @@
                 if( this.cas_form.name && this.cas_form.key && this.cas_form.cert ) {
                     this.apiPost( `/cas/${this.cas_form.name}`, this.cas_form )
                         .then(response => {
-                            console.log(response);
-                            this.resetcas_form();
+                            // console.log(response);
+                            this.reset_cas_form();
                             this.getCas();
                         });
                 } else {
                     console.log(`Missing parameters`);
                 }
-            },
-
-            resetcas_form: function() {
-                this.resetProps( this.cas_form );
-                this.$refs.keyFile.value = null;
-                this.$refs.certFile.value = null;
-            },
-
-            // simple helper to reset props of an object
-            resetProps: function( obj, val ) {
-                if( val === undefined ) val = null;
-                Object.keys( obj ).forEach( k => {
-                    obj[k] = null;
-                } );
             },
 
             // prepare assets
@@ -583,7 +702,7 @@
                     case 'stop': this.show_stop_spinner = true; break;
                 }
 
-                let payload = {
+                const payload = {
                     "action": action,
                     "simulation": this.simulation,
                     "parameters": [
@@ -594,43 +713,70 @@
                     ]
                 };
 
-                let job_id = null;
-
                 this.apiPost(`/actions`, payload)
-                    .then(response => {
-                        job_id = response.data.id ;
-                        this.output.push("Action post\n");
-                        this.output.push(job_id);
-                        this.output.push("After\n");
-                        this.output.push(job_id);
-
+                    .then(data => {
+                        const job_id = data.data.id ;
                         if(job_id !== null) {
-                            this.check_job_status(job_id);
-                        }
-                    });
-
-                switch( action ) {
-                    case 'prepare': this.show_prepare_spinner = false; break;
-                    case 'push': this.show_push_spinner = false; break;
-                    case 'start': this.show_start_spinner = false; break;
-                    case 'stop': this.show_stop_spinner = false; break;
-                }
+                            console.log(`Waiting completion of ${action} ID: ${job_id}`);
+                            let self = this;
+                            this.check_job_status(job_id, Date.now() + 300000, 500)
+                                .then( function(jobStatus) {
+                                    console.log(`Waiting completion 3 of ${action} ID=${job_id} : ${jobStatus}`);
+                                    if (action === 'prepare' && jobStatus === true) {
+                                        self.sim_form.assets_created = true;
+                                    }
+                                    switch( action ) {
+                                        case 'prepare': self.show_prepare_spinner = false; break;
+                                        case 'push': self.show_push_spinner = false; break;
+                                        case 'start': self.show_start_spinner = false; break;
+                                        case 'stop': self.show_stop_spinner = false; break;
+                                    }
+                                } )
+                        }})
+                        .catch(error => console.error(error.message));
             },
 
-            check_job_status: function(action_id) {
-                this.apiGetSimple('/actions/'+action_id)
-                    .then(response => {
-                        if( response.data.status !== 'completed' ) {
-                            this.check_job_status(action_id);
+            check_job_status: async function(action_id, timeOut, backoff ) {
+                const url = `${this.apiBase}${this.apiPrefix}/actions/${action_id}`;
+                return await fetch(url, {})
+                    .then( res => res.json() )
+                    .then( data => {
+                        console.log(data);
+                        if (data.status === 'completed') {
+                            console.log(`${action_id} : completed`);
+                            Promise.resolve(true);
+                            return true;
                         }
-                    });
+                        else if (Date.now() < timeOut) {
+                            return this.check_job_status(action_id, timeOut, backoff);
+                        } else {
+                            throw new Error('Timed out');
+                        }
+                    })
+                    .catch(console.error);
+            },
 
+            getSimulationState: function() {
+                if(!this.simulation)
+                    return;
+                const the_uri = this.apiBase + this.apiPrefix + `/simulations/${this.simulation}/state`;
+                fetch( the_uri )
+                    .then(response => response.json())
+                    .then(data => {
+                        if( data ) {
+                            this.simulationNew = false;
+                            let keys = Object.keys(this.sim_state);
+                            keys.forEach( (k) => {
+                                if( data[k] !== undefined )
+                                    this.sim_state[k] = data[k];
+                            });
+                        }
+                    })
+                    .catch(console.log);
             },
 
             apiGetSimple: async function( path ) {
                 const url = `${this.apiBase}${this.apiPrefix}${path}`;
-                this.output.push("simple get");
-                this.output.push(url);
                 const response = await fetch( url );
                 return {
                     status: response.status,
@@ -665,14 +811,20 @@
                 const url = `${this.apiBase}${this.apiPrefix}${path}`;
                 const response = await fetch( url, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify( payload )
                 } );
                 return {
                     status: response.status,
                     data: await response.json()
+                }
+            },
+
+            apiDelete: async function( path ) {
+                const url = `${this.apiBase}${this.apiPrefix}${path}`;
+                const response = await fetch( url, { method: 'DELETE' });
+                return {
+                    status: response.status
                 }
             },
 
@@ -696,14 +848,9 @@
                     const chart = new Chart(el, {
                         type: 'line',
                         options: {
-                            animation: {
-                                duration: 0
-                            },
-                            elements: {
-                                line: {
-                                    tension: 0
-                                }
-                            }
+                            layout: { padding: { left: 15, right:15, top:15, bottom: 15} },
+                            animation: { duration: 0 },
+                            elements: { line: { tension: 0 } }
                         },
                         data: {
                             labels: [],
@@ -739,6 +886,11 @@
                     mqtt_client_stats_div.appendChild(el);
                     const chart = new Chart(el, {
                         type: 'line',
+                        options: {
+                            layout: { padding: { left: 15, right:15, top:15, bottom: 15} },
+                            animation: { duration: 0 },
+                            elements: { line: { tension: 0 } }
+                        },
                         data: {
                             labels: [],
                             datasets: [
@@ -761,8 +913,7 @@
             },
 
             mqtt_client_handler: function(data) {
-                if(this.mqtt_client_handler_chart===null)
-                {
+                if(this.mqtt_client_handler_chart===null) {
                     const el = document.createElement('canvas');
                     el.setAttribute('id', `mqtt_client_handler_chart`);
                     const mqtt_client_handler_div = document.getElementById('cell22');
@@ -770,6 +921,11 @@
                     mqtt_client_handler_div.appendChild(el);
                     const chart = new Chart(el, {
                         type: 'line',
+                        options: {
+                            layout: { padding: { left: 15, right:15, top:15, bottom: 15} },
+                            animation: { duration: 0 },
+                            elements: { line: { tension: 0 } }
+                        },
                         data: {
                             labels: [],
                             datasets: [
@@ -799,6 +955,11 @@
                     ovsdb_clients_div.appendChild(el);
                     const chart = new Chart(el, {
                         type: 'line',
+                        options: {
+                            layout: { padding: { left: 15, right:15, top:15, bottom: 15} },
+                            animation: { duration: 0 },
+                            elements: { line: { tension: 0 } }
+                        },
                         data: {
                             labels: [],
                             datasets: [
@@ -828,6 +989,11 @@
                     ovsdb_clients_div.appendChild(el);
                     const chart = new Chart(el, {
                         type: 'line',
+                        options: {
+                            layout: { padding: { left: 15, right:15, top:15, bottom: 15} },
+                            animation: { duration: 0 },
+                            elements: { line: { tension: 0 } }
+                        },
                         data: {
                             labels: [],
                             datasets: [                                {
@@ -843,17 +1009,10 @@
                     });
                     this.simulation_state_chart = chart;
                 }
-                dev_pct = (100*(data.data.tip_devices/data.data.max_devices)).toFixed(1);
-                sess_pct = (100*(data.data.tip_clients/data.data.max_clients)).toFixed(1);
-                this.setTileColor('session_count',sess_pct);
-                this.setTileColor('ap_count',dev_pct);
-                let theData = [dev_pct,sess_pct];
+                this.ap_pct = (100*(data.data.tip_devices/data.data.max_devices)).toFixed(1);
+                this.session_pct = (100*(data.data.tip_clients/data.data.max_clients)).toFixed(1);
+                let theData = [this.ap_pct,this.session_pct];
                 this.updateChartData(this.simulation_state_chart,theData);
-            },
-
-            setTileColor: function(Id,Value) {
-                document.getElementById(Id).innerHTML = Value + '%';
-                document.getElementById(Id).style.color = this.pick_color(Value);
             },
 
             updateChartData: function(the_chart,dataValues) {
@@ -885,10 +1044,6 @@
                 return 'green';
             },
 
-            set_button_states: function() {
-
-            },
-
             makeLabel: function() {
                     const now = new Date();
                     const secs = now.getSeconds();
@@ -899,7 +1054,7 @@
                     else
                         return mins + ":" + secs;
                 }
-            },
+        },
 
         computed: {
             nodesNodes: function() {
@@ -907,8 +1062,8 @@
                     return this.nodes_stats_table.filter( n => n.type === 'node' ).map( n => n.node );
                 }
                 return [];
-            },
-        },
+            }
+        }
     };
 
     Vue.createApp(App).mount('#app')

@@ -22,6 +22,8 @@ security:
   - ApiKeyAuth: []
 
 tags:
+- name: Login
+  description: The first call to be made to obtain the token for the management session.
 - name: OUIs
   description:
     OUIs represent the manufacturer of a hardware device. The first 3 bytes of a MAC address are the OUI.
@@ -50,7 +52,58 @@ tags:
 - name: Hardware
   description:
     This shows the previsouly defined hardware devices.
+
 paths:
+  /oauth2/login:
+    post:
+      tags: [ Login ]
+      summary: Get access token - to be used as Bearer token header for all other API requests.
+      operationId: getAccessToken
+      requestBody:
+        description: User id and password
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebTokenRequest'
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericGoodAnswer'
+        403:
+          $ref: '#/components/responses/Unauthorized'
+        404:
+          $ref: '#/components/responses/NotFound'
+        500:
+          $ref: '#/components/responses/GenericErrorResponse'
+
+  /oauth2/logout:
+    delete:
+      tags: [ Login ]
+      summary: Revoke a token.
+      operationId: removeAccessToken
+      parameters:
+        - in: query
+          name: token
+          schema:
+            type:
+              string
+          required: true
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericGoodAnswer'
+        404:
+          $ref: '#/components/responses/NotFound'
+        500:
+          $ref: '#/components/responses/GenericErrorResponse'
+
   /ouis:
     get:
       tags: [ OUIs ]
@@ -1102,3 +1155,58 @@ components:
         execution_ms:
           type: integer
 
+    WebTokenRequest:
+      description: User Id and password.
+      type: object
+      required:
+        - userId
+        - password
+      properties:
+        userId:
+          type: string
+          default: support@example.com
+        password:
+          type: string
+          default: support
+      example:
+        userId: support@example.com
+        password: support
+
+    WebTokenResult:
+      description: Login and Refresh Tokens to be used in subsequent API calls.
+      type: object
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        token_type:
+          type: string
+        expires_in:
+          type: integer
+          format: int32
+        idle_timeout:
+          type: integer
+          format: int32
+        aclTemplate:
+          $ref: '#/components/schemas/WebTokenAclTemplate'
+
+    WebTokenAclTemplate:
+      type: object
+      properties:
+        aclTemplate:
+          $ref: '#/components/schemas/AclTemplate'
+
+    AclTemplate:
+      type: object
+      properties:
+        Read:
+          type: boolean
+        ReadWrite:
+          type: boolean
+        ReadWriteCreate:
+          type: boolean
+        Delete:
+          type: boolean
+        PortalLogin:
+          type: boolean

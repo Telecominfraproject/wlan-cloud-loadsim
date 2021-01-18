@@ -119,6 +119,19 @@
             font-family: Arial, Helvetica, sans-serif;
             color: black
         }
+        .loginBox {
+            margin-top: 30%;
+            margin-bottom: 30%;
+            margin-left: 30%;
+            margin-right: 30%;
+            border-top-left-radius: 15px;
+            border-top-right-radius: 15px;
+            border-bottom-left-radius: 15px;
+            border-bottom-right-radius: 15px;
+            box-shadow: 10px 5px 5px #1b4460;
+            text-align: center;
+            background: #cbc3c3;
+        }
         .check {
             text-align: center;
             align-content: center;
@@ -149,8 +162,20 @@
 
 <body>
 <div id="app">
+    <div v-if="!logged_in">
+        <div>
+            <div class="loginBox">
+                <h1>Login</h1>
+                <div>
+                    <p>Username: <input type="text" name="username" v-model="credentials.username" placeholder="Username" /></p>
+                    <p>Password: <input type="password" name="password" v-model="credentials.password" placeholder="Password" /></p>
+                    <button type="button" v-on:click="login()">Login</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div v-else>
     <div class="controls p-3">
-
         <div class="col">
             <div>
                 <img src="/assets/android-chrome-192x192.png" alt="Cute little owl.">
@@ -337,6 +362,7 @@
             <code v-for="(msg, index) in output" :key="index">{{ msg }}</code>
         </div>
     </div>
+    </div>
 
 </div>
 
@@ -351,9 +377,11 @@
     const App = {
         data() {
             return {
+                logged_in: false,
                 apiBase: location.protocol + location.hostname + ':' + location.port,
                 apiPrefix: '/api/v1',
                 wss: 'ws:' + location.hostname + ':' + location.port + '/ws',
+                access_token: 'not_a_token',
                 output: [],
                 socket: null,
                 msg: '',
@@ -383,6 +411,12 @@
                     state: 'none',
                     start_time: ''
                 },
+
+                credentials:
+                    {
+                        username: '',
+                        password: ''
+                    },
 
                 show_prepare_spinner: false,
                 show_push_spinner: false,
@@ -464,6 +498,25 @@
                     () => this.getSimulationState(),
                     4000
                 );
+            },
+
+            login: function() {
+                let payload = { userId: this.credentials.username, password: this.credentials.password };
+                this.apiPost(`/oauth2/login`,payload)
+                    .then( res => {
+                        if( res.status === 200 ) {
+                            this.access_token = res.data.access_token;
+                            this.logged_in = true;
+                            return true;
+                        }
+                        else {
+                            return false;
+                        }
+                    })
+                    .catch( Error => {
+                        console.error(Error);
+                        return false;
+                    })
             },
 
             bool_val: function(Value) {
@@ -548,7 +601,6 @@
             // send a msg through the socket...
             send: function() {
                 console.log(`Sending message '${this.msg}'...`);
-                // should check if socket is good before
                 this.socket.send(this.msg)
             },
 
@@ -565,7 +617,7 @@
 
             getNodes: function() {
                 this.nodes_stats_table = [];
-                this.apiGet('/nodes')
+                this.apiGet('/nodes?format=detailed')
                     .then((response) => {
                         const data = response.data;
                         if(data.Data && data.Data.Nodes) {
@@ -581,14 +633,13 @@
             },
 
             getSimulations: function() {
-                const location = `${this.apiBase}${this.apiPrefix}/simulations`;
-                fetch( location )
-                    .then(response => response.json())
+                this.apiGet(`/simulations`)
                     .then(data => {
-                        // console.log(data);
-                        this.simulations = data.Data.Simulations;
-                        this.simulation = this.simulations[0];
-                        this.selectSimulation();
+                        if(data && data.Simulations) {
+                            this.simulations = data.Simulations;
+                            this.simulation = this.simulations[0];
+                            this.selectSimulation();
+                        }
                     });
             },
 
@@ -607,8 +658,7 @@
                     this.newSimulation();
                 }
                 else {
-                    const location = this.apiBase + this.apiPrefix + `/simulations/${sim}`;
-                    fetch(location)
+                    this.apiGet(`/simulations/${this.simulation}`)
                         .then(response => response.json())
                         .then(data => {
                             // console.log(data);
@@ -662,8 +712,6 @@
             },
 
             saveCA: function() {
-                // console.log(JSON.stringify(this.cas_form));
-                // block if name exists
                 if( this.cas.includes( this.cas_form.name ) ) {
                     console.log(`CA name ${this.cas_form.name} already exists!`);
                     return false;
@@ -737,8 +785,7 @@
             },
 
             check_job_status: async function(action_id, timeOut, backoff ) {
-                const url = `${this.apiBase}${this.apiPrefix}/actions/${action_id}`;
-                return await fetch(url, {})
+                return this.apiGet(`/actions/${action_id}`)
                     .then( res => res.json() )
                     .then( data => {
                         console.log(data);
@@ -760,7 +807,7 @@
                 if(!this.simulation)
                     return;
                 const the_uri = this.apiBase + this.apiPrefix + `/simulations/${this.simulation}/state`;
-                fetch( the_uri )
+                this.apiGet(`/simulations/${this.simulation}/state`)
                     .then(response => response.json())
                     .then(data => {
                         if( data ) {
@@ -775,16 +822,6 @@
                     .catch(console.log);
             },
 
-            apiGetSimple: async function( path ) {
-                const url = `${this.apiBase}${this.apiPrefix}${path}`;
-                const response = await fetch( url );
-                return {
-                    status: response.status,
-                    data: await response.json()
-                }
-            },
-
-
             // basic helper to read files
             // event, name is the key to store data after in cas_form
             loadText( event, name ) {
@@ -797,38 +834,9 @@
                 reader.readAsText(file);
             },
 
-            // generic get
-            apiGet: async function( path ) {
-                const url = `${this.apiBase}${this.apiPrefix}${path}?format=detailed`;
-                const response = await fetch( url );
-                return {
-                    status: response.status,
-                    data: await response.json()
-                }
-            },
-
-            apiPost: async function( path, payload ) {
-                const url = `${this.apiBase}${this.apiPrefix}${path}`;
-                const response = await fetch( url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify( payload )
-                } );
-                return {
-                    status: response.status,
-                    data: await response.json()
-                }
-            },
-
-            apiDelete: async function( path ) {
-                const url = `${this.apiBase}${this.apiPrefix}${path}`;
-                const response = await fetch( url, { method: 'DELETE' });
-                return {
-                    status: response.status
-                }
-            },
-
             logKernel: function( data ) {
+                if(!this.logged_in)
+                    return;
                 let idx = null;
                 if( !data.node ) {
                     return;
@@ -877,6 +885,8 @@
             },
 
             mqtt_client_stats: function(data) {
+                if(!this.logged_in)
+                    return;
                 if(this.mqtt_client_stats_chart===null)
                 {
                     const el = document.createElement('canvas');
@@ -913,6 +923,8 @@
             },
 
             mqtt_client_handler: function(data) {
+                if(!this.logged_in)
+                    return;
                 if(this.mqtt_client_handler_chart===null) {
                     const el = document.createElement('canvas');
                     el.setAttribute('id', `mqtt_client_handler_chart`);
@@ -947,6 +959,8 @@
             },
 
             ovsdb_clients: function(data) {
+                if(!this.logged_in)
+                    return;
                 if (this.ovsdb_clients_chart === null) {
                     const el = document.createElement('canvas');
                     el.setAttribute('id', `ovsdb_clients_chart`);
@@ -981,6 +995,8 @@
             },
 
             update_simulation_state: function(data) {
+                if(!this.logged_in)
+                    return;
                 if (this.simulation_state_chart === null) {
                     const el = document.createElement('canvas');
                     el.setAttribute('id', `simulation_state_client_chart`);
@@ -996,7 +1012,7 @@
                         },
                         data: {
                             labels: [],
-                            datasets: [                                {
+                            datasets: [{
                                 label: 'APs',
                                 borderColor: "#7dab16",
                                 data: this.simulation_state_data[0],
@@ -1053,7 +1069,52 @@
                     }
                     else
                         return mins + ":" + secs;
+            },
+
+            //
+            //  API REST framework
+            //
+            apiGet: async function( path ) {
+                const url = `${this.apiBase}${this.apiPrefix}${path}`;
+                const response = await fetch( url, {
+                    headers: {
+                        'Authorization': 'Bearer ' + this.access_token,
+                        'Content-Type': 'application/json' }
+                });
+                return {
+                    status: response.status,
+                    data: await response.json()
                 }
+            },
+
+            apiPost: async function( path, payload ) {
+                const url = `${this.apiBase}${this.apiPrefix}${path}`;
+                const response = await fetch( url, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + this.access_token,
+                        'Content-Type': 'application/json' },
+                    body: JSON.stringify( payload )
+                } );
+                return {
+                    status: response.status,
+                    data: await response.json()
+                }
+            },
+
+            apiDelete: async function( path ) {
+                const url = `${this.apiBase}${this.apiPrefix}${path}`;
+                const response = await fetch( url, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': 'Bearer ' + this.access_token,
+                        'Content-Type': 'application/json' },
+                });
+                return {
+                    status: response.status
+                }
+            }
+
         },
 
         computed: {

@@ -61,6 +61,7 @@ init([]) ->
 	Dispatch = cowboy_router:compile([
 		{
 			'_', [
+			{ "/api/v1/oauth2/:action", web_token_manager, [] },
 			{ "/api/v1/:restype/[:resid/[:subres/[:subid]]]", manager_api_rest_handler, [] },
 			{ "/ws", web_socket_handler, [] },
 			{ "/", cowboy_static, {file,filename:join([PrivDir,"www/index.html"])} },

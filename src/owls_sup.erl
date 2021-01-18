@@ -33,6 +33,7 @@ init([]) ->
 			node_stats:creation_info() ++
 			animals:creation_info() ++
 			tip_stats:creation_info() ++
+			web_token_manager:creation_info() ++
       simengine:creation_info();
 		node ->
 			?L_I("Simulation Node starting."),

@@ -13,7 +13,7 @@
 
 %% API
 -export([ create_paginated_return/4,dump_string_array/1,get_access_token/1,
-          add_CORS/1,generate_error/2,get_pagination_parameters/1,paginate/2,validate_token/1,
+          add_CORS/1,generate_error/2,get_pagination_parameters/1,paginate/2,
 					get_access_token_not_secure/1,get_parameter/3,paginate_record_list/2,create_json_string_array/2]).
 
 -record(pagination_info,{limit=0, offset=0, previous_offset=0,
@@ -127,9 +127,6 @@ generate_error(Error,Reason) when is_list(Reason)->
 generate_error(Error,Reason)->
 	E = #{ 'ErrorCode' =>  integer_to_binary(Error), 'ErrorDescription' => Reason },
 	jiffy:encode(E).
-
-validate_token(Token)->
-	utils:app_env(rest_api_token,"") == binary_to_list(Token).
 
 get_pagination_parameters(Req) ->
 	#{ offset := Offset , limit := Limit, filter := Filter } = cowboy_req:match_qs([{offset,int,1},{limit,int,0},{filter,[],<<>>}],Req),

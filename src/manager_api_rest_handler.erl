@@ -26,7 +26,7 @@
 %% API
 -export([ init/2,allowed_methods/2,is_authorized/2 ]).
 -export([ content_types_provided/2, content_types_accepted/2,options/2 ]).
--export([ db_to_json/2 , json_to_db/2 ,resource_exists/2,delete_resource/2]).
+-export([ db_to_json/2 , json_to_db/2 ,resource_exists/2,delete_resource/2,validate_access/0]).
 
 -record(request_state,{
 					resource = nothing :: nothing | binary(),
@@ -66,20 +66,17 @@ content_types_accepted(Req, State) ->
 is_authorized(Req,#request_state{ method = <<"OPTIONS">> }=State)->
 	{true,Req,State};
 is_authorized(Req, State) ->
-	{true,Req,State}.
-%	case restutils:get_access_token_not_secure(Req) of
-%		{ok,Token} ->
-%			case restutils:validate_token(Token) of
-%				true ->
-%					{true, Req, State };
-%				false ->
-%					io:format("Access not granted: token=~p~n",[Token]),
-%					{{false, <<"Bearer">>}, Req, State}
-%			end;
-%   _ ->
-%	    io:format("No access.~n"),
-%	    {{false, <<"Bearer">>}, Req, State}
-%	end.
+	case validate_access() of
+		false ->
+			{true,Req,State};
+		true ->
+			case cowboy_req:parse_header(<<"authorization">>, Req) of
+				{bearer,Token} ->
+					{web_token_manager:valid(Token),Req,State};
+				_ ->
+					{false,Req,State}
+			end
+	end.
 
 delete_resource(Req, #request_state{ resource = <<"simulations">> } = State) ->
 	S = State#request_state.looked_up,
@@ -523,5 +520,7 @@ make_wan_clients([{Index,Band,SSID,MAC,Vendor}|T],Acc)->
 	M = #{ index => Index, wifiband => Band, ssid => SSID, mac => MAC, vendor => Vendor},
 	make_wan_clients(T,[M|Acc]).
 
+validate_access() ->
+	utils:app_env(rest_api_token,false).
 
 

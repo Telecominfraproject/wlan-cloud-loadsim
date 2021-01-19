@@ -120,6 +120,9 @@
             color: black
         }
         .loginBox {
+            display: grid;
+            align-items: center;
+            grid-template-columns: 1fr 1fr;
             margin-top: 30%;
             margin-bottom: 30%;
             margin-left: 30%;
@@ -130,7 +133,12 @@
             border-bottom-right-radius: 15px;
             box-shadow: 10px 5px 5px #1b4460;
             text-align: center;
+            grid-template-rows: auto;
             background: #cbc3c3;
+        }
+        .loginBox > div {
+            margin-top: 10%;
+            margin-bottom: 10%;
         }
         .check {
             text-align: center;
@@ -165,10 +173,10 @@
     <div v-if="!logged_in">
         <div>
             <div class="loginBox">
-                <h1>Login</h1>
+                <div><img src="/assets/android-chrome-192x192.png" alt="Cute little owl."></div>
                 <div>
-                    <p>Username: <input type="text" name="username" v-model="credentials.username" placeholder="Username" /></p>
-                    <p>Password: <input type="password" name="password" v-model="credentials.password" placeholder="Password" /></p>
+                    <p>Username: <input type="text" name="username" v-model="credentials.username" placeholder="support@example.com" /></p>
+                    <p>Password: <input type="password" name="password" v-model="credentials.password" placeholder="support" /></p>
                     <button type="button" v-on:click="login()">Login</button>
                 </div>
             </div>
@@ -411,8 +419,8 @@
 
                 credentials:
                     {
-                        username: '',
-                        password: ''
+                        username: 'support@example.com',
+                        password: 'support'
                     },
 
                 show_prepare_spinner: false,

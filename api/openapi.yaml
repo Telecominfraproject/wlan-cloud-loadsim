@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: OWLS API
   description: OpenWiFi Load Simulator API
-  version: 0.1.0
+  version: 0.2.0
   termsOfService:
     http://example.com/terms/
   license:
@@ -23,35 +23,36 @@ security:
 
 tags:
 - name: Login
-  description: The first call to be made to obtain the token for the management session.
+  description: This is the firt call to make to obtain an access_token for all subsequent calls.
 - name: OUIs
   description:
-    OUIs represent the manufacturer of a hardware device. The first 3 bytes of a MAC address are the OUI.
+    OUIs represent the manufacturer of a hardware device. The first 3 bytes of a MAC address is the OUI.
+    A single manufacturer may have a number of OUIs.
 - name: Nodes
   description:
-    Nodes represent the physical or virtuala computers running the OWLS software. Nodes
+    Nodes represent the physical or virtual computers running the OWLS software. Nodes
     can be either a manager, a simulation node, or a monitor node.
 - name: Manufacturers
   description:
-    Manufacturers or mkmakers of devices. Each manufacturer maybe assigned 1 or more OUI.
+    Manufacturers or makers of devices. Each manufacturer maybe assigned 1 or more OUI.
 - name: CA
   description:
-    Certificate authorities (CAs) are necessary to create keys for devices and services.
+    Certificate authority (CA) is necessary to create keys for devices and services.
 - name: Simulations
   description:
     A simulation holds the information details for a set of devices participating
     in a simulation.
 - name: Actions
   description:
-    Actions operate on simulations. They allow you to start, stop, cancel, or resume.
+    Actions operate on simulations. They allow you to start, stop, cancel, or resume an existing simulation.
     This also allows you to specify the devices that should be targetted for the actions.
-    This culd be all the devices in a simulation or a subset.
+    This could be the word 'all' or a list of the devices in a simulation.
 - name: Devices
   description:
     This lets you see the automatically created devices.
 - name: Hardware
   description:
-    This shows the previsouly defined hardware devices.
+    This shows the previsouly defined hardware profiles for the created devices.
 
 paths:
   /oauth2/login:
@@ -77,8 +78,6 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         404:
           $ref: '#/components/responses/NotFound'
-        500:
-          $ref: '#/components/responses/GenericErrorResponse'
 
   /oauth2/logout:
     delete:
@@ -101,15 +100,13 @@ paths:
                 $ref: '#/components/schemas/GenericGoodAnswer'
         404:
           $ref: '#/components/responses/NotFound'
-        500:
-          $ref: '#/components/responses/GenericErrorResponse'
 
   /ouis:
     get:
       tags: [ OUIs ]
-      summary: Get the list of all available OUIs as known by the system.
+      summary: Get the list of all available OUIs known by the system.
       operationId: getOUIs
-      description: test
+      description: Retrieve a list or subset of all known OUIs in the system.
       parameters:
         - in: query
           description: Pagination start (starts at 1. If not specified, 1 is assumed)
@@ -131,7 +128,7 @@ paths:
           required: false
       responses:
         200:
-          description: Successful retrieval of OUI array.
+          description: Successfull retrieval of OUI array.
           content:
             application/json:
               schema:
@@ -142,7 +139,7 @@ paths:
   /ouis/{id}:
     get:
       tags: [ OUIs ]
-      summary: Get the manufacturer associated with an OUI.
+      summary: Get the manufacturer associated with a specific OUI.
       operationId: getOUI
       parameters:
         - in: path
@@ -156,7 +153,7 @@ paths:
             true
       responses:
         200:
-          description: Successful retrieval of OUI array.
+          description: Successfull retrieval of OUI array.
           content:
             application/json:
               schema:
@@ -190,7 +187,7 @@ paths:
   /vendors:
     get:
       tags: [ Manufacturers ]
-      summary: Get the list of all available OUIs as known by the system for a given manufacturer.
+      summary: Get the list of all available OUIs for a given manufacturer.
       operationId: getManufacturers
       parameters:
         - in: query
@@ -213,7 +210,7 @@ paths:
           required: false
       responses:
         200:
-          description: Successful retrieval of OUI array.
+          description: Successfull retrieval of OUI array.
           content:
             application/json:
               schema:
@@ -224,7 +221,7 @@ paths:
   /vendors/{id}:
     get:
       tags: [ Manufacturers ]
-      summary: Get the OUIs associated with a maker.
+      summary: Get the OUIs associated with a manufacturer.
       operationId: getManufacturer
       parameters: 
         - in: path
@@ -235,7 +232,7 @@ paths:
           required: true
       responses:
         200:
-          description: Successful retrieval of OUI array.
+          description: Successfull retrieval of OUI array.
           content:
             application/json:
               schema:
@@ -272,7 +269,7 @@ paths:
 
       responses:
         200:
-          description: Return the list of CAs.This can be an empty list.
+          description: Return the list of CAs. This can be an empty list.
           content:
             application/json:
               schema:

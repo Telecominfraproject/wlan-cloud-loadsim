@@ -56,7 +56,7 @@ start_link() ->
 init([]) ->
 	process_flag(trap_exit, true),
 	Port = utils:app_env( rest_api_port, 9090),
-	Secure = utils:app_env( rest_api_secure, false),
+	Secure = utils:app_env( rest_api_tls, false),
 	PrivDir = utils:priv_dir(),
 	Dispatch = cowboy_router:compile([
 		{
@@ -75,8 +75,8 @@ init([]) ->
 				            rest_http_listener,
 				            [
 					            {port,Port},{sndbuf,250000},
-					            {certfile, filename:join([PrivDir,"ssl","web-server-api-cert.pem"])},
-					            {keyfile, filename:join([PrivDir,"ssl","web-server-api-key_dec.pem"])}				            ],
+					            {certfile, filename:join([PrivDir,"ssl","rest-api-cert.pem"])},
+					            {keyfile, filename:join([PrivDir,"ssl","rest-api-key.pem"])}				            ],
 				            #{env => #{dispatch => Dispatch}} );
 		            false ->
 			            ?L_I("Starting in clear mode."),

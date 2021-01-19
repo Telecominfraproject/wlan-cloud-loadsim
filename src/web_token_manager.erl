@@ -13,7 +13,7 @@
 -include("../include/common.hrl").
 
 %% API
--export([start_link/0,creation_info/0,login/2,logout/1,valid/1,acl/1,user/1]).
+-export([start_link/0,creation_info/0,login/2,logout/1,valid/1,acl/1,user/1,validate/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -57,7 +57,7 @@
 	aclTemplate = #web_acl{} :: #web_acl{}
 }).
 
--record(web_token_manager_state, { tokens, users }).
+-record(web_token_manager_state, { tokens, users , validation_module, validation_function }).
 
 %%%===================================================================
 %%% API
@@ -105,7 +105,12 @@ user(Token) ->
 	{ok, State :: #web_token_manager_state{}} | {ok, State :: #web_token_manager_state{}, timeout() | hibernate} |
 	{stop, Reason :: term()} | ignore).
 init([]) ->
-	{ok, #web_token_manager_state{ tokens = #{}, users = #{} }}.
+	{VM,VF} = application:get_env(?MODULE,auth,{?MODULE,validate}),
+	{M,F} = case erlang:function_exported(VM,VF,2) of
+						true -> {VM,VF};
+						false-> {?MODULE,validate}
+					end,
+	{ok, #web_token_manager_state{ tokens = #{}, users = #{}, validation_module = M, validation_function = F }}.
 
 %% @private
 %% @doc Handling call messages
@@ -118,7 +123,8 @@ init([]) ->
 	                 {stop, Reason :: term(), Reply :: term(), NewState :: #web_token_manager_state{}} |
 	                 {stop, Reason :: term(), NewState :: #web_token_manager_state{}}).
 handle_call({login,UserName,Password}, _From, State = #web_token_manager_state{}) ->
-	case validate(UserName,Password) of
+	case apply(State#web_token_manager_state.validation_module,
+	           State#web_token_manager_state.validation_function,[UserName,Password]) of
 		true ->
 			NewToken = generate(),
 			NewRecord = #web_token{
@@ -321,4 +327,15 @@ is_alphanum(_)                                    -> false.
 
 -spec validate(UserName::binary(),Password::binary()) -> boolean().
 validate(UserName,Password) ->
-	UserName == <<"support@example.com">> andalso Password == <<"support">>.
+	try
+		{ok,[AuthTable]} = file:consult(filename:join([utils:priv_dir(),"templates","default_auth.txt"])),
+		case lists:keysearch(binary_to_list(UserName),1,AuthTable) of
+			false ->
+				false;
+			{ _Username, {_U,Pwd} } ->
+				list_to_binary(Pwd) == Password
+		end
+	catch
+		_:_ ->
+			false
+	end.

@@ -72,9 +72,14 @@ is_authorized(Req, State) ->
 		true ->
 			case cowboy_req:parse_header(<<"authorization">>, Req) of
 				{bearer,Token} ->
-					{web_token_manager:valid(Token),Req,State};
+					case web_token_manager:valid(Token) of
+						true ->
+							{true,Req,State};
+						false ->
+							{{false,<<"">>},Req,State}
+					end;
 				_ ->
-					{false,Req,State}
+					{{false,<<"">>},Req,State}
 			end
 	end.
 

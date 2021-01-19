@@ -5,9 +5,9 @@
     { inventory_db_dir, "$$PROJECT_HOME$$/inventory"},
     { cert_db_dir, "$$PROJECT_HOME$$/certs_db"},
     { rest_api_port, $$WEB_UI_PORT$$ },
-    { rest_api_secure, false },
+    { rest_api_tls, false },
     { oui_uri, "https://linuxnet.ca/ieee/oui.txt" },
-    { rest_api_token, "1234567890" }
+    { rest_api_token, true }
     ]}
   ,
   {lager,

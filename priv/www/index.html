@@ -414,7 +414,7 @@
                     num_devices: 0,
                     server: '',
                     port: 6643,
-                    nodes: '',
+                    nodes: [],
                     assets_created: false
                 },
 
@@ -444,7 +444,7 @@
                 show_start_check: false,
                 show_stop_check: false,
 
-                nodes_stats_table: null,
+                nodes_stats_table: [],
 
                 cas: [],
                 simulations: [],
@@ -499,7 +499,7 @@
             }
 
             // use a set for nodes
-            this.nodes_stats_table = new Set();
+            this.nodes_stats_table = [];
         },
 
         methods: {
@@ -524,7 +524,7 @@
 
             login: function() {
                 let payload = { userId: this.credentials.username, password: this.credentials.password };
-                this.apiPost(`/oauth2/login`,payload)
+                this.apiPost(`/oauth2`,payload)
                     .then( res => {
                         if( res.status === 200 ) {
                             this.access_token = res.data.access_token;
@@ -681,10 +681,13 @@
             getSimulations: function() {
                 if(!this.logged_in) return;
                 this.apiGet(`/simulations`)
-                    .then(data => {
-                        if(data && data.Simulations) {
+                    .then(response => {
+                        const data = response.data.Data;
+                        // console.log(data);
+                        if(data) {
                             this.simulations = data.Simulations;
                             this.simulation = this.simulations[0];
+                            this.sim_form.name = this.simulation;
                             this.selectSimulation();
                         }
                     });
@@ -707,8 +710,8 @@
                 }
                 else {
                     this.apiGet(`/simulations/${this.simulation}`)
-                        .then(response => response.json())
-                        .then(data => {
+                        .then(response => {
+                            const data = response.data;
                             // console.log(data);
                             if (data && data.name) {
                                 this.simulationNew = false;
@@ -735,7 +738,7 @@
                 this.sim_form.port = Number(this.sim_form.port);
                 this.apiPost( `/simulations/${id}`, this.sim_form )
                     .then(response => {
-                        // console.log(response)
+                        // console.log(response);
                         if( response.name ) {
                             if(this.simulationNew) {
                                 this.simulationNew = false;
@@ -744,7 +747,7 @@
                             }
                         }
                         this.selectSimulation();
-                        this.$alert(`Simulation ${this.sim_form.name} saved.`,'Simulations...','info');
+                        this.logIt(`Simulation ${this.simulation} saved.`);
                        });
                 this.selectSimulation();
             },
@@ -817,11 +820,11 @@
                     .then(data => {
                         const job_id = data.data.id ;
                         if(job_id !== null) {
-                            console.log(`Waiting completion of ${action} ID: ${job_id}`);
+                            // console.log(`Waiting completion of ${action} ID: ${job_id}`);
                             let self = this;
                             this.check_job_status(job_id, Date.now() + 300000, 500)
                                 .then( function(jobStatus) {
-                                    console.log(`Waiting completion 3 of ${action} ID=${job_id} : ${jobStatus}`);
+                                    // console.log(`Waiting completion 3 of ${action} ID=${job_id} : ${jobStatus}`);
                                     if (action === 'prepare' && jobStatus === true) {
                                         self.sim_form.assets_created = true;
                                     }
@@ -839,8 +842,8 @@
             check_job_status: async function(action_id, timeOut, backoff ) {
                 if(!this.logged_in) return;
                 return this.apiGet(`/actions/${action_id}`)
-                    .then( res => res.json() )
-                    .then( data => {
+                    .then( response => {
+                        const data = response.data;
                         console.log(data);
                         if (data.status === 'completed') {
                             console.log(`${action_id} : completed`);
@@ -862,8 +865,8 @@
                     return;
                 const the_uri = this.apiBase + this.apiPrefix + `/simulations/${this.simulation}/state`;
                 this.apiGet(`/simulations/${this.simulation}/state`)
-                    .then(response => response.json())
-                    .then(data => {
+                    .then(response => {
+                        const data = response.data;
                         if( data ) {
                             this.simulationNew = false;
                             let keys = Object.keys(this.sim_state);
@@ -1163,17 +1166,29 @@
                 return {
                     status: response.status
                 }
+            },
+
+            logIt: function(X) {
+                this.output.push(X);
             }
 
         },
 
         computed: {
             nodesNodes: function() {
-                if(!this.logged_in) return;
+                if(!this.logged_in)
+                    return [];
+                let nodesOnly = [];
                 if( this.nodes_stats_table ) {
-                    return this.nodes_stats_table.filter( n => n.type === 'node' ).map( n => n.node );
+                    let i;
+                    for(i=0;i<this.nodes_stats_table.length;i++) {
+                        if(this.nodes_stats_table[i].type === 'node') {
+                            nodesOnly.push(this.nodes_stats_table[i].node);
+                        }
+                    }
+                    return nodesOnly;
                 }
-                return [];
+                return nodesOnly;
             }
         }
     };

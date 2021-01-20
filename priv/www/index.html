@@ -545,21 +545,49 @@
             logout: function() {
                 clearInterval(this.timer_get_nodes);
                 clearInterval(this.timer_sim_state);
-                this.logged_in = false;
                 this.socket.close();
                 this.apiDelete(`/oauth2/${this.access_token}`)
                     .then( res => {
                         if( res.status === 200 ) {
-                            return true;
-                        }
-                        else {
-                            return false;
+                            console.log(`Logged out...`);
                         }
                     })
                     .catch( Error => {
                         console.error(Error);
-                        return false;
-                    })
+                    });
+                this.logged_in = false;
+                this.resetData();
+            },
+
+            resetData: function() {
+                this.socket = null;
+                this.reset_sim_form();
+                this.reset_cas_form();
+                this.reset_sim_state_form();
+                this.nodes_stats_table = [];
+                this.simulation = '';
+                this.timer_sim_state = null;
+                this.timer_get_nodes = null;
+                this.access_token = '';
+                this.nodesDict = {};
+
+                this.cas = [];
+                this.simulations = [];
+                this.simulationNew = false;
+                this.simulation = '';
+                this.nodesDict = {};
+                this.num_nodes_kernel_charts = 0;
+                this.nodes_kernel_data = [ [], [], [] ];
+                this.nodes_kernel_charts = [];
+                this.mqtt_client_stats_data = [[], []];
+                this.mqtt_client_stats_chart = null;
+                this.mqtt_client_handler_data = [[],[]];
+                this.mqtt_client_handler_chart = null;
+                this.ovsdb_clients_data = [[],[]];
+                this.ovsdb_clients_chart = null;
+                this.simulation_state_chart = null;
+                this.simulation_state_data = [[],[]];
+
             },
 
             bool_val: function(Value) {
@@ -611,6 +639,8 @@
                 }
 
                 this.socket.onclose = (event) => {
+                    if(this.logged_in)
+                        this.logout();
                     console.log(event);
                 }
 
@@ -631,8 +661,8 @@
                 this.cas_form.key = '';
                 this.cas_form.cert = '' ;
                 this.cas_form.password = '';
-                this.$refs.keyFile.value = null;
-                this.$refs.certFile.value = null;
+                //this.$refs.keyFile.value = null;
+                //this.$refs.certFile.value = null;
             },
 
             reset_sim_state_form: function() {

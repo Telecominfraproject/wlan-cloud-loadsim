@@ -10,6 +10,7 @@
     <style>
         html, body, #app {
             height: 100%;
+            width: 100%;
             background: skyblue;
         }
         :root {
@@ -39,6 +40,9 @@
             border-color: skyblue;
         }
         .dashboard > div {
+            height: 100%;
+            width: 100%;
+            align-items: center;
             position: relative;
             place-items: center;
             background-color: rgba(255, 255, 255, 0.5);
@@ -52,6 +56,7 @@
             box-shadow: 10px 5px 5px #1b4460;
         }
         .sim_state {
+            align-items: center;
             display: grid;
             grid-template-columns: 25% auto;
             font-size: 16px;
@@ -183,193 +188,199 @@
         </div>
     </div>
     <div v-else>
-    <div class="controls p-3">
-        <div class="col">
-            <div>
-                <img src="/assets/android-chrome-192x192.png" alt="Cute little owl.">
-            </div>
-            <div class="actions">
-                <button class="btn btn-sm btn-secondary"
-                        v-on:click="loadImportcas_form()">Import CA</button>
-                <div></div>
-                <div></div>
-
-                <button class="btn btn-sm btn-secondary" id="prepare_button"
-                        v-bind:disabled="bool_val(sim_form.assets_created || sim_state.current_operation === 'preparing')"
-                        v-on:click="sendAction('prepare')">Prepare Assets</button>
-                <div class="check" v-bind:style="{visibility:is_visible( sim_form.assets_created )}"></div>
-                <div class="spinner" v-bind:style="{ visibility: is_visible(show_prepare_spinner)}" ></div>
-
-                <button class="btn btn-sm btn-secondary" id="push_button"
-                        v-bind:disabled="bool_val(sim_form.assets_created===false || sim_state.pushed || sim_state.current_operation==='pushing')"
-                        v-on:click="sendAction('push')">Push Simulation</button>
-                <div class="check" v-bind:style="{visibility:is_visible( sim_state.pushed )}"></div>
-                <div class="spinner" v-bind:style="{ visibility: is_visible( show_push_spinner ) }"></div>
-
-                <button class="btn btn-sm btn-secondary" id="start_button"
-                        v-bind:disabled="bool_val(sim_state.state==='started' || sim_state.pushed===false)"
-                        v-on:click="sendAction('start')">Start Simulation</button>
-                <div class="check" v-bind:style="{visibility:is_visible( sim_state.state === 'started' )}"></div>
-                <div class="spinner"v-bind:style="{ visibility: is_visible( show_start_spinner ) }"></div>
-
-                <button class="btn btn-sm btn-secondary" id="stop_button"
-                        v-bind:disabled="bool_val(sim_state.state !== 'started')"
-                        v-on:click="sendAction('stop')">Stop Simulation</button>
-                <div class="check" v-bind:style="{visibility:is_visible(show_stop_check)}"></div>
-                <div class="spinner" v-bind:style="{ visibility: is_visible( show_stop_spinner ) }"></div>
-            </div>
-        </div>
-
-        <div class="col">
-            <div v-if="importCA">
-                <h2 class="h5">Import CA</h2>
-                <fieldset class="form-grid border border-secondary p-3">
-                    <label class="form-label">Name</label>
-                    <div><input type="text" class="form-control form-control-sm" v-model="cas_form.name"/></div>
-                    <label class="form-label">Key File</label>
-                    <div>
-                        <input class="form-control form-control-sm" type="file" ref="keyFile" @change="loadText($event, 'key')">
-                    </div>
-                    <label class="form-label">Cert File</label>
-                    <div>
-                        <input class="form-control form-control-sm" type="file" ref="certFile" @change="loadText($event, 'cert')">
-                    </div>
-                    <label class="form-label">Password</label>
-                    <div><input type="text" class="form-control form-control-sm" v-model="cas_form.password"/></div>
+        <div class="controls p-3">
+            <div class="col">
+                <div>
+                    <img src="/assets/android-chrome-192x192.png" alt="Cute little owl.">
+                </div>
+                <div class="actions">
+                    <button class="btn btn-sm btn-secondary"
+                            v-on:click="loadImportcas_form()">Import CA</button>
                     <div></div>
-                </fieldset>
-                <div class="ca-grid-actions">
-                    <button class="btn btn-secondary btn-sm" v-on:click="saveCA()">Import CA</button>
-                    <button class="btn btn-light btn-sm" v-on:click="unloadImportcas_form()">Done</button>
+                    <div></div>
+
+                    <button class="btn btn-sm btn-secondary" id="prepare_button"
+                            v-bind:disabled="bool_val(sim_form.assets_created || sim_state.current_operation === 'preparing')"
+                            v-on:click="sendAction('prepare')">Prepare Assets</button>
+                    <div class="check" v-bind:style="{visibility:is_visible( sim_form.assets_created )}"></div>
+                    <div class="spinner" v-bind:style="{ visibility: is_visible(show_prepare_spinner)}" ></div>
+
+                    <button class="btn btn-sm btn-secondary" id="push_button"
+                            v-bind:disabled="bool_val(sim_form.assets_created===false || sim_state.pushed || sim_state.current_operation==='pushing')"
+                            v-on:click="sendAction('push')">Push Simulation</button>
+                    <div class="check" v-bind:style="{visibility:is_visible( sim_state.pushed )}"></div>
+                    <div class="spinner" v-bind:style="{ visibility: is_visible( show_push_spinner ) }"></div>
+
+                    <button class="btn btn-sm btn-secondary" id="start_button"
+                            v-bind:disabled="bool_val(sim_state.state==='started' || sim_state.pushed===false)"
+                            v-on:click="sendAction('start')">Start Simulation</button>
+                    <div class="check" v-bind:style="{visibility:is_visible( sim_state.state === 'started' )}"></div>
+                    <div class="spinner"v-bind:style="{ visibility: is_visible( show_start_spinner ) }"></div>
+
+                    <button class="btn btn-sm btn-secondary" id="stop_button"
+                            v-bind:disabled="bool_val(sim_state.state !== 'started')"
+                            v-on:click="sendAction('stop')">Stop Simulation</button>
+                    <div class="check" v-bind:style="{visibility:is_visible(show_stop_check)}"></div>
+                    <div class="spinner" v-bind:style="{ visibility: is_visible( show_stop_spinner ) }"></div>
+
+                    <button class="btn btn-sm btn-secondary" id="logout_button"
+                            v-on:click="logout()">Logout</button>
+                    <div></div>
+                    <div></div>
+
                 </div>
             </div>
-            <div v-else>
-                <h2 class="h5">Simulation</h2>
-                <fieldset class="form-grid p-3">
-                    <label class="form-label">Current Simulation</label>
-                    <div><select class="form-select form-select-sm" v-model="simulation" v-on:change="selectSimulation()">
-                        <option value=""></option>
-                        <option v-for="(simulation, index) in simulations" :key="index" v-bind:value="simulation">{{ simulation }}</option>
-                    </select></div>
-                </fieldset>
-                <fieldset class="form-grid border border-secondary p-3">
-                    <label class="form-label">Name</label>
-                    <div><input type="text" class="form-control form-control-sm" v-model.trim="sim_form.name"/></div>
-                    <label class="form-label">CA</label>
-                    <div><select class="form-select form-select-sm" v-model.trim="sim_form.caname"><option v-for="(ca, index) in cas" :key="index" v-bind:value="ca">{{ ca }}</option></select></div>
-                    <label class="form-label">Number of Devices</label>
-                    <div><input type="number" class="form-control form-control-sm" v-model.number="sim_form.num_devices" /></div>
-                    <label class="form-label">Nodes</label>
-                    <div class="d-grid">
-                        <label class="" v-for="(node, index) in nodesNodes" :key="index">
-                            <input type="checkbox" v-model="sim_form.nodes" :value="node" /> {{ node }}
-                        </label>
+
+            <div class="col">
+                <div v-if="importCA">
+                    <h2 class="h5">Import CA</h2>
+                    <fieldset class="form-grid border border-secondary p-3">
+                        <label class="form-label">Name</label>
+                        <div><input type="text" class="form-control form-control-sm" v-model="cas_form.name"/></div>
+                        <label class="form-label">Key File</label>
+                        <div>
+                            <input class="form-control form-control-sm" type="file" ref="keyFile" @change="loadText($event, 'key')">
+                        </div>
+                        <label class="form-label">Cert File</label>
+                        <div>
+                            <input class="form-control form-control-sm" type="file" ref="certFile" @change="loadText($event, 'cert')">
+                        </div>
+                        <label class="form-label">Password</label>
+                        <div><input type="text" class="form-control form-control-sm" v-model="cas_form.password"/></div>
+                        <div></div>
+                    </fieldset>
+                    <div class="ca-grid-actions">
+                        <button class="btn btn-secondary btn-sm" v-on:click="saveCA()">Import CA</button>
+                        <button class="btn btn-light btn-sm" v-on:click="unloadImportcas_form()">Done</button>
                     </div>
-                    <label class="form-label">Server Name</label>
-                    <div><input type="text" class="form-control form-control-sm" v-model.trim="sim_form.server"/></div>
-                    <label class="form-label">Port</label>
-                    <div><input type="number" class="form-control form-control-sm" v-model.number="sim_form.port" /></div>
-                    <label class="form-label">Assets created</label>
-                    <div id="assets_created">{{ sim_form.assets_created }}</div>
-                </fieldset>
-                <div class="sim-grid-actions">
-                    <button class="btn btn-secondary btn-sm" v-on:click="saveSimulation()">Save</button>
-                    <button class="btn btn-secondary btn-sm" v-on:click="deleteSimulation()">Delete</button>
-                    <button class="btn btn-secondary btn-sm" v-on:click="newSimulation()">New</button>
+                </div>
+                <div v-else>
+                    <h2 class="h5">Simulation</h2>
+                    <fieldset class="form-grid p-3">
+                        <label class="form-label">Current Simulation</label>
+                        <div><select class="form-select form-select-sm" v-model="simulation" v-on:change="selectSimulation()">
+                            <option value=""></option>
+                            <option v-for="(simulation, index) in simulations" :key="index" v-bind:value="simulation">{{ simulation }}</option>
+                        </select></div>
+                    </fieldset>
+                    <fieldset class="form-grid border border-secondary p-3">
+                        <label class="form-label">Name</label>
+                        <div><input type="text" class="form-control form-control-sm" v-model.trim="sim_form.name"/></div>
+                        <label class="form-label">CA</label>
+                        <div><select class="form-select form-select-sm" v-model.trim="sim_form.caname"><option v-for="(ca, index) in cas" :key="index" v-bind:value="ca">{{ ca }}</option></select></div>
+                        <label class="form-label">Number of Devices</label>
+                        <div><input type="number" class="form-control form-control-sm" v-model.number="sim_form.num_devices" /></div>
+                        <label class="form-label">Nodes</label>
+                        <div class="d-grid">
+                            <label class="" v-for="(node, index) in nodesNodes" :key="index">
+                                <input type="checkbox" v-model="sim_form.nodes" :value="node" /> {{ node }}
+                            </label>
+                        </div>
+                        <label class="form-label">Server Name</label>
+                        <div><input type="text" class="form-control form-control-sm" v-model.trim="sim_form.server"/></div>
+                        <label class="form-label">Port</label>
+                        <div><input type="number" class="form-control form-control-sm" v-model.number="sim_form.port" /></div>
+                        <label class="form-label">Assets created</label>
+                        <div id="assets_created">{{ sim_form.assets_created }}</div>
+                    </fieldset>
+                    <div class="sim-grid-actions">
+                        <button class="btn btn-secondary btn-sm" v-on:click="saveSimulation()">Save</button>
+                        <button class="btn btn-secondary btn-sm" v-on:click="deleteSimulation()">Delete</button>
+                        <button class="btn btn-secondary btn-sm" v-on:click="newSimulation()">New</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col">
+                <h2 class="h5">Nodes</h2>
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Node Name</th>
+                            <th>Total MB</th>
+                            <th>Allocated MB</th>
+                            <th>Biggest MB</th>
+                            <th>Procs</th>
+                            <th>Type</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="(node, index) in nodes_stats_table" :key="index">
+                            <td>{{ node.node }}</td>
+                            <td>{{ node.total }}</td>
+                            <td>{{ node.allocated }}</td>
+                            <td>{{ node.worst }}</td>
+                            <td>{{ node.processes }}</td>
+                            <td>{{ node.type }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="dashboard" id="dashboard">
+            <!-- Row 1 -->
+            <div class="col" id="cell11" style="width:100%" >
+                <h3 class="h3" id="cell11-title"></h3>
+            </div>
+            <div class="col" id="cell12">
+                <h3 class="h3" id="cell12-title"></h3>
+            </div>
+            <div class="col" id="cell13">
+                <h3 class="h3" id="cell13-title"></h3>
+            </div>
+            <div class="col" id="cell14">
+                <h3 class="h3" id="cell14-title">Sessions</h3>
+                <text class="bignumber" id="session_count"
+                   v-bind:style="{ color: pick_color(session_pct) }" >{{ session_pct}}%</text>
+            </div>
+
+            <!-- Row 2 -->
+            <div class="col" id="cell21">
+                <h3 class="h3" id="cell21-title"></h3>
+            </div>
+            <div class="col" id="cell22">
+                <h3 class="h3" id="cell22-title"></h3>
+            </div>
+            <div class="col" id="cell23">
+                <h3 class="h3" id="cell23-title"></h3>
+            </div>
+            <div class="col" id="cell24">
+                <h3 class="h3" id="cell24-title">APs</h3>
+                <p class="bignumber" id="ap_count"
+                    v-bind:style="{ color: pick_color(ap_pct)}">{{ ap_pct }}%</p>
+            </div>
+
+            <!-- Row 3 -->
+            <div class="col" id="cell31">
+                <h3 class="h3" id="cell31-title"></h3>
+            </div>
+            <div class="col" id="cell32">
+                <h3 class="h3" id="cell32-title"></h3>
+            </div>
+            <div class="col" id="cell33">
+                <h3 class="h3" id="cell33-title"></h3>
+            </div>
+            <div class="col" id="cell34">
+                <h3 class="h3" id="cell34-title">Simulation State</h3>
+                <div class="sim_state">
+                    <div>Pushed:</div><div>{{sim_state.pushed}}</div>
+                    <div>Operation:</div><div>{{sim_state.current_operation}}</div>
+                    <div>State:</div><div>{{sim_state.state}}</div>
+                    <div>Started:</div><div>{{sim_state.start_time}}</div>
                 </div>
             </div>
         </div>
 
-        <div class="col">
-            <h2 class="h5">Nodes</h2>
-            <table class="table table-sm">
-                <thead>
-                    <tr>
-                        <th>Node Name</th>
-                        <th>Total MB</th>
-                        <th>Allocated MB</th>
-                        <th>Biggest MB</th>
-                        <th>Procs</th>
-                        <th>Type</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="(node, index) in nodes_stats_table" :key="index">
-                        <td>{{ node.node }}</td>
-                        <td>{{ node.total }}</td>
-                        <td>{{ node.allocated }}</td>
-                        <td>{{ node.worst }}</td>
-                        <td>{{ node.processes }}</td>
-                        <td>{{ node.type }}</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <div class="dashboard" id="dashboard">
-        <!-- Row 1 -->
-        <div class="col" id="cell11">
-            <h3 class="h3" id="cell11-title"></h3>
-        </div>
-        <div class="col" id="cell12">
-            <h3 class="h3" id="cell12-title"></h3>
-        </div>
-        <div class="col" id="cell13">
-            <h3 class="h3" id="cell13-title"></h3>
-        </div>
-        <div class="col" id="cell14">
-            <h3 class="h3" id="cell14-title">Sessions</h3>
-            <text class="bignumber" id="session_count"
-               v-bind:style="{ color: pick_color(session_pct) }" >{{ session_pct}}%</text>
-        </div>
-
-        <!-- Row 2 -->
-        <div class="col" id="cell21">
-            <h3 class="h3" id="cell21-title"></h3>
-        </div>
-        <div class="col" id="cell22">
-            <h3 class="h3" id="cell22-title"></h3>
-        </div>
-        <div class="col" id="cell23">
-            <h3 class="h3" id="cell23-title"></h3>
-        </div>
-        <div class="col" id="cell24">
-            <h3 class="h3" id="cell24-title">APs</h3>
-            <p class="bignumber" id="ap_count"
-                v-bind:style="{ color: pick_color(ap_pct)}">{{ ap_pct }}%</p>
-        </div>
-
-        <!-- Row 3 -->
-        <div class="col" id="cell31">
-            <h3 class="h3" id="cell31-title"></h3>
-        </div>
-        <div class="col" id="cell32">
-            <h3 class="h3" id="cell32-title"></h3>
-        </div>
-        <div class="col" id="cell33">
-            <h3 class="h3" id="cell33-title"></h3>
-        </div>
-        <div class="col" id="cell34">
-            <h3 class="h3" id="cell34-title">Simulation State</h3>
-            <div class="sim_state">
-                <div>Pushed:</div><div>{{sim_state.pushed}}</div>
-                <div>Operation:</div><div>{{sim_state.current_operation}}</div>
-                <div>State:</div><div>{{sim_state.state}}</div>
-                <div>Started:</div><div>{{sim_state.start_time}}</div>
+        <div class="output">
+            <h2 class="h3">Logging</h2>
+            <div class="clear-logs">
+                <button class="btn btn-sm btn-secondary" v-on:click="clearLogs()">Clear logs</button>
+            </div>
+            <div>
+                <code v-for="(msg, index) in output" :key="index">{{ msg }}</code>
             </div>
         </div>
-    </div>
-
-    <div class="output">
-        <h2 class="h3">Logging</h2>
-        <div class="clear-logs">
-            <button class="btn btn-sm btn-secondary" v-on:click="clearLogs()">Clear logs</button>
-        </div>
-        <div>
-            <code v-for="(msg, index) in output" :key="index">{{ msg }}</code>
-        </div>
-    </div>
     </div>
 
 </div>
@@ -402,7 +413,7 @@
                     caname: '',
                     num_devices: 0,
                     server: '',
-                    port: '',
+                    port: 6643,
                     nodes: '',
                     assets_created: false
                 },
@@ -457,6 +468,9 @@
                 simulation_state_chart: null,
                 simulation_state_data: [[],[]],
 
+                timer_sim_state: null,
+                timer_get_nodes: null,
+
                 sim_state_form: {
 
                 }
@@ -464,6 +478,13 @@
         },
 
         mounted: function() {
+            localStorage.setItem('apiBase', this.apiBase);
+        },
+
+        beforeUnmount: function() {
+            console.log("Logging out")
+            if(this.logged_in)
+                this.logout();
         },
 
         created: function() {
@@ -479,7 +500,6 @@
 
             // use a set for nodes
             this.nodes_stats_table = new Set();
-            this.setup();
         },
 
         methods: {
@@ -487,19 +507,16 @@
                 // save URL for future use
                 localStorage.setItem('apiBase', this.apiBase);
 
-                // ApiURL = new URL(this.apiBase);
-                // this.wss = "ws://" + ApiURL.hostname + ":" + ApiURL.port + "/ws";
                 this.getCas();
                 this.getNodes();
                 this.getSimulations();
                 this.setupWebsocket();
 
-                setInterval(
+                this.timer_get_nodes = setInterval(
                     () => this.getNodes(),
                     4000
                 );
-
-                setInterval(
+                this.timer_sim_state = setInterval(
                     () => this.getSimulationState(),
                     4000
                 );
@@ -512,6 +529,27 @@
                         if( res.status === 200 ) {
                             this.access_token = res.data.access_token;
                             this.logged_in = true;
+                            this.setup();
+                            return true;
+                        }
+                        else {
+                            return false;
+                        }
+                    })
+                    .catch( Error => {
+                        console.error(Error);
+                        return false;
+                    })
+            },
+
+            logout: function() {
+                clearInterval(this.timer_get_nodes);
+                clearInterval(this.timer_sim_state);
+                this.logged_in = false;
+                this.socket.close();
+                this.apiDelete(`/oauth2/${this.access_token}`)
+                    .then( res => {
+                        if( res.status === 200 ) {
                             return true;
                         }
                         else {
@@ -542,6 +580,7 @@
             },
 
             setupWebsocket: function() {
+                if(!this.logged_in) return false;
                 if( !this.wss ) {
                     console.log('Missing websocket URL');
                     return false;
@@ -553,7 +592,7 @@
                 this.socket.onmessage = (event) => {
                     const Payload = JSON.parse(event.data);
                     if (Payload.name === 'os_details') {
-                        this.logKernel(Payload);
+                        this.kernel_stats(Payload);
                     } else if (Payload.name === 'mqtt_client_stats') {
                         this.mqtt_client_stats(Payload);
                     } else if (Payload.name === 'mqtt_client_handler') {
@@ -610,6 +649,7 @@
             },
 
             getCas: function() {
+                if(!this.logged_in) return;
                 this.cas = [];
                 this.apiGet('/cas')
                     .then((response) => {
@@ -621,6 +661,7 @@
             },
 
             getNodes: function() {
+                if(!this.logged_in) return;
                 this.nodes_stats_table = [];
                 this.apiGet('/nodes?format=detailed')
                     .then((response) => {
@@ -638,6 +679,7 @@
             },
 
             getSimulations: function() {
+                if(!this.logged_in) return;
                 this.apiGet(`/simulations`)
                     .then(data => {
                         if(data && data.Simulations) {
@@ -657,6 +699,7 @@
             },
 
             selectSimulation() {
+                if(!this.logged_in) return;
                 const sim = this.simulation;
                 // if user selects empty, it's a "new" sim
                 if( !sim ) {
@@ -681,6 +724,7 @@
             },
 
             saveSimulation: function() {
+                if(!this.logged_in) return;
                 let id = this.simulation ? this.simulation : this.sim_form.name;
                 if( !id ) {
                     console.log('Missing simulation name');
@@ -706,6 +750,7 @@
             },
 
             deleteSimulation: function() {
+                if(!this.logged_in) return;
                 if(this.sim_form.name === '') {
                     return;
                 }
@@ -717,6 +762,7 @@
             },
 
             saveCA: function() {
+                if(!this.logged_in) return;
                 if( this.cas.includes( this.cas_form.name ) ) {
                     console.log(`CA name ${this.cas_form.name} already exists!`);
                     return false;
@@ -736,6 +782,7 @@
 
             // prepare assets
             sendAction: function( action ) {
+                if(!this.logged_in) return;
                 // action requires sim to be created
                 if( !this.simulation ) {
                     console.log('Must select a simulation');
@@ -790,6 +837,7 @@
             },
 
             check_job_status: async function(action_id, timeOut, backoff ) {
+                if(!this.logged_in) return;
                 return this.apiGet(`/actions/${action_id}`)
                     .then( res => res.json() )
                     .then( data => {
@@ -809,6 +857,7 @@
             },
 
             getSimulationState: function() {
+                if(!this.logged_in) return;
                 if(!this.simulation)
                     return;
                 const the_uri = this.apiBase + this.apiPrefix + `/simulations/${this.simulation}/state`;
@@ -839,9 +888,8 @@
                 reader.readAsText(file);
             },
 
-            logKernel: function( data ) {
-                if(!this.logged_in)
-                    return;
+            kernel_stats: function( data ) {
+                if(!this.logged_in) return;
                 let idx = null;
                 if( !data.node ) {
                     return;
@@ -890,8 +938,7 @@
             },
 
             mqtt_client_stats: function(data) {
-                if(!this.logged_in)
-                    return;
+                if(!this.logged_in) return;
                 if(this.mqtt_client_stats_chart===null)
                 {
                     const el = document.createElement('canvas');
@@ -928,8 +975,7 @@
             },
 
             mqtt_client_handler: function(data) {
-                if(!this.logged_in)
-                    return;
+                if(!this.logged_in) return;
                 if(this.mqtt_client_handler_chart===null) {
                     const el = document.createElement('canvas');
                     el.setAttribute('id', `mqtt_client_handler_chart`);
@@ -964,8 +1010,7 @@
             },
 
             ovsdb_clients: function(data) {
-                if(!this.logged_in)
-                    return;
+                if(!this.logged_in) return;
                 if (this.ovsdb_clients_chart === null) {
                     const el = document.createElement('canvas');
                     el.setAttribute('id', `ovsdb_clients_chart`);
@@ -1000,8 +1045,7 @@
             },
 
             update_simulation_state: function(data) {
-                if(!this.logged_in)
-                    return;
+                if(!this.logged_in) return;
                 if (this.simulation_state_chart === null) {
                     const el = document.createElement('canvas');
                     el.setAttribute('id', `simulation_state_client_chart`);
@@ -1037,6 +1081,7 @@
             },
 
             updateChartData: function(the_chart,dataValues) {
+                if(!this.logged_in) return;
                 let i=0;
                 if(the_chart.data.datasets[0].data.length === 30) {
                     for(i=0;i<dataValues.length;i++) {
@@ -1124,6 +1169,7 @@
 
         computed: {
             nodesNodes: function() {
+                if(!this.logged_in) return;
                 if( this.nodes_stats_table ) {
                     return this.nodes_stats_table.filter( n => n.type === 'node' ).map( n => n.node );
                 }

@@ -55,7 +55,7 @@ tags:
     This shows the previsouly defined hardware profiles for the created devices.
 
 paths:
-  /oauth2/login:
+  /oauth2:
     post:
       tags: [ Login ]
       summary: Get access token - to be used as Bearer token header for all other API requests.
@@ -79,13 +79,13 @@ paths:
         404:
           $ref: '#/components/responses/NotFound'
 
-  /oauth2/logout:
+  /oauth2/{token}:
     delete:
-      tags: [ Login ]
+      tags: [ Authentication ]
       summary: Revoke a token.
       operationId: removeAccessToken
       parameters:
-        - in: query
+        - in: path
           name: token
           schema:
             type:

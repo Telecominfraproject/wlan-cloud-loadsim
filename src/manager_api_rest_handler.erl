@@ -74,6 +74,7 @@ is_authorized(Req, State) ->
 				{bearer,Token} ->
 					case web_token_manager:valid(Token) of
 						true ->
+							%% io:format("Authorized...~n"),
 							{true,Req,State};
 						false ->
 							{{false,<<"">>},Req,State}

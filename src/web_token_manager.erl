@@ -32,9 +32,9 @@
 -define(HTTP_HEAD,<<"HEAD">>).
 
 -record(request_state,{
-	method :: binary(),
-	action :: binary(),
-	time_in}).
+	token = <<>>  :: binary(),
+	method = <<>> :: binary(),
+	time_in = 0 :: non_neg_integer() }).
 
 -define(SERVER, ?MODULE).
 
@@ -211,10 +211,10 @@ code_change(_OldVsn, State = #web_token_manager_state{}, _Extra) ->
 %%%===================================================================
 init(Req, _State) ->
 	Method = cowboy_req:method(Req),
-	Action =cowboy_req:binding(action, Req, nothing),
+	Token = cowboy_req:binding(token, Req, <<>>),
 	{ cowboy_rest,restutils:add_CORS(Req),#request_state{
 		method = Method,
-		action = Action,
+		token = Token,
 		time_in = os:system_time() }}.
 
 allowed_methods(Req, State) ->
@@ -231,13 +231,18 @@ is_authorized(Req,#request_state{ method = <<"OPTIONS">> }=State)->
 is_authorized(Req, State) ->
 	{true,Req,State}.
 
+resource_exists(Req,#request_state{ method = ?HTTP_POST }=State) ->
+	{true,Req,State};
+resource_exists(Req,#request_state{ method = ?HTTP_DELETE, token = nothing}=State)->
+	{false,Req,State};
+resource_exists(Req,#request_state{ method = ?HTTP_DELETE }=State)->
+	{web_token_manager:valid(State#request_state.token),Req,State};
 resource_exists(Req,State)->
 	{false,Req,State }.
 
 delete_resource(Req,State)->
 	try
-		#{ token := Token } = cowboy_req:match_qs([{token,nonempty}],Req),
-		web_token_manager:logout(Token)
+		web_token_manager:logout(State#request_state.token)
 	catch
 		_:_ ->
 			ok
@@ -261,7 +266,7 @@ db_to_json(Req, State) ->
 %%%===================================================================
 %%% CAs Management
 %%%===================================================================
-do( ?HTTP_POST,Req,#request_state{ action = <<"login">> }=State)->
+do( ?HTTP_POST,Req,#request_state{}=State)->
 	try
 		{ok,RawData,Req1} = cowboy_req:read_body(Req),
 		ReqFields = jsx:decode(RawData,[return_maps]),    %% do not use jiffy here...

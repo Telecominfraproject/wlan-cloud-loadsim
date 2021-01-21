@@ -16,7 +16,7 @@
 					do/2,pem_to_cert/1,pem_to_key/1,safe_binary/1,uuid_b/0,pem_key_is_encrypted/1,remove_pem_key_password/3,
 					noop/0,noop_mfa/0,split_into/2,select/3,adjust/2,apply_ntimes/4,
 					get_avg/1, new_avg/0,compute_avg/2,search_replace/3,json_node_info/1,
-					to_atom_list/2,to_atom_list/1,to_string_list/1,to_binary_list/1,
+					to_atom_list/2,to_atom_list/1,to_string_list/1,to_binary_list/1,binary_to_atom/1,
 					dump_data_in_file/2,identify/1,json_to_band/1,band_to_json/1,create_version/0,modify_mac/2]).
 
 -type average() :: { CurrentValue::number(), HowManyValues::integer(), PastValues::[number()]}.
@@ -29,6 +29,10 @@ make_dir(DirName)->
 		{error,eexist} -> ok;
 		Error -> Error
 	end.
+
+-spec binary_to_atom(X::binary())->Y::atom().
+binary_to_atom(X)->
+	list_to_atom(binary_to_list(X)).
 
 -spec uuid()->string().
 uuid()->
@@ -191,7 +195,7 @@ to_atom_list([H|T],R) when is_list(H)->
 to_atom_list([H|T],R) when is_atom(H)->
 	to_atom_list(T,[H|R]);
 to_atom_list([H|T],R) when is_binary(H)->
-	to_atom_list(T,[binary_to_atom(H)|R]).
+	to_atom_list(T,[utils:binary_to_atom(H)|R]).
 
 -spec do(boolean(),{atom(),atom(),term()})->ok.
 do(true,{M,F,A})->

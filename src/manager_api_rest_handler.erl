@@ -502,7 +502,7 @@ validate_name(simulations,Name)->
 validate_name(nodes,[])->
 	true;
 validate_name(nodes,[H|T])->
-	NodeName=binary_to_atom(H),
+	NodeName=utils:binary_to_atom(H),
 	case lists:member(NodeName,nodes()) of
 		true ->
 			validate_name(nodes,T);

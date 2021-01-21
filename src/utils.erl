@@ -16,7 +16,7 @@
 					do/2,pem_to_cert/1,pem_to_key/1,safe_binary/1,uuid_b/0,pem_key_is_encrypted/1,remove_pem_key_password/3,
 					noop/0,noop_mfa/0,split_into/2,select/3,adjust/2,apply_ntimes/4,
 					get_avg/1, new_avg/0,compute_avg/2,search_replace/3,json_node_info/1,
-					to_atom_list/2,to_atom_list/1,to_string_list/1,to_binary_list/1,binary_to_atom/1,
+					to_atom_list/2,to_atom_list/1,to_string_list/1,to_binary_list/1,binary_to_atom/1,atom_to_binary/1,
 					dump_data_in_file/2,identify/1,json_to_band/1,band_to_json/1,create_version/0,modify_mac/2]).
 
 -type average() :: { CurrentValue::number(), HowManyValues::integer(), PastValues::[number()]}.
@@ -33,6 +33,10 @@ make_dir(DirName)->
 -spec binary_to_atom(X::binary())->Y::atom().
 binary_to_atom(X)->
 	list_to_atom(binary_to_list(X)).
+
+-spec atom_to_binary(X::atom())->Y::binary().
+atom_to_binary(X)->
+	list_to_binary(atom_to_list(X)).
 
 -spec uuid()->string().
 uuid()->
@@ -111,10 +115,10 @@ node_info(Node)->
 	try
 		{Total,Allocated,{ _Pid, Worst}}=rpc:call(Node,memsup,get_memory_data,[]),
 		Processes = rpc:call(Node,cpu_sup,nprocs,[]),
-		#{ node => atom_to_binary(Node), total => Total/(1 bsl 20), allocated => Allocated/(1 bsl 20), worst => Worst/(1 bsl 20), processes => Processes }
+		#{ node => utils:atom_to_binary(Node), total => Total/(1 bsl 20), allocated => Allocated/(1 bsl 20), worst => Worst/(1 bsl 20), processes => Processes }
 	catch
 		_:_ ->
-			#{ node => atom_to_binary(Node), total => 0, allocated => 0, worst => 0, processes => 0 }
+			#{ node => utils:atom_to_binary(Node), total => 0, allocated => 0, worst => 0, processes => 0 }
 	end.
 
 -spec apply_ntimes(Times::integer(),M::atom(),F::atom(),A::term())->[any()].
@@ -264,7 +268,7 @@ safe_binary(X) when is_binary(X)->
 safe_binary(X) when is_list(X)->
 	list_to_binary(X);
 safe_binary(X) when is_atom(X)->
-	atom_to_binary(X);
+	utils:atom_to_binary(X);
 safe_binary(X) when is_integer(X)->
 	integer_to_binary(X).
 

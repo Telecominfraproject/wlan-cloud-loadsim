@@ -118,7 +118,7 @@ send_payload(Socket,Payload,StartPort,HowMany)->
 
 broadcaster(_Pid)->
 	Cookie = erlang:get_cookie(),
-	Key = crypto:hash(sha256,atom_to_binary(Cookie)),
+	Key = crypto:hash(sha256,utils:atom_to_binary(Cookie)),
 	Data = term_to_binary({atom_to_list(Cookie),atom_to_list(node())},[compressed]),
 	Payload = crypto:crypto_one_time(aes_256_ctr,Key,<<0:128>>,Data,true),
 	_ = case socket:open(inet,dgram,udp) of
@@ -141,7 +141,7 @@ receiver(Id)->
 			R = case socket:recv(S,0,5000) of
 						{ok,Data} ->
 							Cookie = erlang:get_cookie(),
-							Key = crypto:hash(sha256,atom_to_binary(Cookie)),
+							Key = crypto:hash(sha256,utils:atom_to_binary(Cookie)),
 							Payload = crypto:crypto_one_time(aes_256_ctr,Key,<<0:128>>,Data,false),
 							try
 				        { _ , Node } = erlang:binary_to_term(Payload,[safe]),

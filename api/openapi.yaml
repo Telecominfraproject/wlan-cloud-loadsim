@@ -19,7 +19,7 @@ servers:
   - url: 'http://debfarm1-node-b.arilia.com:9090/api/v1'
 
 security: 
-  - ApiKeyAuth: []
+  - bearerAuth: []
 
 tags:
 - name: Login
@@ -345,7 +345,7 @@ paths:
 
     delete:
       tags: [CA]
-      summary: Remove all information about a given CA
+      summary: Remove all information about a given CA. A CA can only be removed if no simulation is referencing it.
       operationId: RemoveCA
       parameters:
         - in: path
@@ -365,7 +365,12 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         404:
           $ref: '#/components/responses/NotFound'
-
+        428:
+          description: CA cannot be deleted if it is in use.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/responses/SimulationNameList'
 
   /simulations:
     get:
@@ -741,10 +746,10 @@ components:
             $ref: '#/components/schemas/GenericGoodAnswer'
 
   securitySchemes:
-    ApiKeyAuth:        # arbitrary name for the security scheme
-      type: apiKey
-      in: header       
-      name: X-API-KEY 
+    bearerAuth:        # arbitrary name for the security scheme
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
       
   schemas:
     GenericErrorResponse:
@@ -861,6 +866,14 @@ components:
                 type: string
               vendor:
                 type: string
+
+    SimulationNameList:
+      description: A list of simulation names
+      properties:
+        CAs:
+          type: array
+          items:
+            type: string
 
     CAList:
       description: A list of CAs

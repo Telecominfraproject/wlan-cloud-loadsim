@@ -279,7 +279,7 @@ split_into( A, B )->
 	Batch = LB div LA,
 	split_it(A,B,1,Batch,LB,[]).
 
-split_it([H|T],B,Pos,Size,LB,Acc) when (Pos < LB) ->
+split_it([H|T],B,Pos,Size,LB,Acc) when (Pos =< LB) ->
 	SubList = lists:sublist(B,Pos,Size),
 	split_it(T,B,Pos+Size,Size,LB,[{H,SubList}|Acc]);
 split_it(_,_,_,_,_,Acc)->

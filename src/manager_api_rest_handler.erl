@@ -84,9 +84,22 @@ is_authorized(Req, State) ->
 			end
 	end.
 
+delete_resource(Req, #request_state{ resource = <<"cas">> } = State) ->
+	S = State#request_state.looked_up,
+	case inventory:delete_ca(S#ca_info.name) of
+		ok ->
+			{true,Req,State};
+		{error,in_use,SimList} when is_list(SimList) ->
+			JSON = restutils:create_json_string_array("simulations",SimList),
+			Req1 = cowboy_req:set_resp_body(JSON,Req),
+			Req2 = cowboy_req:reply(428,Req1),
+			{false,Req2,State};
+		_ ->
+			{false,Req,State}
+	end;
 delete_resource(Req, #request_state{ resource = <<"simulations">> } = State) ->
 	S = State#request_state.looked_up,
-	simengine:delete(S#simulation.name,S#simulation.ca),
+	_ = simengine:delete(S#simulation.name,S#simulation.ca),
 	?L_IA("Deleted simulation: ~p~n",S#simulation.name),
 	{ true , Req , State }.
 
@@ -106,7 +119,7 @@ resource_exists(Req, #request_state{ method = ?HTTP_GET, resource = <<"simulatio
 	{ true , Req , State };
 
 resource_exists(Req, #request_state{ method = ?HTTP_GET, resource = <<"cas">>}=State) ->
-	case inventory:get_ca(State#request_state.id) of
+	case inventory:get_record(#ca_info{name = State#request_state.id}) of
 		{ok,Record}     -> 	{true, Req, State#request_state{ looked_up = Record }};
 		{error,_Reason}  ->  {false,Req,State}
 	end;
@@ -127,7 +140,7 @@ resource_exists(Req, #request_state{ method = ?HTTP_GET, resource = <<"actions">
 	end;
 
 resource_exists(Req, #request_state{ method = ?HTTP_GET, resource = <<"simulations">>, subres = <<"devices">>, subid=nothing }=State) ->
-	case simengine:get(State#request_state.id) of
+	case inventory:get_record(#simulation{ name = State#request_state.id}) of
 		{ok,Record}    -> 	{true, Req, State#request_state{ looked_up = Record }};
 		{error,_Reason} ->  {false,Req,State}
 	end;
@@ -137,17 +150,17 @@ resource_exists(Req, #request_state{ method = ?HTTP_GET, resource = <<"simulatio
 		{error,_Reason} ->  {false,Req,State}
 	end;
 resource_exists(Req, #request_state{ method = ?HTTP_GET, resource = <<"simulations">>, subres = <<"devices">>}=State) ->
-	case inventory:get_client(State#request_state.id,State#request_state.subid) of
+	case inventory:get_record( #client_info{ name = State#request_state.id}) of
 		{ok,Record}    -> 	{true, Req, State#request_state{ looked_up = Record }};
 		{error,_Reason} ->  {false,Req,State}
 	end;
 resource_exists(Req, #request_state{ method = ?HTTP_GET, resource = <<"simulations">>, subres = nothing }=State) ->
-	case simengine:get(State#request_state.id) of
+	case inventory:get_record( #simulation{ name = State#request_state.id } ) of
 		{ok,Record}    -> 	{true, Req, State#request_state{ looked_up = Record }};
 		{error,_Reason} ->  {false,Req,State}
 	end;
 resource_exists(Req, #request_state{ method = ?HTTP_DELETE, resource = <<"simulations">>, subres = nothing }=State) ->
-	case simengine:get(State#request_state.id) of
+	case inventory:get_record(#simulation{ name = State#request_state.id}) of
 		{ok,Record}    -> 	{true, Req, State#request_state{ looked_up = Record }};
 		{error,_Reason} ->  {false,Req,State}
 	end;
@@ -329,8 +342,10 @@ do( ?HTTP_POST ,Req,#request_state{resource = <<"cas">>}=State)->
 		CertFileName = filename:join([utils:priv_dir(),"tmp-cert-" ++ binary_to_list(CAName)]),
 		ok = file:write_file( KeyFileName, Key ),
 		ok = file:write_file( CertFileName, Cert),
-		ok = user_default:import_ca(binary_to_list(CAName),binary_to_list(Password),KeyFileName,CertFileName),
+		ok = inventory:import_raw_ca(binary_to_list(CAName),binary_to_list(Password),KeyFileName,CertFileName),
 		{ok,CA} = inventory:get_ca(CAName),
+		_ = file:delete(KeyFileName),
+		_ = file:delete(CertFileName),
 		{ _ , RawKey } = CA#ca_info.key,
 		CAInfo = #{ name => CA#ca_info.name,
 		            key => list_to_binary(base64:encode_to_string(RawKey)),

@@ -20,9 +20,9 @@
 	start_listen/4,start_listen_secure/4]).
 
 -spec start(CAName::binary(),Id::binary(),Configuration::gen_configuration(), ManagerPid::pid())->ok.
-start(CAName,Id,#{ secure := true }=Configuration,ManagerPid)->
+start(_CAName,Id,#{ secure := true }=Configuration,ManagerPid)->
 	#{ num_listeners := NumListeners, port := Port } = Configuration,
-	{ok,ServiceConfiguration} = inventory:get_server(CAName,Id),
+	{ok,ServiceConfiguration} = inventory:get_record(#server_info{name = Id}),
 	SocketOptions = [
 		{backlog,NumListeners},
 		{session_tickets,stateless},

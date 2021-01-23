@@ -42,9 +42,8 @@ creation_info() ->
 	       type => worker,
 	       modules => [?MODULE]} ].
 
--spec submit_report( Type::binary(), Report::#{}) -> no_return().
+-spec submit_report(Type::atom(), Report::generic_stat_report()) -> ok.
 submit_report(Type,Report)->
-%	io:format(">STATS submitting report~n"),
 	gen_server:cast(?SERVER,{stats_report,node(),Type,Report}).
 
 %% @doc Spawns the server and registers the local name (unique)
@@ -86,7 +85,7 @@ handle_call(_Request, _From, State = #statistics_state{}) ->
 	{stop, Reason :: term(), NewState :: #statistics_state{}}).
 handle_cast({stats_report,NodeName,Type,Report},State=#statistics_state{})->
 %%	io:format("Received ~p stats from ~p.~n",[Type,NodeName]),
-	_=add_new_report(NodeName,Type,Report),
+	_ = add_new_report(NodeName,Type,Report),
 	{noreply,State#statistics_state{ last_reports = maps:put({NodeName,Type},Report,State#statistics_state.last_reports)}};
 handle_cast(_Request, State = #statistics_state{}) ->
 	{noreply,State}.
@@ -125,7 +124,7 @@ create_tables()->
 	{atomic,ok} = mnesia:create_table(stats,    [{disc_copies,[node()]}, {record_name,stat_report}, {index,[node,timestamp]}, {attributes,record_info(fields,stat_report)}]),
 	ok.
 
--spec add_new_report(Node::node(),Type::atom(),Report::#{})->ok.
+-spec add_new_report(Node::node(),Type::atom(),Report::generic_stat_report())->ok.
 add_new_report(Node,Type,Report)->
 	_ = mnesia:transaction( fun() ->
 												mnesia:dirty_write(stats,#stat_report{ uuid = utils:uuid_b(),

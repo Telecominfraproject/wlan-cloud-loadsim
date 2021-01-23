@@ -12,6 +12,7 @@
 -behaviour(gen_server).
 
 -include("../include/common.hrl").
+-include("../include/statistics.hrl").
 
 %% API
 -export([start_link/0,creation_info/0,update_stats/0,node_type/0,find_manager/2,connect/1,disconnect/0,
@@ -192,15 +193,13 @@ cpu_details_to_tuples([{Cpu,Busy,Idle,_}|T],A)->
 %%	io:format("CPU: ~p BUSY: ~p IDLE: ~p~n",[Cpu,Busy,Idle]),
 	cpu_details_to_tuples(T,[[#{cpu=>Cpu , busy=>Busy, idle=>Idle}]|A]).
 
+-spec create_os_stats_report() -> generic_stat_report().
 create_os_stats_report() ->
 	{X1,X2,{_,X3}} = memsup:get_memory_data(),
 	MemoryData = #{total => X1, allocated=>X2, biggest=>X3 },
 	SystemMemoryData = memsup:get_system_memory_data(),
 	{ Cpus, DetailCpu, NonBusy, _ } = cpu_sup:util([detailed]),
-
-%%	io:format("CPUS: ~p~n",[cpu_sup:util([per_cpu])]),
-
-	Report = #{
+	#{
 		cpu_utilization => cpu_sup:util(),
 		cpu_avg1  => 		cpu_sup:avg1(),
 		cpu_avg5  => 		cpu_sup:avg5(),
@@ -223,8 +222,7 @@ create_os_stats_report() ->
 		system_total_memory => proplists:get_value(system_total_memory,SystemMemoryData,0),
 		cpu_details => cpu_details_to_tuples(cpu_sup:util([per_cpu]),[]),
 		disk_details => volumes_to_tuples(disksup:get_disk_data(),[])
-	},
-	Report.
+	}.
 
 find_manager(Pid,Id) ->
 	%% io:format("Looking for manager~n"),

@@ -15,6 +15,7 @@
 
 -include("../include/common.hrl").
 -include("../include/mqtt_definitions.hrl").
+-include("../include/statistics.hrl").
 
 %% API
 -export([start_link/0]).
@@ -164,6 +165,7 @@ handle_call({get_pid_map,_CAName}, _From, State = #mqtt_client_manager_state{}) 
 handle_call(_Request, _From, State = #mqtt_client_manager_state{}) ->
 	{reply, ok, State}.
 
+-spec extract_stats(State::#mqtt_client_manager_state{}) -> generic_stat_report().
 extract_stats(State)->
 	#{
 		current_connections => State#mqtt_client_manager_state.current_connections,
@@ -214,9 +216,8 @@ handle_cast(update_stats_daemon, State = #mqtt_client_manager_state{}) ->
 		average_rx_rate =
 			State#mqtt_client_manager_state.running_stats#mqtt_stats.rx_bytes div (1+(State#mqtt_client_manager_state.running_stats#mqtt_stats.start_stamp-State#mqtt_client_manager_state.running_stats#mqtt_stats.end_stamp))
 		},
-	Report = prepare_statistics_report(ReportRecord),
-	statistics:submit_report(mqtt_client_stats,maps:remove(seq,Report)),
-	statistics:submit_report(mqtt_client_handler, extract_stats(State)),
+	statistics:submit_report(mqtt_client_stats,prepare_statistics_report(ReportRecord)),
+	statistics:submit_report(mqtt_client_handler,extract_stats(State)),
 	{noreply, State#mqtt_client_manager_state{ running_stats = #mqtt_stats{} }};
 handle_cast(_Request, State = #mqtt_client_manager_state{}) ->
 	{noreply, State}.
@@ -306,6 +307,7 @@ add_mqtt_stats(X,Y)->
 		errors        = X#mqtt_stats.start_stamp + Y#mqtt_stats.errors
 	}.
 
+-spec prepare_statistics_report(StatsRecord::#mqtt_client_traffic_report{})-> generic_stat_report().
 prepare_statistics_report(StatsRecord) ->
 	Fields = record_info(fields,mqtt_client_traffic_report),
 	[_|Values] = tuple_to_list(StatsRecord),

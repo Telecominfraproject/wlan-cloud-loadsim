@@ -24,7 +24,8 @@
          terminate/2, code_change/3,lookup/1,list_reporters/0]).
 
 -record(tip_stats_state, { last_reports = #{},
-                           reporting_pids = #{} }).
+                           reporting_pids = #{},
+													 sim_report_timer	}).
 
 %%-define(SERVER, {global,?MODULE}).
 %%-define(START_SERVER,{global,?MODULE}).
@@ -74,7 +75,7 @@ start_link() ->
 	{ok, State :: #tip_stats_state{}} | {ok, State :: #tip_stats_state{}, timeout() | hibernate} |
 	{stop, Reason :: term()} | ignore).
 init([]) ->
-	timer:apply_after(5000,?MODULE,create_sim_report,[]),
+	_ =  timer:apply_after(5000,?MODULE,create_sim_report,[]),
 	{ok, #tip_stats_state{}}.
 
 %% @private
@@ -138,6 +139,7 @@ handle_info(_Info, State = #tip_stats_state{}) ->
 -spec(terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
                 State :: #tip_stats_state{}) -> term()).
 terminate(_Reason, _State = #tip_stats_state{}) ->
+	%%% timer:cancel(State#tip_stats_state.sim_report_timer),
 	ok.
 
 %% @private
@@ -155,14 +157,14 @@ create_sim_report()->
 	% Look at running sims, for each running sim, spawn a thread to process the sim.
 	% if there is no running sim_report for the simulation, start one. If there is one,
 	% do not run it.
-	case simengine:list_simulations() of
+	_ = case simengine:list_simulations() of
 		{ ok , [] } ->
-			timer:apply_after(2000,tip_stats,create_sim_report,[]);
+			_ = timer:apply_after(2000,tip_stats,create_sim_report,[]);
 		{ ok , SimulationList } ->
 			create_missing_reports(SimulationList),
-			timer:apply_after(2000,tip_stats,create_sim_report,[]);
+			_ = timer:apply_after(2000,tip_stats,create_sim_report,[]);
 		_ ->
-			timer:apply_after(2000,tip_stats,create_sim_report,[])
+			_ = timer:apply_after(2000,tip_stats,create_sim_report,[])
 	end,
 	ok.
 
@@ -192,7 +194,7 @@ run_sim_report(SimName) ->
 			tip_clients => TipClientListLength,
 			tip_devices => TipEquipmentListLength,
 			state => State },
-		statistics:submit_report(<<"simulation_state">>,Report)
+		statistics:submit_report(simulation_state,Report)
 	catch
 		_:_ ->
 			ok
@@ -211,10 +213,10 @@ create_missing_reports([H|T])->
 			create_missing_reports(T)
 	end.
 
-number_of_clients(CAName,SimName)->
+number_of_clients(CAName,_SimName)->
 	{ ok , AllClients } = inventory:list_clients(CAName),
 	lists:foldl(fun(Client,A)->
-								case inventory:get_client(SimName,Client) of
+								case inventory:get_record(#client_info{name = utils:safe_binary(Client)}) of
 									{ok,ClientInfo} ->
 										A + length(ClientInfo#client_info.wifi_clients);
 									_ ->

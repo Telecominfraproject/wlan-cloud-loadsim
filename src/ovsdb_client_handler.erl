@@ -489,9 +489,9 @@ update_statistics(State) ->
 %%------------------------------------------------------------------------------
 %% internal functions
 %%------------------------------------------------------------------------------
--spec post_statistics(Entry::#ovsdb_statistics_report{}) -> ok.
+-spec post_statistics(StatsRecord::#ovsdb_statistics_report{}) -> ok.
 post_statistics(StatsRecord) ->
 	Fields = record_info(fields,ovsdb_statistics_report),
 	[_|Values] = tuple_to_list(StatsRecord),
 	Map = maps:from_list(lists:zip(Fields,Values)),
-	statistics:submit_report(ovsdb_clients,maps:remove(seq,Map)).
+	statistics:submit_report(ovsdb_clients,Map).

@@ -36,12 +36,15 @@
 
 -type simnode_configuration() :: #{ atom() => term() }.
 
+-type property()::atom() | tuple().
+-type proplist()::[property()].
+
 -record(simnode_state, {
-	node_finder           = none  :: timer:tref(),
-	os_stats_updater      = none  :: timer:tref(),
-	ap_client_handler     = none  :: atom(),
-	mqtt_server_handler   = none  :: atom(),
-	ovsdb_server_handler  = none  :: atom(),
+	node_finder           = none  :: none | timer:tref(),
+	os_stats_updater      = none  :: none | timer:tref(),
+	ap_client_handler     :: atom(),
+	mqtt_server_handler   :: atom(),
+	ovsdb_server_handler  :: atom(),
 	node_id               = 1     :: non_neg_integer(),
 	sim_configuration     = #{}   :: simnode_configuration() } ).
 
@@ -112,17 +115,12 @@ start_link(Config) ->
 
 %% @private
 %% @doc Initializes the server
-% -spec init(Config::[any(),...]) -> {ok, State::simnode_state()}.
+-spec init(Config::proplist()) -> {ok, State::simnode_state()}.
 init(Config) ->
-	NodeId = utils:app_env(node_id,1),
-	ApClientHandler = proplists:get_value(ap_client,Config,undefined),
-	MqttServerHandler = proplists:get_value(mqtt_server,Config,undefined),
-	OvsdbServerHandler = proplists:get_value(ovsdb_server,Config,undefined),
-	NewState = #simnode_state{ node_id = NodeId,
-	                           ap_client_handler = ApClientHandler,
-	                           mqtt_server_handler = MqttServerHandler,
-	                           ovsdb_server_handler = OvsdbServerHandler},
-	{ok,NewState}.
+	{ok,#simnode_state{ node_id = utils:app_env(node_id,1),
+	                    ap_client_handler = proplists:get_value(ap_client,Config,undefined),
+	                    mqtt_server_handler = proplists:get_value(mqtt_server,Config,undefined),
+	                    ovsdb_server_handler = proplists:get_value(ovsdb_server,Config,undefined)}}.
 
 %% @private
 %% @doc Handling call messages

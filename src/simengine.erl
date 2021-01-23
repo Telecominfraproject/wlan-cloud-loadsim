@@ -20,9 +20,9 @@
 -compile([{parse_transform, rec2json}]).
 
 %% API
--export([start_link/0,creation_info/0,create/1,create_tables/0,get/1,list_simulations/0,run_batch/5,
+-export([start_link/0,creation_info/0,create/1,get/1,list_simulations/0,run_batch/5,
          prepare/3,start/3,stop/3,cancel/3,pause/3,restart/3,push/3,
-         sim_exists/1,prepare_assets/5,push_assets/5,start_assets/5,stop_assets/5,cancel_assets/5,
+         prepare_assets/5,push_assets/5,start_assets/5,stop_assets/5,cancel_assets/5,
 				 pause_assets/5,restarts_assets/5,update/1,list_actions/0,get_action/1,
 				 sim_action_to_json/1,delete/2,list_simulation_states/0,get_simulation_state/1]).
 
@@ -103,7 +103,7 @@ restart(SimName,Attributes,{_M,_F,_A}=Notification)->
 list_actions()->
 	gen_server:call(?SERVER,list_actions).
 
--spec list_simulation_states() -> {ok,[sim_state()]}.
+-spec list_simulation_states() -> {ok,#{ SimName::binary() => #sim_state{}}}.
 list_simulation_states()->
 	gen_server:call(?SERVER,list_simulation_states).
 
@@ -136,7 +136,7 @@ start_link() ->
 	{stop, Reason :: term()} | ignore).
 init([]) ->
 	_ = mnesia:wait_for_tables([simulations],20000),
-	Simulations = list_sims_full(),
+	Simulations = inventory:list_records(#simulation{}),
 	NewStates = lists:foldl( fun(E,A)->
 			maps:put( E#simulation.name, #sim_state{
 				pushed = false,
@@ -170,12 +170,12 @@ handle_call(list_actions, _From, State = #simengine_state{}) ->
 	{reply,{ok,ListOfActions},State};
 
 handle_call({create_simulation,SimInfo}, _From, State = #simengine_state{}) ->
-	case sim_exists(SimInfo#simulation.name) of
+	case inventory:exists(SimInfo) of
 		true ->
 			{reply,?ERROR_SIM_ALREADY_EXISTS};
 		false->
 			?L_IA("Creating simulation ~s.",[binary_to_list(SimInfo#simulation.name)]),
-			case create_sim(SimInfo) of
+			case inventory:add_record(SimInfo) of
 				ok ->
 					SimState = #sim_state{
 						start = os:system_time(),
@@ -190,20 +190,20 @@ handle_call({create_simulation,SimInfo}, _From, State = #simengine_state{}) ->
 	end;
 
 handle_call({delete_simulation,SimName,CAName}, _From, State = #simengine_state{}) ->
-	case sim_exists(SimName) of
+	case inventory:exists(#simulation{ name = SimName} ) of
 		false ->
 			{reply,?ERROR_SIM_UNKNOWN,State};
 		true->
-			case inventory:get_ca(CAName) of
+			case inventory:get_record(#ca_info{name = CAName}) of
 				{ok,CAInfo} ->
 					?L_IA("Deleting simulation ~s.",[binary_to_list(SimName)]),
-					delete_sim(SimName),
+					_=inventory:del_record(#simulation{name = SimName}),
 					CADir = binary_to_list(CAInfo#ca_info.dir_name),
 					Dirs = [ "clients" , "servers" , "newcerts" ],
 					Files = [ "index.txt", "index.txt.attr", "index.txt.old", "index.txt.attr.old", "serial.txt", "serial.txt.old" ],
-					[ file:del_dir_r(filename:join([CADir,X])) || X<-Dirs ],
-					[ file:make_dir(filename:join([CADir,X])) || X<-Dirs ],
-					[ file:delete(filename:join([CADir,X])) || X<-Files ],
+					_ = [ file:del_dir_r(filename:join([CADir,X])) || X<-Dirs ],
+					_ = [ file:make_dir(filename:join([CADir,X])) || X<-Dirs ],
+					_ = [ file:delete(filename:join([CADir,X])) || X<-Files ],
 					ok = file:write_file( filename:join([CADir, "index.txt"]),<<>>),
 					ok = file:write_file( filename:join([CADir, "serial.txt"]),<<$0,$1>>),
 					inventory:delete_all_records(clients),
@@ -215,12 +215,12 @@ handle_call({delete_simulation,SimName,CAName}, _From, State = #simengine_state{
 	end;
 
 handle_call({update_simulation,SimInfo}, _From, State = #simengine_state{}) ->
-	case sim_exists(SimInfo#simulation.name) of
+	case inventory:exists(SimInfo) of
 		false ->
 			{reply,?ERROR_SIM_UNKNOWN,State};
 		true->
 			?L_IA("Updating simulation ~s.",[binary_to_list(SimInfo#simulation.name)]),
-			case update_sim(SimInfo) of
+			case inventory:add_record(SimInfo) of
 				ok ->
 					SimState = #sim_state{ sim_info = SimInfo },
 					{reply, ok, State#simengine_state{ sim_states = maps:put(SimInfo#simulation.name,SimState,State#simengine_state.sim_states )}};
@@ -230,10 +230,10 @@ handle_call({update_simulation,SimInfo}, _From, State = #simengine_state{}) ->
 	end;
 
 handle_call({prepare,SimName,Attributes,Notification},_From,State = #simengine_state{}) ->
-	case get_sim(SimName) of
-		[]->
+	case inventory:get_record(#simulation{name=SimName}) of
+		{error,_}->
 			{reply,?ERROR_SIM_UNKNOWN,State};
-		[SimInfo] ->
+		{ok,SimInfo} ->
 			case SimInfo#simulation.assets_created of
 				true ->
 					{reply,?ERROR_SIM_ASSETS_ALREADY_CREATED,State};
@@ -271,10 +271,10 @@ handle_call({prepare,SimName,Attributes,Notification},_From,State = #simengine_s
 	end;
 
 handle_call({push,SimName,Attributes,Notification}, _From, State = #simengine_state{}) ->
-	case get_sim(SimName) of
-		[] ->
+	case inventory:get_record(#simulation{name=SimName}) of
+		{error,_} ->
 			{ reply, ?ERROR_SIM_UNKNOWN, State };
-		[SimInfo] ->
+		{ok,SimInfo} ->
 			S = maps:get(SimName,State#simengine_state.sim_states),
 			case (SimInfo#simulation.assets_created) of
 				false->
@@ -315,10 +315,10 @@ handle_call({push,SimName,Attributes,Notification}, _From, State = #simengine_st
 	end;
 
 handle_call({start,SimName,Attributes,Notification}, _From, State = #simengine_state{}) ->
-	case get_sim(SimName) of
-		[] ->
+	case inventory:get_record(#simulation{name=SimName}) of
+		{error,_} ->
 			{ reply, ?ERROR_SIM_UNKNOWN, State };
-		[SimInfo] ->
+		{ok,SimInfo} ->
 			S = maps:get(SimName,State#simengine_state.sim_states),
 			case SimInfo#simulation.assets_created of
 				false->
@@ -364,10 +364,10 @@ handle_call({start,SimName,Attributes,Notification}, _From, State = #simengine_s
 	end;
 
 handle_call({stop,SimName,Attributes,Notification}, _From, State = #simengine_state{}) ->
-	case get_sim(SimName) of
-		[] ->
+	case inventory:get_record(#simulation{name = SimName}) of
+		{error,_} ->
 			{ reply, ?ERROR_SIM_UNKNOWN, State };
-		[SimInfo] ->
+		{ok,SimInfo} ->
 			S = maps:get(SimName,State#simengine_state.sim_states),
 			case SimInfo#simulation.assets_created of
 				false->
@@ -413,10 +413,10 @@ handle_call({stop,SimName,Attributes,Notification}, _From, State = #simengine_st
 	end;
 
 handle_call({pause,SimName,Attributes,Notification}, _From, State = #simengine_state{}) ->
-	case get_sim(SimName) of
-		[] ->
+	case inventory:get_record(#simulation{name = SimName}) of
+		{error,_} ->
 			{ reply, ?ERROR_SIM_UNKNOWN, State };
-		[SimInfo] ->
+		{ok,SimInfo} ->
 			S = maps:get(SimName,State#simengine_state.sim_states),
 			case SimInfo#simulation.assets_created of
 				false->
@@ -462,10 +462,10 @@ handle_call({pause,SimName,Attributes,Notification}, _From, State = #simengine_s
 	end;
 
 handle_call({cancel,SimName,Attributes,Notification}, _From, State = #simengine_state{}) ->
-	case get_sim(SimName) of
-		[] ->
+	case inventory:get_record(#simulation{name = SimName}) of
+		{error,_} ->
 			{ reply, ?ERROR_SIM_UNKNOWN, State };
-		[SimInfo] ->
+		{ok,SimInfo} ->
 			S = maps:get(SimName,State#simengine_state.sim_states),
 			case SimInfo#simulation.assets_created of
 				false->
@@ -511,10 +511,10 @@ handle_call({cancel,SimName,Attributes,Notification}, _From, State = #simengine_
 	end;
 
 handle_call({restart,SimName,Attributes,Notification}, _From, State = #simengine_state{}) ->
-	case get_sim(SimName) of
-		[] ->
+	case inventory:get_record(#simulation{name=SimName}) of
+		{error,_} ->
 			{ reply, ?ERROR_SIM_UNKNOWN, State };
-		[SimInfo] ->
+		{ok,SimInfo} ->
 			S = maps:get(SimName,State#simengine_state.sim_states),
 			case SimInfo#simulation.assets_created of
 				false->
@@ -559,10 +559,10 @@ handle_call({restart,SimName,Attributes,Notification}, _From, State = #simengine
 	end;
 
 handle_call({get,SimName}, _From, State = #simengine_state{}) ->
-	case get_sim(SimName) of
-		[] ->
+	case inventory:get_record(#simulation{name=SimName}) of
+		{error,_} ->
 			{ reply, ?ERROR_SIM_UNKNOWN, State };
-		[SimInfo] ->
+		{ok,SimInfo} ->
 			{reply, {ok,SimInfo}, State}
 	end;
 
@@ -575,7 +575,7 @@ handle_call({get_simulation_state,SimName}, _From, State = #simengine_state{}) -
 	end;
 
 handle_call(list_simulations, _From, State = #simengine_state{}) ->
-	{ reply, {ok, list_sims()}, State };
+	{reply,inventory:list_records_names(#simulation{}),State};
 
 handle_call(list_simulation_states, _From, State = #simengine_state{}) ->
 	{ reply, {ok, State#simengine_state.sim_states}, State };
@@ -693,68 +693,6 @@ code_change(_OldVsn, State = #simengine_state{}, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-create_tables()->
-	{atomic,ok} = mnesia:create_table(simulations,[{disc_copies,[node()]}, {record_name,simulation}, {attributes,record_info(fields,simulation)}]),
-	ok.
-
-sim_exists(SimName)->
-	case get_sim(SimName) of
-		[] -> false;
-		_ -> true
-	end.
-
-delete_sim(SimName) ->
-	Return = mnesia:transaction( fun() ->
-																					mnesia:dirty_delete(simulations,SimName)
-	                                      end),
-	case Return of
-		{aborted,{no_exists,simulations}} -> [];
-		{atomic,Result} ->Result
-	end.
-
-create_sim(SimInfo) when is_record(SimInfo,simulation) ->
-	{atomic,Result}=mnesia:transaction(fun() ->
-			mnesia:dirty_write( simulations, SimInfo#simulation{ creation_date = list_to_binary(calendar:system_time_to_rfc3339(erlang:system_time(second))) } )
-		end),
-	Result.
-
-update_sim(SimInfo) when is_record(SimInfo,simulation) ->
-	{atomic,Result}=mnesia:transaction(fun() ->
-		mnesia:dirty_write( simulations, SimInfo )
-	                                   end),
-	Result.
-
-get_sim(SimName) ->
-	Return = mnesia:transaction(  fun() ->
-																	mnesia:read(simulations,SimName)
-																end),
-	case Return of
-		{aborted,{no_exists,simulations}} -> [];
-		{atomic,Result} ->Result
-	end.
-
-list_sims()->
-	Return = mnesia:transaction( fun()->
-		mnesia:foldr( fun(E,A)->
-										[ binary_to_list(E#simulation.name) | A ]
-		              end, [], simulations)
-	                             end),
-	case Return of
-		{aborted,{no_exists,simulations}} -> [];
-		{atomic,Result} ->Result
-	end.
-
-list_sims_full()->
-	Return = mnesia:transaction( fun()->
-																	mnesia:foldr( fun(E,A)->
-																		[ E | A ]
-		                              end, [], simulations)
-	                             end),
-	case Return of
-		{aborted,{no_exists,simulations}} -> [];
-		{atomic,Result} ->Result
-	end.
-
 -spec set_assets_created(SimInfo::simulation(), Value::boolean())->ok.
 set_assets_created(SimInfo,Value)->
 	_=mnesia:transaction( fun()->
@@ -859,7 +797,7 @@ run_batch(_Ids,SimInfo,_CAInfo,Index,{M,F,A}=_Notification) when SimInfo#simulat
 run_batch(Ids,SimInfo,CAInfo,Total,Notification)->
 	Id = random_list_item(Ids),
 	Attributes = #{ id => Id, name => <<"SIM">>, serial => <<"SIM">>, mac => <<>> },
-	inventory:generate_single_client(Id,CAInfo,Total,Attributes),
+	inventory:generate_single_client(Id,CAInfo,SimInfo#simulation.name,Total,Attributes),
 	run_batch(Ids,SimInfo,CAInfo,Total+1,Notification).
 
 %% Create the servers - only if they are pon automatic mode
@@ -870,7 +808,7 @@ split_build_servers(SimInfo,_Notification)->
 %% generate_server(#simulation{ internal = true } = SimInfo,mqtt_server)->
 %%  	inventory:make_server(SimInfo#simulation.ca,"mqtt-1",mqtt_server);
 generate_server(#simulation{ internal = true } = SimInfo,ovsdb_server )->
-	inventory:make_server(SimInfo#simulation.ca,"ovsdb-1",ovsdb_server);
+	inventory:make_server(SimInfo#simulation.ca,SimInfo#simulation.name,"ovsdb-1",ovsdb_server);
 generate_server(_,_)->
 	ok.
 

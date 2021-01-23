@@ -67,7 +67,7 @@ connect(NodeName) ->
 	case net_adm:ping(Node) of
 		pong ->
 			{ok,Role} = node_stats:node_type(),
-			global:sync(),
+			_ = global:sync(),
 			timer:sleep(2000),
 			manager:connect(Role);
 		_ ->
@@ -129,31 +129,31 @@ remove_simulation(SimName,CAName)->
 show_simulation(SimName) when is_list(SimName) ->
 	simengine:get(SimName).
 
--spec prepare_simulation( SimName::string()|binary() )->ok | generic_error().
+-spec prepare_simulation( SimName::string()|binary() )-> {ok,ActionId::binary()} | generic_error().
 prepare_simulation(SimName)->
 	simengine:prepare(SimName,#{},utils:noop_mfa()).
 
--spec push_simulation(SimName::string()|binary())-> ok | generic_error().
+-spec push_simulation(SimName::string()|binary())-> {ok,ActionId::binary()} | generic_error().
 push_simulation(SimName)->
 	simengine:push(SimName,#{},utils:noop_mfa()).
 
--spec start_simulation(SimName::string()|binary())-> ok | generic_error().
+-spec start_simulation(SimName::string()|binary())-> {ok,ActionId::binary()} | generic_error().
 start_simulation(SimName)->
 	simengine:start(SimName,#{stagger=>{5,2000}},utils:noop_mfa()).
 
--spec restart_simulation(SimName::string()|binary())-> ok | generic_error().
+-spec restart_simulation(SimName::string()|binary())-> {ok,ActionId::binary()} | generic_error().
 restart_simulation(SimName)->
 	simengine:restart(SimName,#{stagger=>{5,2000}},utils:noop_mfa()).
 
--spec stop_simulation(SimName::string()|binary())-> ok | generic_error().
+-spec stop_simulation(SimName::string()|binary())-> {ok,ActionId::binary()} | generic_error().
 stop_simulation(SimName)->
 	simengine:stop(SimName,#{stagger=>{5,2000}},utils:noop_mfa()).
 
--spec pause_simulation(SimName::string()|binary())-> ok | generic_error().
+-spec pause_simulation(SimName::string()|binary())-> {ok,ActionId::binary()} | generic_error().
 pause_simulation(SimName)->
 	simengine:pause(SimName,#{stagger=>{5,2000}},utils:noop_mfa()).
 
--spec cancel_simulation(SimName::string()|binary())-> ok | generic_error().
+-spec cancel_simulation(SimName::string()|binary())-> {ok,ActionId::binary()} | generic_error().
 cancel_simulation(SimName)->
 	simengine:cancel(SimName,#{stagger=>{5,2000}},utils:noop_mfa()).
 
@@ -184,20 +184,7 @@ create_ca(CAName,Password) when is_list(CAName),is_list(Password)->
 
 -spec import_ca(CAName::string(),Password::string(),KeyFileName::string(),CertFileName::string())->ok | generic_error().
 import_ca(CAName,Password,KeyFileName,CertFileNAme) when is_list(CAName), is_list(Password), is_list(KeyFileName), is_list(CertFileNAme) ->
-	case utils:pem_key_is_encrypted(KeyFileName) of
-		true ->
-			TmpKeyFileName = KeyFileName ++ "-tmp",
-			case utils:remove_pem_key_password(Password,KeyFileName,TmpKeyFileName) of
-				true ->
-					Res = inventory:import_ca(CAName,#{ password => "", keyfilename => TmpKeyFileName, certfilename => CertFileNAme}),
-					_=file:delete(TmpKeyFileName),
-					Res;
-				false->
-					{ error , ?ERROR_CA_CANNOT_IMPORT_KEY }
-			end;
-		false ->
-			inventory:import_ca(CAName,#{ password => Password, keyfilename => KeyFileName, certfilename => CertFileNAme})
-	end.
+	inventory:import_raw_ca(CAName,Password,KeyFileName,CertFileNAme).
 
 -spec remove_ca(CAName::string())->generic_result().
 remove_ca(CAName) when is_list(CAName) ->
@@ -220,8 +207,8 @@ list_cas()->
 %%  Node Management functions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -spec show_client(SimName::string(),Client::string())-> {ok,Client::client_info()}.
-show_client(SimName,Client)->
-	inventory:get_client(SimName,Client).
+show_client(_SimName,Client)->
+	inventory:get_record(#client_info{name = utils:safe_binary(Client)}).
 
 list_clients(CAName)->
 	{ok,Clients} = inventory:list_clients(CAName),
@@ -325,42 +312,6 @@ get_server(ovsdb_server)->
 	Port  =      input("  Port:","6643"),
 	{ list_to_binary(ServerName),list_to_integer(Port)}.
 
-s1(X)->
-	_ = import_ca("sim1","mypassword","tip-cakey.pem","tip-cacert.pem"),
-	c1(X).
-
-p1()->
-	prepare_simulation("sim1").
-
-c1(X)->
-	Simulation = #simulation{ name = <<"sim1">>,
-	                          ca = <<"sim1">>,
-	                          num_devices = X,
-	                          opensync_server_port = 6643,
-	                          opensync_server_name = <<"debfarm1-node-a.arilia.com">>,
-%%	                          nodes = ['simnode1@renegademac.arilia.com']  },
-	                          nodes = ['simnode1@debfarm1-node-c.arilia.com'] },
-		simengine:create(Simulation).
-
-t1_key_h() ->
-	_ = import_ca("sim1","mypassword","tip2-cakey.pem","tip2-cacert.pem"),
-	Simulation = #simulation{ name = <<"sim1">>,
-	                          ca = <<"sim1">>,
-	                          num_devices = 50,
-	                          opensync_server_port = 6643,
-	                          opensync_server_name = <<"10.20.0.118">>,
-	                          nodes = ['simnode1@hypatia.syramo.com'] },
-	simengine:create(Simulation).
-
-t1_key_hz() ->
-	import_ca("sim1","mypassword","tip2-cakey.pem","tip2-cacert.pem").
-
-r1(X)->
-	w(X),
-	_ = push_simulation("sim1"),
-	timer:sleep(1000),
-	start_simulation("sim1").
-
 w(X)->
 	case length(nodes()) of
 		X -> ok;
@@ -370,7 +321,7 @@ w(X)->
 number_of_clients()->
 	{ ok , AllClients } = list_clients("sim1"),
 	lists:foldl(fun(Client,A)->
-								case inventory:get_client("sim1",Client) of
+								case inventory:get_record(#client_info{name = utils:safe_binary(Client)}) of
 									{ok,ClientInfo} ->
 										A + length(ClientInfo#client_info.wifi_clients);
 									_ ->
@@ -381,7 +332,7 @@ number_of_clients()->
 get_all_sim_clients_macs()->
 	{ ok , AllClients } = list_clients("sim1"),
 	lists:foldl(fun(Client,A)->
-								case inventory:get_client("sim1",Client) of
+								case inventory:get_record(#client_info{name = utils:safe_binary(Client)}) of
 									{ok,ClientInfo} ->
 										A ++ [ MAC || {_Index,_Band,_SSID,MAC,_Vendor} <- ClientInfo#client_info.wifi_clients] ;
 									_ ->
@@ -393,13 +344,13 @@ get_all_sim_clients_macs()->
 get_all_sim_clients_serials()->
 	{ ok , AllClients } = list_clients("sim1"),
 	lists:sort(lists:foldl(fun(Client,A)->
-								case inventory:get_client("sim1",Client) of
-									{ok,ClientInfo} ->
-										[ ClientInfo#client_info.serial | A] ;
-									_ ->
-										A
-								end
-	            end,[],AllClients)).
+													case inventory:get_record(#client_info{name = utils:safe_binary(Client)}) of
+														{ok,ClientInfo} ->
+															[ ClientInfo#client_info.serial | A] ;
+														_ ->
+															A
+													end
+						            end,[],AllClients)).
 
 compare_clients()->
 	tip_api:login("sim1"),
@@ -516,18 +467,20 @@ auto()->
 
 auto(NumberOfDevices)->
 	SimName = "sim1",
+	CAName = "tip1",
 	clear(),
 	io:format("Waiting for nodes to come on-line...~n"),
 	Nodes = wait_for_nodes(),
 	persistent_term:put(current_simulation,SimName),
 	BinSim = list_to_binary(SimName),
-	_ = remove_ca(SimName),
-	_ = remove_simulation(SimName,SimName),
+	BinCAName = list_to_binary(CAName),
+	_ = remove_ca(CAName),
+	_ = remove_simulation(CAName,SimName),
 	io:format("~nImporting TIP certificate...~n"),
-	_ = import_ca(get_currrent_simulation(),"mypassword","tip-cakey.pem","tip-cacert.pem"),
+	_ = import_ca("tip1","mypassword","tip-cakey.pem","tip-cacert.pem"),
 	io:format("Simulation will be built for nodes: ~p.~n",[Nodes]),
 	Simulation = #simulation{ name = BinSim,
-	                          ca = BinSim,
+	                          ca = BinCAName,
 	                          num_devices = NumberOfDevices,
 	                          opensync_server_port = 6643,
 	                          opensync_server_name = <<"opensync-controller.wan.local">>,
@@ -547,19 +500,27 @@ run(_SimName,0)->
 	throw("Nodes are not on-line, simulation cannot proceed.");
 run(SimName,Delay)->
 	io:format("Making sure all nodes are on-line first..."),
-	case show_simulation(SimName) of
+	case inventory:get_record(#simulation{name = utils:safe_binary(SimName)}) of
 		{ok,SimInfo} ->
 			Nodes = wait_for_nodes(),
 			case lists:subtract(SimInfo#simulation.nodes,Nodes) of
 				[] ->
 					io:format("~n.~nAll nodes on-line.~nPushing simulation assets to all nodes..."),
-					{ok,ID1} = push_simulation(SimName),
-					wait_job_id(ID1),
-					io:format(".Done.~n"),
-					io:format("Starting simulation assets on all nodes..."),
-					{ok,ID2} = start_simulation(SimName),
-					wait_job_id(ID2),
-					io:format(".Done.~n");
+					case push_simulation(SimName) of
+						{ok,ID1} ->
+							wait_job_id(ID1),
+							io:format(".Done.~n"),
+							io:format("Starting simulation assets on all nodes..."),
+							case start_simulation(SimName) of
+								{ok,ID2} ->
+									wait_job_id(ID2),
+									io:format(".Done.~n");
+								_ ->
+									io:format("~nSimulation could not be started. Please try again.~n")
+							end;
+						_ ->
+							io:format("~nSimulation could not be pushed to remote nodes. Please try again.~n")
+					end;
 				_ ->
 					io:format("."),
 					timer:sleep(1000),
@@ -569,8 +530,4 @@ run(SimName,Delay)->
 		Error ->
 			io:format("~nAne error occured while trying to start the simulation. ~p~n",[Error])
 	end.
-
--spec show_simulation_state(SimName::string()|binary()) -> {ok,SimState::#sim_state{}} | generic_error().
-show_simulation_state(_SimName)->
-	ok.
 

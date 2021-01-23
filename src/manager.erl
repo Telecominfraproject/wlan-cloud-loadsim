@@ -211,6 +211,5 @@ startdb()->
 
 create_tables()->
 	inventory:create_tables(),
-	simengine:create_tables(),
 	statistics:create_tables(),
 	ok.

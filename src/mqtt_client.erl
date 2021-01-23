@@ -48,7 +48,7 @@ start(CAName,Serial,Configuration,ManagerPid)->
 	%% io:format(">>>>Trying topic: ~p  connect to: ~p:~p~n",[Topics,Broker,Port]),
 	NewConfig = #{ broker => <<"opensync-mqtt-broker.wlan.local">>, compress => Compress,
 	            port => list_to_integer(binary_to_list(Port)), topics => Topics },
-	{ok,DeviceConfiguration} = inventory:get_client(CAName,Serial),
+	{ok,DeviceConfiguration} = inventory:get_record(#client_info{name = Serial}),
 
 	MacStats = prepare_mac_stats(DeviceConfiguration),
 

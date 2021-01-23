@@ -233,7 +233,7 @@ is_authorized(Req, State) ->
 
 resource_exists(Req,#request_state{ method = ?HTTP_POST }=State) ->
 	{true,Req,State};
-resource_exists(Req,#request_state{ method = ?HTTP_DELETE, token = nothing}=State)->
+resource_exists(Req,#request_state{ method = ?HTTP_DELETE, token = <<>>}=State)->
 	{false,Req,State};
 resource_exists(Req,#request_state{ method = ?HTTP_DELETE }=State)->
 	{web_token_manager:valid(State#request_state.token),Req,State};

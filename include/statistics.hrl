@@ -43,7 +43,9 @@
 }).
 
 -type stat_report() :: #stat_report{}.
+-type generic_stat_report()::#{atom()=>term()}.
 
--export_type([stat_report/0]).
+-export_type([stat_report/0,generic_stat_report/0]).
+
 
 -endif.

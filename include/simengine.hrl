@@ -41,7 +41,7 @@
 	current_op_pid = none :: none | pid(),
 	current_op = none :: none | preparing | pushing | starting | pausing | stopping | restarting | cancelling ,
 	state = created :: created | prepared | pushed | started | paused | stopped | restarted | cancelled ,
-	start = none :: none | erlang:timestamp(),
+	start = 0 :: non_neg_integer(),
 	current_cb = none :: none | notification_cb(),
 	outstanding_nodes = [] :: [node()],
 	sim_info :: simulation()

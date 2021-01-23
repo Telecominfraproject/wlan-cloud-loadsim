@@ -42,6 +42,7 @@
 -record( client_info, {
 	name = <<>> :: binary(),
 	ca  = <<>> :: binary(),
+	sim_name = <<>> :: binary(),
 	cap = [] :: [client_role()],
 	wan_mac0 = <<>> :: binary(),   %% MAC is XX:XX:XX:XX:XX:XX lowercase
 	lan_mac0 = <<>> :: binary(),   %% MAC is XX:XX:XX:XX:XX:XX lowercase
@@ -66,6 +67,7 @@
 	name  = <<>> :: binary(),
 	service = none :: service_role(),
 	ca  = <<>> :: binary(),
+	sim_name = <<>> :: binary(),
 	description  = <<>> :: binary(),
 	type  = <<>> :: binary(),
 	version  = <<>> :: binary(),

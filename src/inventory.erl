@@ -27,7 +27,7 @@
 	make_server/4,get_server/3,make_servers/4,delete_server/3,
 	make_client/3,make_clients/6,generate_client_batch/7,get_client/3,
 	all_files_exist/1,valid_ca_name/1,valid_password/1,
-	list_clients/1,generate_single_client/5,list_sim_clients/1,
+	generate_single_client/5,list_sim_clients/1,
 	delete_all_records/1,import_raw_ca/4,ca_in_use/1,
 	list_records_names/1,exists/1,add_record/1,del_record/1,get_record/1,list_records/1]).
 
@@ -128,9 +128,9 @@ validate_attributes(Attrs) when is_map(Attrs)->
 get_client(CAName,SimName,Id)->
 	gen_server:call(?SERVER,{get_client,utils:safe_binary(CAName),utils:safe_binary(SimName),utils:safe_binary(Id)}).
 
--spec list_clients(SimName::string()|binary())-> { ok , [Client::binary()] } | generic_error().
-list_clients(SimName)->
-	gen_server:call(?SERVER,{list_clients,utils:safe_binary(SimName)}).
+-spec list_sim_clients(SimName::string()|binary())-> { ok , [Client::binary()] } | generic_error().
+list_sim_clients(SimName)->
+	gen_server:call(?SERVER,{list_sim_clients,utils:safe_binary(SimName)}).
 
 exists(R) ->
 	gen_server:call(?SERVER,{exists,R}).
@@ -247,7 +247,7 @@ handle_call({get_ca,CAName,_Pid}, _From, State = #inventory_state{}) ->
 	end;
 
 handle_call({get_cas,_Pid}, _From, State = #inventory_state{}) ->
-	{ reply,list_records_names(#ca_info{}), State};
+	{ reply,db_list_records_names(#ca_info{}), State};
 
 handle_call({make_server,CAName,SimName,Id,Type,Pid}, _From, State = #inventory_state{}) ->
 	case db_get_record(#ca_info{ name = CAName }) of
@@ -347,8 +347,8 @@ handle_call({get_client,CAName,Id}, _From, State = #inventory_state{}) ->
 			{reply,{error,unknown_ca},State}
 	end;
 
-handle_call({list_clients,SimName}, _From, State = #inventory_state{}) ->
-	case list_sim_clients(SimName) of
+handle_call({list_sim_clients,SimName}, _From, State = #inventory_state{}) ->
+	case db_list_sim_clients(SimName) of
 		{atomic,Records} ->
 			{ reply, {ok,Records},State};
 		Error ->
@@ -925,7 +925,7 @@ db_get_record(R) when is_record(R,client_info)->
 			{error,unknown}
 	end.
 
-list_sim_clients(SimName) ->
+db_list_sim_clients(SimName) ->
 	mnesia:transaction( fun() ->
 												mnesia:foldr( fun(R,A) ->
 																					case R#client_info.sim_name == SimName of

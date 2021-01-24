@@ -223,7 +223,7 @@ do( ?HTTP_GET , Req , #request_state{ resource = <<"vendors">> } = State ) ->
 %%%===================================================================
 do( ?HTTP_GET ,Req,#request_state{ resource = <<"simulations">>, subres = <<"devices">>, subid = nothing }=State)->
 	PaginationParameters = restutils:get_pagination_parameters(Req),
-	{ok,DeviceList}=inventory:list_clients(State#request_state.id),
+	{ok,DeviceList}=inventory:list_sim_clients(State#request_state.id),
 	{SubList,PaginationInfo} = restutils:paginate(PaginationParameters,DeviceList),
 	create_response(restutils:create_paginated_return("SerialNumbers",SubList,PaginationInfo,stringlist),Req,State);
 do( ?HTTP_GET ,Req,#request_state{ resource = <<"simulations">>, subres = <<"devices">>  }=State)->

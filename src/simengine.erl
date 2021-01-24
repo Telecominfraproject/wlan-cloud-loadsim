@@ -718,7 +718,7 @@ push_assets(SimInfo,_Attributes,SimEnginePid,{M,F,A}=_Notification,JobId)->
 	?L_IA("~s: Preparing all assets.",[binary_to_list(SimInfo#simulation.name)]),
 	%% io:format(">>>pushing 1~n"),
 	timer:sleep(2000),    %% wait 2 seconds... this will allow calling process some time to complete
-	{ok,Clients} = inventory:list_clients(SimInfo#simulation.name),
+	{ok,Clients} = inventory:list_sim_clients(SimInfo#simulation.name),
 	Splits = utils:split_into( SimInfo#simulation.nodes, Clients),
 	%% io:format("CLIENTS: ~p~n",[Clients]),
 	%% io:format("SPLITS: ~p~n",[Splits]),

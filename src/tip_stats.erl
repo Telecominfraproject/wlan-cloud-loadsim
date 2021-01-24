@@ -214,7 +214,7 @@ create_missing_reports([H|T])->
 	end.
 
 number_of_clients(CAName,_SimName)->
-	{ ok , AllClients } = inventory:list_clients(CAName),
+	{ ok , AllClients } = inventory:list_sim_clients(CAName),
 	lists:foldl(fun(Client,A)->
 								case inventory:get_record(#client_info{name = utils:safe_binary(Client)}) of
 									{ok,ClientInfo} ->

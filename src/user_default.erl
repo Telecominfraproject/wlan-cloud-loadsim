@@ -211,7 +211,7 @@ show_client(_SimName,Client)->
 	inventory:get_record(#client_info{name = utils:safe_binary(Client)}).
 
 list_clients(CAName)->
-	{ok,Clients} = inventory:list_clients(CAName),
+	{ok,Clients} = inventory:list_sim_clients(CAName),
 	{ok,[binary_to_list(X) || X <- Clients] }.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -461,6 +461,9 @@ clear() ->
 
 get_currrent_simulation()->
 	persistent_term:get(current_simulation).
+
+
+{ok,SomeNodes}=manager:connected_nodes()
 
 auto()->
 	auto(10).

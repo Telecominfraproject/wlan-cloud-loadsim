@@ -656,7 +656,7 @@ create_client(CAInfo,SimName,Attributes)->
 		},
 		%% io:format(">>>SERIAL: ~p~n",[Serial]),
 		_R = add_record(Client),
-		%% io:format("RESULT>>>=~p~n",[R]),
+		%% ("RESULT>>>=~p~n",[R]),
 		ok
 	catch
 		_:_ ->
@@ -974,7 +974,6 @@ exists( #simulation{ } = SimInfo ) ->
 	Return = mnesia:transaction(  fun() ->
 																	mnesia:read(simulations,SimInfo#simulation.name)
 	                              end),
-	io:format(">>>RETURN: ~p~n",[Return]),
 	case Return of
 		{aborted,{no_exists,simulations}} -> false;
 		{atomic,[]} -> false;

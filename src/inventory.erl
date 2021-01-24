@@ -132,6 +132,24 @@ get_client(CAName,SimName,Id)->
 list_clients(SimName)->
 	gen_server:call(?SERVER,{list_clients,utils:safe_binary(SimName)}).
 
+exists(R) ->
+	gen_server:call(?SERVER,{exists,R}).
+
+get_record(R) ->
+	gen_server:call(?SERVER,{get_record,R}).
+
+add_record(R) ->
+	gen_server:call(?SERVER,{add_record,R}).
+
+del_record(R) ->
+	gen_server:call(?SERVER,{del_record,R}).
+
+list_records(R) ->
+	gen_server:call(?SERVER,{list_records,R}).
+
+list_records_names(R)->
+	gen_server:call(?SERVER,{list_records_names,R}).
+
 %% @doc Spawns the server and registers the local name (unique)
 -spec(start_link() ->
 	{ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
@@ -171,7 +189,7 @@ init([]) ->
 	{stop, Reason :: term(), Reply :: term(), NewState :: #inventory_state{}} |
 	{stop, Reason :: term(), NewState :: #inventory_state{}}).
 handle_call({make_ca,CAName,Password,Pid}, _From, State = #inventory_state{}) ->
-	case get_record(#ca_info{ name = CAName }) of
+	case db_get_record(#ca_info{ name = CAName }) of
 		{ok,_CAInfo} ->
 			{reply,{error,ca_already_exists},State};
 		_ ->
@@ -179,8 +197,26 @@ handle_call({make_ca,CAName,Password,Pid}, _From, State = #inventory_state{}) ->
 			{reply, ok, NewState}
 	end;
 
+handle_call({exists,R}, _From, State = #inventory_state{}) ->
+	{reply,db_exists(R),State};
+
+handle_call({list_records,R}, _From, State = #inventory_state{}) ->
+	{reply,db_list_records(R),State};
+
+handle_call({list_records_names,R}, _From, State = #inventory_state{}) ->
+	{reply,db_list_records_names(R),State};
+
+handle_call({add_record,R}, _From, State = #inventory_state{}) ->
+	{reply,db_add_record(R),State};
+
+handle_call({del_record,R}, _From, State = #inventory_state{}) ->
+	{reply,db_del_record(R),State};
+
+handle_call({get_record,R}, _From, State = #inventory_state{}) ->
+	{reply,db_get_record(R),State};
+
 handle_call({import_ca,CAName,Attributes,Pid}, _From, State = #inventory_state{}) ->
-	case get_record(#ca_info{ name = CAName }) of
+	case db_get_record(#ca_info{ name = CAName }) of
 		{ok,_CAInfo} ->
 			{reply,{error,ca_already_exists},State};
 		_ ->
@@ -189,7 +225,7 @@ handle_call({import_ca,CAName,Attributes,Pid}, _From, State = #inventory_state{}
 	end;
 
 handle_call({delete_ca,CAName,Pid}, _From, State = #inventory_state{}) ->
-	case get_record(#ca_info{ name = CAName }) of
+	case db_get_record(#ca_info{ name = CAName }) of
 		{ok,CAInfo} ->
 			case ca_in_use(CAInfo#ca_info.name) of
 				[] ->
@@ -203,7 +239,7 @@ handle_call({delete_ca,CAName,Pid}, _From, State = #inventory_state{}) ->
 	end;
 
 handle_call({get_ca,CAName,_Pid}, _From, State = #inventory_state{}) ->
-	case get_record(#ca_info{ name = CAName }) of
+	case db_get_record(#ca_info{ name = CAName }) of
 		{ok,CAInfo} ->
 			{reply, {ok, CAInfo}, State};
 		_ ->
@@ -214,7 +250,7 @@ handle_call({get_cas,_Pid}, _From, State = #inventory_state{}) ->
 	{ reply,list_records_names(#ca_info{}), State};
 
 handle_call({make_server,CAName,SimName,Id,Type,Pid}, _From, State = #inventory_state{}) ->
-	case get_record(#ca_info{ name = CAName }) of
+	case db_get_record(#ca_info{ name = CAName }) of
 		{ok,CAInfo} ->
 			{ok, NewState}=create_server(CAInfo,SimName,Id,Type,State,Pid),
 			{reply, ok, NewState};
@@ -223,7 +259,7 @@ handle_call({make_server,CAName,SimName,Id,Type,Pid}, _From, State = #inventory_
 	end;
 
 handle_call({make_servers,CAName,SimName,ServerList,Type,Pid}, _From, State = #inventory_state{}) ->
-	case get_record(#ca_info{ name = CAName }) of
+	case db_get_record(#ca_info{ name = CAName }) of
 		{ok,CAInfo} ->
 			{ok , NewState}=create_servers(CAInfo,SimName,ServerList,Type,State,Pid),
 			{reply, ok, NewState};
@@ -232,10 +268,10 @@ handle_call({make_servers,CAName,SimName,ServerList,Type,Pid}, _From, State = #i
 	end;
 
 handle_call({get_server,CAName,_SimName,Id,_Pid}, _From, State = #inventory_state{}) ->
-	case get_record(#ca_info{ name = CAName }) of
+	case db_get_record(#ca_info{ name = CAName }) of
 		{ok,CAInfo} ->
 			Server = #server_info{ name = Id },
-			case get_record(Server) of
+			case db_get_record(Server) of
 				{ok,Record} ->
 					case Record#server_info.ca == CAInfo#ca_info.name of
 						true ->
@@ -251,14 +287,14 @@ handle_call({get_server,CAName,_SimName,Id,_Pid}, _From, State = #inventory_stat
 	end;
 
 handle_call({delete_server,CAName,_SimName,Id,_ParentPid}, _From, State = #inventory_state{}) ->
-	case get_record(#ca_info{ name = CAName }) of
+	case db_get_record(#ca_info{ name = CAName }) of
 		{ok,CAInfo} ->
 			Server = #server_info{ name = Id },
-			case get_record(Server) of
+			case db_get_record(Server) of
 				{ok,Record} ->
 					case Record#server_info.ca == CAInfo#ca_info.name of
 						true ->
-							_ = del_record(Record),
+							_ = db_del_record(Record),
 							{ reply, ok,State};
 						false ->
 							{ reply , {error, unknown_server},State}
@@ -271,7 +307,7 @@ handle_call({delete_server,CAName,_SimName,Id,_ParentPid}, _From, State = #inven
 	end;
 
 handle_call({make_client,CAName,SimName,Attributes}, _From, State = #inventory_state{}) ->
-	case get_record(#ca_info{ name = CAName }) of
+	case db_get_record(#ca_info{ name = CAName }) of
 		{ok,CAInfo} ->
 			case create_client(CAInfo,SimName,Attributes) of
 				ok ->
@@ -284,7 +320,7 @@ handle_call({make_client,CAName,SimName,Attributes}, _From, State = #inventory_s
 	end;
 
 handle_call({make_many_clients,CAName,SimName,Start,HowMany,Attributes,Notification}, _From, State = #inventory_state{}) ->
-	case get_record(#ca_info{ name = CAName }) of
+	case db_get_record(#ca_info{ name = CAName }) of
 		{ok,CAInfo} ->
 			JobPid = spawn(?MODULE,generate_client_batch,[CAInfo,SimName,Start,HowMany,Attributes,Notification,State]),
 			{ reply, ok , State#inventory_state{batch_generation_pid = JobPid} };
@@ -293,10 +329,10 @@ handle_call({make_many_clients,CAName,SimName,Start,HowMany,Attributes,Notificat
 	end;
 
 handle_call({get_client,CAName,Id}, _From, State = #inventory_state{}) ->
-	case get_record(#ca_info{ name = CAName }) of
+	case db_get_record(#ca_info{ name = CAName }) of
 		{ok,CAInfo} ->
 			Client = #client_info{ name = Id },
-			case get_record(Client) of
+			case db_get_record(Client) of
 				{ok,Record} ->
 					case Record#client_info.ca == CAInfo#ca_info.name of
 						true ->
@@ -320,14 +356,14 @@ handle_call({list_clients,SimName}, _From, State = #inventory_state{}) ->
 	end;
 
 handle_call({delete_client,CAName,Id}, _From, State = #inventory_state{}) ->
-	case get_record(#ca_info{ name = CAName }) of
+	case db_get_record(#ca_info{ name = CAName }) of
 		{ok,CAInfo} ->
 			Client = #client_info{ name = Id },
-			case get_record(Client) of
+			case db_get_record(Client) of
 				{ok,Record} ->
 					case Record#client_info.ca == CAInfo#ca_info.name of
 						true ->
-							_ = del_record(Record),
+							_ = db_del_record(Record),
 							{ reply, ok,State};
 						false ->
 							{ reply , {error, unknown_client},State}
@@ -450,7 +486,7 @@ create_ca(CaName,Password,State,_Pid)->
 	                  key = KeyData,
 										password = Password
 			},
-	_ = add_record(NewCa),
+	_ = db_add_record(NewCa),
 	{ ok, State#inventory_state{ status = created } }.
 
 -spec import_raw_ca(CAName::string(),Password::string(),KeyFileName::string(),CertFileName::string())->ok | generic_error().
@@ -540,11 +576,11 @@ import_a_ca(CaName,Attributes,State,_Pid)->
 	                  key = KeyData,
 	                  password = list_to_binary(OPassword)
 	},
-	_ = add_record(NewCa),
+	_ = db_add_record(NewCa),
 	{ ok, State#inventory_state{ status = created } }.
 
 delete_ca(CAInfo,State,_Pid)->
-	_ = del_record(CAInfo),
+	_ = db_del_record(CAInfo),
 	{ ok , State }.
 
 %% -subj "/C=US/ST=Utah/L=Lehi/O=Your Company, Inc./OU=IT/CN=yourdomain.com"
@@ -587,7 +623,7 @@ create_server(CAInfo,SimName,Name,Type,State,_Pid)->
 		cacert = CAInfo#ca_info.cert
 	},
 
-	_ = add_record(NewServerInfo),
+	_ = db_add_record(NewServerInfo),
 
 	{ ok, State }.
 
@@ -650,7 +686,7 @@ create_client(CAInfo,SimName,Attributes)->
 			csr = ClientCertCsrData
 		},
 		%% io:format(">>>SERIAL: ~p~n",[Serial]),
-		_R = add_record(Client),
+		_R = db_add_record(Client),
 		%% ("RESULT>>>=~p~n",[R]),
 		ok
 	catch
@@ -800,14 +836,14 @@ ca_in_use(CAName) ->
 			[]
 	end.
 
-add_record(R) when is_record(R,ca_info) ->
+db_add_record(R) when is_record(R,ca_info) ->
 	case mnesia:transaction( fun() ->
 												mnesia:dirty_write(cas,R)
 											end ) of
 		{atomic,_} -> ok;
 		_ -> error
 	end;
-add_record(R) when is_record(R,server_info) ->
+db_add_record(R) when is_record(R,server_info) ->
 	case mnesia:transaction( fun() ->
 												mnesia:dirty_write(servers,R)
 	                    end) of
@@ -815,7 +851,7 @@ add_record(R) when is_record(R,server_info) ->
 			ok;
 		_ -> error
 	end;
-add_record(R) when is_record(R,simulation) ->
+db_add_record(R) when is_record(R,simulation) ->
 	case mnesia:transaction( fun() ->
 												mnesia:dirty_write(simulations,R#simulation{creation_date = list_to_binary(calendar:system_time_to_rfc3339(erlang:system_time(second)))})
 	                    end) of
@@ -824,7 +860,7 @@ add_record(R) when is_record(R,simulation) ->
 		_ ->
 			error
 end;
-add_record(R) when is_record(R,client_info) ->
+db_add_record(R) when is_record(R,client_info) ->
 	case mnesia:transaction( fun() ->
 												mnesia:dirty_write(clients,R)
 	                    end) of
@@ -834,24 +870,24 @@ add_record(R) when is_record(R,client_info) ->
 			error
 end.
 
-del_record(R) when is_record(R,ca_info) ->
+db_del_record(R) when is_record(R,ca_info) ->
 	mnesia:transaction(   fun() ->
 													mnesia:dirty_delete(cas,R#ca_info.name)
 	                      end);
-del_record(R) when is_record(R,server_info) ->
+db_del_record(R) when is_record(R,server_info) ->
 	mnesia:transaction(   fun() ->
 													mnesia:dirty_delete(servers,R#server_info.name)
 	                      end);
-del_record(R) when is_record(R,simulation) ->
+db_del_record(R) when is_record(R,simulation) ->
 	mnesia:transaction(   fun() ->
 		mnesia:dirty_delete(simulations,R#simulation.name)
 	                      end);
-del_record(R) when is_record(R,client_info) ->
+db_del_record(R) when is_record(R,client_info) ->
 	mnesia:transaction( fun() ->
 													mnesia:dirty_delete(clients,R#client_info.name)
 	                    end).
 
-get_record(R) when is_record(R,ca_info)->
+db_get_record(R) when is_record(R,ca_info)->
 	case mnesia:transaction( fun() ->
 												mnesia:read(cas,R#ca_info.name)
 	                    end) of
@@ -860,7 +896,7 @@ get_record(R) when is_record(R,ca_info)->
 		_ ->
 			{error,unknown}
 	end;
-get_record(R) when is_record(R,simulation)->
+db_get_record(R) when is_record(R,simulation)->
 	case mnesia:transaction( fun() ->
 												mnesia:read(simulations,R#simulation.name)
 	                    end) of
@@ -869,7 +905,7 @@ get_record(R) when is_record(R,simulation)->
 		_ ->
 			{error,unknown}
 end;
-get_record(R) when is_record(R,server_info)->
+db_get_record(R) when is_record(R,server_info)->
 	case mnesia:transaction( fun() ->
 												mnesia:read(servers,R#server_info.name)
 	                    end) of
@@ -878,7 +914,7 @@ get_record(R) when is_record(R,server_info)->
 		_ ->
 			{error,unknown}
 	end;
-get_record(R) when is_record(R,client_info)->
+db_get_record(R) when is_record(R,client_info)->
 	case mnesia:transaction( fun() ->
 												mnesia:read(clients,R#client_info.name)
 	                    end) of
@@ -899,7 +935,7 @@ list_sim_clients(SimName) ->
 																			end,[],clients)
 				              end).
 
-list_records_names(#ca_info{}) ->
+db_list_records_names(#ca_info{}) ->
 	case mnesia:transaction( fun() ->
 												mnesia:foldr( fun(R,A) ->
 																					[ binary_to_list(R#ca_info.name) | A]
@@ -910,7 +946,7 @@ list_records_names(#ca_info{}) ->
 		_ ->
 			{ok,[]}
 	end;
-list_records_names(#simulation{}) ->
+db_list_records_names(#simulation{}) ->
 	case mnesia:transaction( fun() ->
 												mnesia:foldr( fun(R,A) ->
 																					[ binary_to_list(R#simulation.name) | A]
@@ -921,7 +957,7 @@ list_records_names(#simulation{}) ->
 		_ ->
 			{ok,[]}
 	end;
-list_records_names(#client_info{}) ->
+db_list_records_names(#client_info{}) ->
 	case mnesia:transaction( fun() ->
 		mnesia:foldr( fun(R,A) ->
 			[ binary_to_list(R#client_info.name) | A]
@@ -932,7 +968,7 @@ list_records_names(#client_info{}) ->
 		_ ->
 			{ok,[]}
 	end;
-list_records_names(#server_info{}) ->
+db_list_records_names(#server_info{}) ->
 	case mnesia:transaction( fun() ->
 		mnesia:foldr( fun(R,A) ->
 			[ binary_to_list(R#server_info.name) | A]
@@ -957,7 +993,7 @@ delete_all_records(cas) ->
 	_ = mnesia:clear_table(cas),
 	ok.
 
-exists( #ca_info{ } = CAInfo ) ->
+db_exists( #ca_info{ } = CAInfo ) ->
 	Return = mnesia:transaction(  fun() ->
 																	mnesia:read(cas,CAInfo#ca_info.name)
 	                              end),
@@ -966,7 +1002,7 @@ exists( #ca_info{ } = CAInfo ) ->
 		{atomic,[]} -> false;
 		{atomic,_}-> true
 	end;
-exists( #simulation{ } = SimInfo ) ->
+db_exists( #simulation{ } = SimInfo ) ->
 	Return = mnesia:transaction(  fun() ->
 																	mnesia:read(simulations,SimInfo#simulation.name)
 	                              end),
@@ -975,7 +1011,7 @@ exists( #simulation{ } = SimInfo ) ->
 		{atomic,[]} -> false;
 		{atomic,_}-> true
 	end;
-exists( #client_info{ } = ClientInfo ) ->
+db_exists( #client_info{ } = ClientInfo ) ->
 	Return = mnesia:transaction(  fun() ->
 																	mnesia:read(clients,ClientInfo#client_info.name)
 	                              end),
@@ -984,7 +1020,7 @@ exists( #client_info{ } = ClientInfo ) ->
 		{atomic,[]} -> false;
 		{atomic,_}-> true
 	end;
-exists( #server_info{ } = ServerInfo ) ->
+db_exists( #server_info{ } = ServerInfo ) ->
 	Return = mnesia:transaction(  fun() ->
 																	mnesia:read(servers,ServerInfo#server_info.name)
 	                              end),
@@ -994,7 +1030,7 @@ exists( #server_info{ } = ServerInfo ) ->
 		{atomic,_}-> true
 	end.
 
-list_records(#simulation{})->
+db_list_records(#simulation{})->
 	Return = mnesia:transaction( fun()->
 		mnesia:foldr( fun(E,A)->
 			[ E | A ]
@@ -1004,7 +1040,7 @@ list_records(#simulation{})->
 		{aborted,{no_exists,simulations}} -> [];
 		{atomic,Result} ->Result
 	end;
-list_records(#ca_info{})->
+db_list_records(#ca_info{})->
 	Return = mnesia:transaction( fun()->
 		mnesia:foldr( fun(E,A)->
 			[ E | A ]
@@ -1014,7 +1050,7 @@ list_records(#ca_info{})->
 		{aborted,{no_exists,cas}} -> [];
 		{atomic,Result} ->Result
 	end;
-list_records(#client_info{})->
+db_list_records(#client_info{})->
 	Return = mnesia:transaction( fun()->
 		mnesia:foldr( fun(E,A)->
 			[ E | A ]
@@ -1024,7 +1060,7 @@ list_records(#client_info{})->
 		{aborted,{no_exists,clients}} -> [];
 		{atomic,Result} ->Result
 	end;
-list_records(#server_info{})->
+db_list_records(#server_info{})->
 	Return = mnesia:transaction( fun()->
 		mnesia:foldr( fun(E,A)->
 			[ E | A ]

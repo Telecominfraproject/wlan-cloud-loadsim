@@ -17,7 +17,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0,creation_info/0,create_sim_report/0,run_sim_report/1,register/2,deregister/2]).
+-export([start_link/0,creation_info/0,create_sim_report/0,run_sim_report/1,register/2,deregister/2,number_of_clients/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -213,8 +213,8 @@ create_missing_reports([H|T])->
 			create_missing_reports(T)
 	end.
 
-number_of_clients(CAName,_SimName)->
-	{ ok , AllClients } = inventory:list_sim_clients(CAName),
+number_of_clients(_CAName,SimName)->
+	{ ok , AllClients } = inventory:list_sim_clients(SimName),
 	lists:foldl(fun(Client,A)->
 								case inventory:get_record(#client_info{name = utils:safe_binary(Client)}) of
 									{ok,ClientInfo} ->

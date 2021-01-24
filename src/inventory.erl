@@ -884,7 +884,8 @@ get_record(R) when is_record(R,client_info)->
 	                    end) of
 		{atomic,[Record]} ->
 			{ok,Record};
-		_ ->
+		Error ->
+			io:format(">>>ERROR: ~p~n",[Error]),
 			{error,unknown}
 	end.
 

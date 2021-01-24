@@ -1,1 +1,0 @@
-erl -config config/simmonitor -args_file config/simmonitor.args -mnesia dir '"priv/mnesia"' -pa deps/*/ebin -pa ebin -s owls_app

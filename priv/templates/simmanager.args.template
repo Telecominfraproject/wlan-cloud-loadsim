@@ -3,7 +3,7 @@
 
 ## Cookie for distributed erlang
 -setcookie $$COOKIE$$
-
+-mnesia dir '"priv/mnesia"'
 -boot start_clean
 
 ## Heartbeat management; auto-restarts VM if it dies or becomes unresponsive

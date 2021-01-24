@@ -8,11 +8,11 @@ main([]) ->
         Cookie = input("Please enter a network cookie", "oreo" ),
         DirName = input("Please enter a directory name", DefaultDirName ),
         file_substitute(filename:join(["priv","templates","simnode.config.template"]),
-            filename:join(["config","simnode.config"]),
+            filename:join(["config","sys.config"]),
             [{"$$PROJECT_HOME$$",DirName},
             {"$$NODE_ID$$",integer_to_list(Id)}]),
         file_substitute(filename:join(["priv","templates","simnode.args.template"]),
-            filename:join(["config","simnode.args"]),
+            filename:join(["config","vm.args"]),
             [{"$$NODE_NAME$$",NodeName},{"$$COOKIE$$",Cookie}])
     catch
         _:_ ->

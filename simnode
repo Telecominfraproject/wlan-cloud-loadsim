@@ -1,1 +1,0 @@
-erl -config config/simnode -args_file config/simnode.args -pa deps/*/ebin -pa ebin -s owls_app

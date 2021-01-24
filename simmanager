@@ -1,1 +1,0 @@
-erl -config config/simmanager -args_file config/simmanager.args -mnesia dir '"priv/mnesia"' -pa deps/*/ebin -pa ebin -s owls_app

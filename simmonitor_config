@@ -8,10 +8,10 @@ main([]) ->
         Cookie = input("Please enter a network cookie", "oreo" ),
         DirName = input("Please enter a directory name", DefaultDirName ),
         file_substitute(filename:join(["priv","templates","simmonitor.config.template"]),
-            filename:join(["config","simmonitor.config"]),
+            filename:join(["config","sys.config"]),
             [{"$$PROJECT_HOME$$",DirName}]),
         file_substitute(filename:join(["priv","templates","simmonitor.args.template"]),
-            filename:join(["config","simmonitor.args"]),
+            filename:join(["config","vm.args"]),
             [{"$$NODE_NAME$$",NodeName},{"$$COOKIE$$",Cookie}]),
         file:make_dir(filename:join(["priv","mnesia"]))
     catch

@@ -462,9 +462,6 @@ clear() ->
 get_currrent_simulation()->
 	persistent_term:get(current_simulation).
 
-
-{ok,SomeNodes}=manager:connected_nodes()
-
 auto()->
 	auto(10).
 

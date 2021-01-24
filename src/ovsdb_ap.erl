@@ -175,18 +175,20 @@ message_loop(APS) ->
 							?L_IA("~p: Resetting Wifi_Associated_Clients table.~n",[APS#ap_state.id]),
 							NewState = send_associated_clients_table(false,APS),
 							message_loop(NewState#ap_state{ check_monitor_tick = NewState#ap_state.check_monitor_tick+1 });
-						4 ->
-							?L_IA("~p: Resetting DHCP_Leased_IP table.~n",[APS#ap_state.id]),
-							NewState = send_dhcp_lease_table(false,APS),
-							message_loop(NewState#ap_state{ check_monitor_tick = NewState#ap_state.check_monitor_tick+1 });
 						3 ->
 							?L_IA("~p: Sending Wifi_Associated_Clients table.~n",[APS#ap_state.id]),
 							NewState = send_associated_clients_table(true,APS),
+							message_loop(NewState#ap_state{ check_monitor_tick = NewState#ap_state.check_monitor_tick+1 });
+						4 ->
+							?L_IA("~p: Resetting DHCP_Leased_IP table.~n",[APS#ap_state.id]),
+							NewState = send_dhcp_lease_table(false,APS),
 							message_loop(NewState#ap_state{ check_monitor_tick = NewState#ap_state.check_monitor_tick+1 });
 						5 ->
 							?L_IA("~p: Sending DHCP_Leased_IP table.~n",[APS#ap_state.id]),
 							NewState = send_dhcp_lease_table(true,APS),
 							message_loop(NewState#ap_state{ check_monitor_tick = NewState#ap_state.check_monitor_tick+1 });
+						X when (X>500) ->
+							message_loop(APS#ap_state{ check_monitor_tick = 1 });
 						_ ->
 							message_loop(APS#ap_state{ check_monitor_tick = APS#ap_state.check_monitor_tick+1 })
 					end

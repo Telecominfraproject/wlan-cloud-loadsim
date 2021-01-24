@@ -29,7 +29,7 @@
 -spec start (CAName :: string() | binary(), ID::binary(), Options :: #{atom() => term()}, Manager::pid()) -> ok.
 start(CAName, ID, Options, ManagerPID ) ->
 	#{ sim_name:= SimName, ovsdb_server_name:= Server, ovsdb_server_port:= Port} = Options,
-	io:format("OVSDB_AP: ID=~p~n",[ID]),
+	%% io:format("OVSDB_AP: ID=~p~n",[ID]),
 	{ ok, ClientInfo } = inventory:get_record(#client_info{name = ID}),
 	{ok,[HardwareInfo]} = hardware:get_by_id(ClientInfo#client_info.id),
 	{ok, ReportTimer } = timer:send_interval(15000,send_report),

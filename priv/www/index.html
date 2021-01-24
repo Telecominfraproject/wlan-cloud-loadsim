@@ -804,10 +804,15 @@
                 if( this.cas_form.name && this.cas_form.key && this.cas_form.cert ) {
                     this.apiPost( `/cas/${this.cas_form.name}`, this.cas_form )
                         .then(response => {
-                            // console.log(response);
-                            this.reset_cas_form();
-                            this.getCas();
-                        });
+                            if(response.status === 200) {
+                                this.showNotification(`Save CA`, `CA ${this.cas_form.name} has been created.`);
+                                this.getCas();
+                                this.reset_cas_form();
+                            } else {
+                                this.showNotification(`Save CA`, `CA ${this.cas_form.name} could not created.`);
+                                this.getCas();
+                                this.reset_cas_form();
+                        }})
                 } else {
                     console.log(`Missing parameters`);
                 }
@@ -1127,6 +1132,19 @@
                 }
                 the_chart.data.labels.push(this.makeLabel());
                 the_chart.update();
+            },
+
+            showNotification: function(title,body) {
+                if(Notification.permission === "granted") {
+                    let notification = new Notification(title,{ body: body, icon: '/assets/android-chrome-192x192.png' });
+                }
+                else if ( Notification.permission !== "denied") {
+                   Notification.requestPermission().then( function(permission){
+                       if(permission === "granted") {
+                           let notification = new Notification(title,{ body: body, icon: '/assets/android-chrome-192x192.png' });
+                       }
+                   })
+                }
             },
 
             clearLogs: function() {

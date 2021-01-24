@@ -312,16 +312,11 @@ handle_call({get_client,CAName,Id}, _From, State = #inventory_state{}) ->
 	end;
 
 handle_call({list_clients,SimName}, _From, State = #inventory_state{}) ->
-	case get_record(#ca_info{ name = SimName }) of
-		{ok,_CAInfo} ->
-			case list_sim_clients(SimName) of
-				{atomic,Records} ->
-					{ reply, {ok,Records},State};
-				Error ->
-					{ reply, {error, Error}, State}
-			end;
-		_ ->
-			{reply,{error,unknown_ca},State}
+	case list_sim_clients(SimName) of
+		{atomic,Records} ->
+			{ reply, {ok,Records},State};
+		Error ->
+			{ reply, {error, Error}, State}
 	end;
 
 handle_call({delete_client,CAName,Id}, _From, State = #inventory_state{}) ->

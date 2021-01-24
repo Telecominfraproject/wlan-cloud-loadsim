@@ -716,10 +716,14 @@ prepare_assets(SimInfo,_Attributes,SimEnginePid,{M,F,A}=_Notification,JobId)->
 -spec push_assets(SimInfo::simulation(), Attributes::#{atom()=>term()}, ManagerPis::pid(),Notification::notification_cb(),JobId::binary())->ok.
 push_assets(SimInfo,_Attributes,SimEnginePid,{M,F,A}=_Notification,JobId)->
 	?L_IA("~s: Preparing all assets.",[binary_to_list(SimInfo#simulation.name)]),
+	%% io:format(">>>pushing 1~n"),
 	timer:sleep(2000),    %% wait 2 seconds... this will allow calling process some time to complete
-	{ok,Clients} = inventory:list_clients(SimInfo#simulation.ca),
+	{ok,Clients} = inventory:list_clients(SimInfo#simulation.name),
 	Splits = utils:split_into( SimInfo#simulation.nodes, Clients),
+	%% io:format("CLIENTS: ~p~n",[Clients]),
+	%% io:format("SPLITS: ~p~n",[Splits]),
 	_ = lists:reverse(lists:foldl(fun({N,C},Acc) ->
+													%% io:format(">>>pushing 2~n"),
 													Config = #{ sim_name => SimInfo#simulation.name,
 													            sim_ca => SimInfo#simulation.ca,
 													            clients => C,
@@ -730,7 +734,9 @@ push_assets(SimInfo,_Attributes,SimEnginePid,{M,F,A}=_Notification,JobId)->
 													R = rpc:call(N,simnode,set_configuration,[Config]),
 													[R|Acc]
 												end,[],Splits)),
+	%% io:format(">>>pushing 3~n"),
 	erlang:apply(M,F,A),
+	%% io:format(">>>pushing 4~n"),
 	ok.
 
 -spec start_assets(SimInfo::simulation(), Attributes::#{atom()=>term()}, ManagerPis::pid(),Notification::notification_cb(),JobId::binary())->ok.

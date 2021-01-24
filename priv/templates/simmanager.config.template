@@ -2,7 +2,6 @@
   owls ,
   [
     { role , manager },
-    { inventory_db_dir, "$$PROJECT_HOME$$/inventory"},
     { cert_db_dir, "$$PROJECT_HOME$$/certs_db"},
     { rest_api_port, $$WEB_UI_PORT$$ },
     { rest_api_tls, false },

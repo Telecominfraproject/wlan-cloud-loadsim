@@ -1,3 +1,3 @@
 mkdir docker_logs_manager
 # docker run -it -p 9091:9090 --init --volume="$PWD/ssl:/etc/ssl/certs" --volume="$PWD/docker_logs:/app_data/logs" -e ERL_NODE_NAME="simmanager1@renegademac.arilia.com" tip-owls-1
-docker run -d -p 9091:9090 --init --volume="$PWD/ssl:/etc/ssl/certs" --volume="$PWD/docker_logs_manager:/app_data/logs" -e ERL_NODE_NAME="simmanager1@renegademac.arilia.com" -e ERL_OPTIONS="-noshell -noinput" tip-owls-manager
+docker run -d -p 9091:9090 --init --volume="$PWD/ssl:/etc/ssl/certs" --volume="$PWD/docker_logs_manager:/app_data/logs" -e ERL_NODE_NAME="simmanager1@renegademac.arilia.com" -e ERL_OPTIONS="-noshell -noinput" -e ERL_NODE_TYPE="manager" tip-owls-1

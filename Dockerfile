@@ -30,7 +30,7 @@ FROM alpine
 RUN apk update && \
     apk add --no-cache openssl && \
     apk add --no-cache ncurses-libs && \
-    apk add --no-cache erlang &&
+    apk add --no-cache erlang && \
     apk add --no-cache \
     bash util-linux coreutils \
     curl \

@@ -1,0 +1,25 @@
+[ {
+  owls ,
+  [
+    { secure, true },
+    { role , node },
+    { node_id , 1 },
+    { server_port, 1883 },
+    { num_listeners, 50 },
+    { num_servers, 100 }
+    ]}
+  ,
+  {lager,
+    [
+      {log_root, "/app_data/logs"},
+      {colored,true},
+      {handlers,
+        [
+          {lager_console_backend, [{level,error}]},
+          {lager_file_backend, [{file, "error.log"}, {level, error}, {size, 10485760}, {date, "$D0"}, {count, 5}]},
+          {lager_file_backend, [{file, "info.log"}, {level, info}, {size, 10485760}, {date, "$D0"}, {count, 5}]},
+          {lager_file_backend, [{file, "warning.log"}, {level, warning}, {size, 10485760}, {date, "$D0"}, {count, 5}]}
+        ]}
+    ] }
+].
+

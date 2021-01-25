@@ -68,8 +68,13 @@ get_addr2()->
 -spec app_name( AppName::atom() )->ok.
 app_name(AppName)->
 	persistent_term:put(running_app,AppName),
-	{ ok, RootDir } = file:get_cwd(),
-	PrivDir = filename:join([RootDir,"priv/"]),
+	PrivDir = case code:priv_dir(AppName) of
+		{error,bad_name} ->
+			{ ok, RootDir } = file:get_cwd(),
+			filename:join([RootDir,"priv/"]);
+		DirName ->
+			DirName
+	end,
 	persistent_term:put(priv_dir,PrivDir).
 
 -spec app_name()->AppName::atom().

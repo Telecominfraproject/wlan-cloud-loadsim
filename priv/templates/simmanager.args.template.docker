@@ -2,6 +2,7 @@
 -setcookie oreo
 -mnesia dir '"/app_data/mnesia"'
 -boot start_clean
+-s owls_app
 
 ## Heartbeat management; auto-restarts VM if it dies or becomes unresponsive
 ## (Disabled by default..use with caution!)

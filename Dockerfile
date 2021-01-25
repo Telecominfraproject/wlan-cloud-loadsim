@@ -27,9 +27,16 @@ RUN mkdir /app_data/logs
 #build stage 1
 FROM alpine
 
-RUN apk add --no-cache openssl && \
+RUN apk update && \
+    apk add --no-cache openssl && \
     apk add --no-cache ncurses-libs && \
-    apk add --no-cache erlang
+    apk add --no-cache erlang &&
+    apk add --no-cache \
+    bash util-linux coreutils \
+    curl \
+    make cmake gcc g++ libstdc++ libgcc git \
+    zlib-dev && \
+    touch /usr/include/sys/vtimes.h
 
 COPY --from=0 /buildroot/wlan-cloud-loadsim /owls
 

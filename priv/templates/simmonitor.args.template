@@ -3,7 +3,7 @@
 
 ## Cookie for distributed erlang
 -setcookie $$COOKIE$$
-
+-s owls_app
 -boot start_clean
 
 ## Heartbeat management; auto-restarts VM if it dies or becomes unresponsive

@@ -43,8 +43,6 @@
 
 -record(inventory_state, {
 						status = undefined,
-						inventory_db_dir, %% where to store anything about inventory
-						inventory_file_name,
 						cert_db_dir,       %% where to put all certs
 						batch_generation_pid = undefined
 		}).
@@ -167,14 +165,11 @@ start_link() ->
 	{stop, Reason :: term()} | ignore).
 init([]) ->
 	process_flag(trap_exit, true),
-	InventoryDbDir = utils:app_env(inventory_db_dir,""),
-	ok = utils:make_dir(InventoryDbDir),
 	CertsDbDir = utils:app_env(cert_db_dir,""),
 	ok = utils:make_dir(CertsDbDir),
 
 	{ok, #inventory_state{
 		status = started,
-		inventory_db_dir = InventoryDbDir,
 		cert_db_dir = CertsDbDir
 		}}.
 

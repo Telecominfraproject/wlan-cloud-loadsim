@@ -1,5 +1,4 @@
 ## Name of the node
--name simmanager@host1.com
 -setcookie oreo
 -mnesia dir '"/app_data/mnesia"'
 -boot start_clean

@@ -36,6 +36,6 @@ COPY --from=0 /buildroot/wlan-cloud-loadsim /owls
 EXPOSE 9090
 EXPOSE 4369
 
-CMD ["/owls/docker_start.sh"]
+ENTRYPOINT /owls/docker_start.sh
 
 

@@ -1,1 +1,1 @@
-erl -config config/sys.config -args_file config/vm.args -pa deps/*/ebin -pa ebin -s owls_app
+erl -config config/sys.config -args_file config/vm.args -mnesia dir "'priv/mnesia'" -pa deps/*/ebin -pa ebin

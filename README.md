@@ -20,7 +20,7 @@ This simulator uses Erlang. This language is designed to support thousands of pr
 You must install Erlang OTP 22 or newer in order to run this application - unless you are using Docker.
 
 #### Docker
-If you intend to simply run the Docker version, please go to the [Docker](#docker) section. You do not need to install anything else. Simple cloning this repository
+If you intend to simply run the Docker version, please go to the [Docker](#running-docker) section. You do not need to install anything else. Simple cloning this repository
 will give you all you need. 
 
 #### Linux 
@@ -287,8 +287,7 @@ the simulation nodes will start chatting with your TIP controller. You should st
 appear when you select the `network` menu choice. Be mindful that the TIP controller may take several seconds or maybe minutes 
 to display all the data the load simulator produces. 
 
-#docker
-# Docker
+## Running Docker
 This is about docker.
 
 ## API

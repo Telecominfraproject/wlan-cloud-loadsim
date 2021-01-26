@@ -377,6 +377,9 @@ To access the UI, simply go to http://hostname-where-docker-is-running:9091. In 
 ### Accessing the API with Docker
 The API is available at the same address as the UI and the same port.
 
+### Important note on running Docker
+The system needs to downlaod and parse the OUI DB stored ate Linux.net. This usually takes about 1 minute. So please wait 1 minutes after starting the simulation for this to happen. Once this has happened, you can run your simulation. We are working on a small improvement that will render this unneccessary. 
+
 ## API
 This project uses OpenAPI specification 3.0.03, and you can use Swagger (https://editor.swagger.io/) in order to 
 look at the API located in the `api` directory. This API also follows the best practices for REST APi discussed in

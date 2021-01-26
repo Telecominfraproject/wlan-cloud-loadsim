@@ -14,10 +14,11 @@ docker network create \
   --gateway=172.21.0.1 \
   $NET_NAME
 
-#create directories for logs
+#stop previously running images
 docker container stop manager node1
 docker container rm manager node1 --force
 
+#create directories for logs
 rm -rf docker_logs_manager
 rm -rf docker_logs_node1
 

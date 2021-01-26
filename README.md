@@ -288,7 +288,7 @@ appear when you select the `network` menu choice. Be mindful that the TIP contro
 to display all the data the load simulator produces. 
 
 #docker
-## Docker
+# Docker
 This is about docker.
 
 ## API

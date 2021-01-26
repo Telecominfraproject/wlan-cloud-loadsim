@@ -6,8 +6,8 @@ realtime numbers.
 
 ## Getting started
 ### Hardware and software
-This simulator requires multiple machines to run. Now, it can be bare-metal or VMs. It does not really matter. Since the goal 
-is to stress server resourcess, we would suggest to run the TIP on a much larger machine and these simulation node on VMs. 
+This simulator requires multiple machines to run. Now, it can be bare-metal or VMs or docker. It does not really matter. Since the goal 
+is to stress server resourcess, we would suggest to run the TIP controller on a much larger machine and these simulation node on VMs. 
 As for support, this was developed on Debian based Linux distributions (Ubuntun and Debian). We have also done extensive 
 testing on Mac OS X. Windows is not supported currently and there is no plans on supporting it.
 
@@ -17,7 +17,12 @@ You could run the simulation entirely behind a firewall and run the TIP controll
 
 ### Pre-requisites
 This simulator uses Erlang. This language is designed to support thousands of processesand very suitable for this task. 
-You must install Erlang OTP 22 or newer in order to run this application.
+You must install Erlang OTP 22 or newer in order to run this application - unless you are using Docker.
+
+#### Docker
+If you intend to simply run the Docker version, please go to the [Docker](#docker) section. You do not need to install anything else. Simple cloning this repository
+will give you all you need. 
+
 #### Linux 
 ##### Ubuntu
 ```
@@ -281,6 +286,10 @@ This will tell all the `simnode` nodes to start their set of APs. And this is wh
 the simulation nodes will start chatting with your TIP controller. You should start to see devices and access points 
 appear when you select the `network` menu choice. Be mindful that the TIP controller may take several seconds or maybe minutes 
 to display all the data the load simulator produces. 
+
+#docker
+## Docker
+This is about docker.
 
 ## API
 This project uses OpenAPI specification 3.0.03, and you can use Swagger (https://editor.swagger.io/) in order to 

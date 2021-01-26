@@ -71,6 +71,7 @@ You need to clone the repository, run a configuration command, and start doing t
 ```
 git clone https://github.com/telecominfroproject/wlan-cloud-loadsim
 cd wlan-cloud-loadsim
+make
 ```
 
 ### Choosing a node type
@@ -84,7 +85,7 @@ for the initial configuration.
 
 ```
 ./simmanager_config
-./simnanager
+./start
 ```
 
 #### `simnode` node
@@ -94,7 +95,7 @@ follow these instructions and answer the questions for the initial configuration
 
 ```
 ./simnode_config
-./simnode
+./start
 ```
 
 #### `simmonitor` node
@@ -102,7 +103,7 @@ You should have a single 'simmonitor' node. This node is intended to run on the 
 
 ```
 ./simmonitor_config
-./simmonitor
+./start
 ```
 
 #### On running multiple node types on a single machine
@@ -115,8 +116,9 @@ mkdir simnode1
 cd simnode1
 git clone https://github.com/telecominfraproject/wlan-cloud-loadsim
 cd wlan-cloud-loadsim
+make
 ./simnode_config
-./simnode
+./start
 ```
 
 in another terminal window
@@ -127,8 +129,9 @@ mkdir simnode2
 cd simnode2
 git clone https://github.com/telecominfraproject/wlan-cloud-loadsim
 cd wlan-cloud-loadsim
+make
 ./simnode_config
-./simnode
+./start
 ```
 
 If you want to run multiple nodes on a single machine, you need to make sure that your number numbers are all different. 
@@ -200,7 +203,7 @@ to `ping` any host used as a node for this simulation.
 
 Once the `simmanager` is started, you should be able to start it like this:
 ```
-./simmanager
+./start
 heart_beat_kill_pid = 17839
 Erlang/OTP 23 [erts-11.1.1] [source] [64-bit] [smp:16:16] [ds:16:16:10] [async-threads:5] [hipe] [dtrace]
 
@@ -217,14 +220,12 @@ The command will ask you for several questions. In many cases the default values
 cd ~
 github clone https://github.com/stephb9959/owls
 cd owls
+make
 ./simnode_config
 Please enter a node number(1..99) [1] :
 Please enter a node name [simnode1@renegademac.arilia.com] :
 Please enter a network cookie [oreo] :
 Please enter a directory name [/Users/stephb/Desktop/Dropbox/dhcp/test_repos3/owls] :
-Please enter the WEB UI port(9096..9196) [9096] :
-Please enter the OVSDB reflector port [6643] :
-Please enter the OVSDB port [6640] :
 ```
 All the values between brackets are the default values. The most important value is the host part of the node name. 
 You must be able to `ping` any host used as a node for this simulation. 
@@ -250,14 +251,14 @@ user/home > ./simmonitor_config
 Please answer the simple questions.
 
 ## How to run a simulation
-You should start the UI by entering http://<host of the 'simmanager' node>. You should get something similar to the 
+You should start the UI by entering `http://<host of the simmanager node>:9090`. You should get something similar to the 
 following screen (some slight changes may have occurred since the release of the document).
 
 ## The steps
 
 ### Import you CA first
 Using the dialog, please use your `cakey.pem` and `cacert.pem` files and import the CA. Let's give the CA the name of 
-`sim1`. 
+`tip1`. 
 
 ### Create the simulation
 A simulation must have a name, like '`sim`. No spaces are allowed. Enter the name of the CA you created in the previous step.
@@ -373,6 +374,8 @@ stephb@debfarm1-node-c:~$
 ### Accessing the UI
 To access the UI, simply go to http://hostname-where-docker-is-running:9091. In our case, `http://debfarm1-node-c.arilia.com:9091` and follow the instructions. 
 
+### Accessing the API with Docker
+The API is available at the same address as the UI and the same port.
 
 ## API
 This project uses OpenAPI specification 3.0.03, and you can use Swagger (https://editor.swagger.io/) in order to 

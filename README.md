@@ -288,7 +288,62 @@ appear when you select the `network` menu choice. Be mindful that the TIP contro
 to display all the data the load simulator produces. 
 
 ## Running Docker
-This is about docker.
+Running is the sinmplest and fastest way to run this application. We tried to make this a simple as possible. You should be familiar enough with Docker first.
+No need to be an expert. You will need to tailor one script and you should be off to the races. Any cons in running Docker? Of course. You will be losing the 
+interactive CLI provided by the Erlang emulator. You may also lose some flexibility. These are small prices to pay for the ease of use. 
+
+### Getting Docker
+You should first install Docker for you platform. This document will no go into details on how to install Docker. Simply follow the instructions for your platform. 
+
+### The main script
+The script you will need to tailor is called `docker_run_net.sh`. Here is the content of this script so we can go over what you need to modify:
+
+```
+#!/bin/sh
+
+NET_NAME=owls_net
+DOCKER_NAME=stephb9959/tip-owls-1
+TIP_CONTROLLER_NAME=debfarm1-node-a.arilia.com
+TIP_CONTROLLER_IP=10.3.11.1
+
+# clean networks and create the testing network
+docker network prune --force
+docker network create \
+  --driver=bridge \
+  --subnet=172.21.0.0/16 \
+  --ip-range=172.21.10.0/24 \
+  --gateway=172.21.0.1 \
+  $NET_NAME
+
+#stop previously running images
+docker container stop manager node1
+docker container rm manager node1 --force
+
+#create directories for logs
+rm -rf docker_logs_manager
+rm -rf docker_logs_node1
+
+mkdir docker_logs_manager
+mkdir docker_logs_node1
+
+HOSTNAMES="--add-host mgr.owls.net:172.21.10.2 --add-host node1.owls.net:172.21.10.3 --add-host $TIP_CONTROLLER_NAME:$TIP_CONTROLLER_IP"
+
+docker run  -d -p 9091:9090 --init \
+            --network=owls_net \
+            --volume="$PWD/ssl:/etc/ssl/certs" \
+            --volume="$PWD/docker_logs_manager:/app_data/logs" \
+            -e ERL_NODE_NAME="mgr@mgr.owls.net" -e ERL_OPTIONS="-noshell -noinput" -e ERL_NODE_TYPE="manager" \
+            --ip="172.21.10.2" $HOSTNAMES \
+            --name="manager" $DOCKER_NAME
+
+docker run  -d --init \
+            --network=owls_net \
+            --volume="$PWD/ssl:/etc/ssl/certs" \
+            --volume="$PWD/docker_logs_node1:/app_data/logs" \
+            -e ERL_NODE_NAME="node1@mgr.owls.net" -e ERL_OPTIONS="-noshell -noinput" -e ERL_NODE_TYPE="node" \
+            --ip="172.21.10.3" $HOSTNAMES \
+            --name="node1" $DOCKER_NAME
+```
 
 ## API
 This project uses OpenAPI specification 3.0.03, and you can use Swagger (https://editor.swagger.io/) in order to 

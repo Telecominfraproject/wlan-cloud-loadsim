@@ -345,6 +345,35 @@ docker run  -d --init \
             --name="node1" $DOCKER_NAME
 ```
 
+#### NET_NAME
+The is the name of the network created to contain all the nodes participating in the simulation. You may change this to anything you like. 
+
+#### DOCKER_NAME
+This is the name of the docker image on dockerhub. You should not change this image unless you are an expert or have beene asked by one of us to do it.
+
+#### TIP_CONTROLLER_NAME
+The tip FQDN. The FQDN is only used in the creation of the simulation. This name should resolve on your network. The docker image does not have or need to resolve this.
+
+#### TIP_CONTROLLER_IP
+The IPv4 of the TIP Controller. This is the IP the simulation nodes will try to reach.
+
+### What this script does...
+This script first removes all unneeded networks. It then creates the docker network that this simulation will be using. After this, the manager and node1 container will be stopped if they are running (from a aprevious run for example or an older version). The old containers are then removed. The log directory for each node is then created. `HOSTNAME` simply declares the hosts in the simulation. After which, the manager node and the simulation node are created. 
+
+### Is it running?
+If everything is running, you should see something like this with you enter the `docker ps` command.
+
+```
+stephb@debfarm1-node-c:~$ docker ps
+CONTAINER ID   IMAGE                   COMMAND                  CREATED         STATUS         PORTS                              NAMES
+d5654262b17a   stephb9959/tip-owls-1   "/bin/sh -c /owls/do…"   6 seconds ago   Up 5 seconds   4369/tcp, 9090/tcp                 node1
+a00f770c4fc4   stephb9959/tip-owls-1   "/bin/sh -c /owls/do…"   8 seconds ago   Up 5 seconds   4369/tcp, 0.0.0.0:9091->9090/tcp   manager
+stephb@debfarm1-node-c:~$
+```
+### Accessing the UI
+To access the UI, simply go to http://hostname-where-docker-is-running:9091. In our case, `http://debfarm1-node-c.arilia.com:9091` and follow the instructions. 
+
+
 ## API
 This project uses OpenAPI specification 3.0.03, and you can use Swagger (https://editor.swagger.io/) in order to 
 look at the API located in the `api` directory. This API also follows the best practices for REST APi discussed in

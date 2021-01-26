@@ -2,6 +2,8 @@
 
 NET_NAME=owls_net
 DOCKER_NAME=stephb9959/tip-owls-1
+TIP_CONTROLLER_NAME=debfarm1-node-a.arilia.com
+TIP_CONTROLLER_IP=10.3.11.1
 
 # clean networks and create the testing network
 docker network prune --force
@@ -22,7 +24,7 @@ rm -rf docker_logs_node1
 mkdir docker_logs_manager
 mkdir docker_logs_node1
 
-HOSTNAMES="--add-host mgr.owls.net:172.21.10.2 --add-host node1.owls.net:172.21.10.3 --add-host debfarm1-node-a.arilia.com:10.3.11.1"
+HOSTNAMES="--add-host mgr.owls.net:172.21.10.2 --add-host node1.owls.net:172.21.10.3 --add-host $TIP_CONTROLLER_NAME:$TIP_CONTROLLER_IP"
 
 docker run  -d -p 9091:9090 --init \
             --network=owls_net \

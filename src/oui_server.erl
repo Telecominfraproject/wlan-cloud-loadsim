@@ -118,6 +118,7 @@ init([]) ->
 															_:_ ->
 																_=ets:new(?OUI_LOOKUP_TABLE,[named_table,public,ordered_set]),
 																_=ets:new(?MAKER_LOOKUP_TABLE,[named_table,public,ordered_set]),
+																_=file:copy(filename:join([utils:priv_dir(),"templates",?OUI_FILENAME]),latest_filename()),
 																_=timer:apply_after(5000, ?MODULE, refresh, []),
 																?L_I("No OUI tables on disk. Automatic refresh in 10 seconds."),
 																{ [], [] }
@@ -232,24 +233,29 @@ code_change(_OldVsn, State = #oui_server_state{}, _Extra) ->
 get_latest_oui(State) ->
 	?L_I("Downloading latest OUI list."),
 	FileName = latest_filename(),
-	case httpc:request( State#oui_server_state.uri ) of
-		{ ok , Result } ->
-			Res = case Result of
-				{ _Status , _Headers , Body } ->
-					file:write_file( FileName, Body );
-				{ _Status , Body } ->
-					file:write_file( FileName, Body );
-				_Id ->
-					{ error , incomplete }
-			end,
-			?L_I("Downloaded latest OUI list."),
-			Res;
-		{ error , Reason } ->
-			?L_IA("Failed to download latest OUI list. Reason:~p",[Reason]),
-			{ error , Reason };
-		Result ->
-			?L_IA("Failed to download latest OUI list. Reason:~p",[Result]),
-			{ error , Result }
+	case filelib:is_file(FileName) of
+		false ->
+			case httpc:request( State#oui_server_state.uri ) of
+				{ ok , Result } ->
+					Res = case Result of
+						{ _Status , _Headers , Body } ->
+							file:write_file( FileName, Body );
+						{ _Status , Body } ->
+							file:write_file( FileName, Body );
+						_Id ->
+							{ error , incomplete }
+					end,
+					?L_I("Downloaded latest OUI list."),
+					Res;
+				{ error , Reason } ->
+					?L_IA("Failed to download latest OUI list. Reason:~p",[Reason]),
+					{ error , Reason };
+				Result ->
+					?L_IA("Failed to download latest OUI list. Reason:~p",[Result]),
+					{ error , Result }
+			end;
+		true ->
+			ok
 	end.
 
 find_blank( Io ) ->
@@ -329,6 +335,7 @@ refresh(State,_Pid) ->
 					_ = ets:tab2file(?OUI_LOOKUP_TABLE,	State#oui_server_state.oui_tab_filename),
 					_ = ets:tab2file(?MAKER_LOOKUP_TABLE,	State#oui_server_state.maker_tab_filename),
 					{ AllOuis , AllMakers } = set_keys(),
+					file:delete(latest_filename()),
 					gen_server:cast(State#oui_server_state.service_pid,{replace,AllOuis,AllMakers,self()});
 				Error ->
 					?L_IA("Please refresh OUI lists later.",[Error])

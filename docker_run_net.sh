@@ -1,7 +1,11 @@
 #!/bin/sh
 
+USERNAME=arilia
+HUBNAME=tip-tip-wlan-cloud-loadsim.jfrog.io
+IMAGE_NAME=tip-owls-1
+DOCKER_NAME=$HUBNAME/$USERNAME/$IMAGE_NAME
+
 NET_NAME=owls_net
-DOCKER_NAME=stephb9959/tip-owls-1
 TIP_CONTROLLER_NAME=debfarm1-node-a.arilia.com
 TIP_CONTROLLER_IP=10.3.11.1
 

@@ -6,8 +6,8 @@ realtime numbers.
 
 ## Getting started
 ### Hardware and software
-This simulator requires multiple machines to run. Now, it can be bare-metal or VMs. It does not really matter. Since the goal 
-is to stress server resourcess, we would suggest to run the TIP on a much larger machine and these simulation node on VMs. 
+This simulator requires multiple machines to run. Now, it can be bare-metal or VMs or docker. It does not really matter. Since the goal 
+is to stress server resourcess, we would suggest to run the TIP controller on a much larger machine and these simulation node on VMs. 
 As for support, this was developed on Debian based Linux distributions (Ubuntun and Debian). We have also done extensive 
 testing on Mac OS X. Windows is not supported currently and there is no plans on supporting it.
 
@@ -17,7 +17,12 @@ You could run the simulation entirely behind a firewall and run the TIP controll
 
 ### Pre-requisites
 This simulator uses Erlang. This language is designed to support thousands of processesand very suitable for this task. 
-You must install Erlang OTP 22 or newer in order to run this application.
+You must install Erlang OTP 22 or newer in order to run this application - unless you are using Docker.
+
+#### Docker
+If you intend to simply run the Docker version, please go to the [Docker](#running-docker) section. You do not need to install anything else. Simple cloning this repository
+will give you all you need. 
+
 #### Linux 
 ##### Ubuntu
 ```
@@ -66,6 +71,7 @@ You need to clone the repository, run a configuration command, and start doing t
 ```
 git clone https://github.com/telecominfroproject/wlan-cloud-loadsim
 cd wlan-cloud-loadsim
+make
 ```
 
 ### Choosing a node type
@@ -79,7 +85,7 @@ for the initial configuration.
 
 ```
 ./simmanager_config
-./simnanager
+./start
 ```
 
 #### `simnode` node
@@ -89,7 +95,7 @@ follow these instructions and answer the questions for the initial configuration
 
 ```
 ./simnode_config
-./simnode
+./start
 ```
 
 #### `simmonitor` node
@@ -97,7 +103,7 @@ You should have a single 'simmonitor' node. This node is intended to run on the 
 
 ```
 ./simmonitor_config
-./simmonitor
+./start
 ```
 
 #### On running multiple node types on a single machine
@@ -110,8 +116,9 @@ mkdir simnode1
 cd simnode1
 git clone https://github.com/telecominfraproject/wlan-cloud-loadsim
 cd wlan-cloud-loadsim
+make
 ./simnode_config
-./simnode
+./start
 ```
 
 in another terminal window
@@ -122,8 +129,9 @@ mkdir simnode2
 cd simnode2
 git clone https://github.com/telecominfraproject/wlan-cloud-loadsim
 cd wlan-cloud-loadsim
+make
 ./simnode_config
-./simnode
+./start
 ```
 
 If you want to run multiple nodes on a single machine, you need to make sure that your number numbers are all different. 
@@ -195,7 +203,7 @@ to `ping` any host used as a node for this simulation.
 
 Once the `simmanager` is started, you should be able to start it like this:
 ```
-./simmanager
+./start
 heart_beat_kill_pid = 17839
 Erlang/OTP 23 [erts-11.1.1] [source] [64-bit] [smp:16:16] [ds:16:16:10] [async-threads:5] [hipe] [dtrace]
 
@@ -212,14 +220,12 @@ The command will ask you for several questions. In many cases the default values
 cd ~
 github clone https://github.com/stephb9959/owls
 cd owls
+make
 ./simnode_config
 Please enter a node number(1..99) [1] :
 Please enter a node name [simnode1@renegademac.arilia.com] :
 Please enter a network cookie [oreo] :
 Please enter a directory name [/Users/stephb/Desktop/Dropbox/dhcp/test_repos3/owls] :
-Please enter the WEB UI port(9096..9196) [9096] :
-Please enter the OVSDB reflector port [6643] :
-Please enter the OVSDB port [6640] :
 ```
 All the values between brackets are the default values. The most important value is the host part of the node name. 
 You must be able to `ping` any host used as a node for this simulation. 
@@ -245,14 +251,14 @@ user/home > ./simmonitor_config
 Please answer the simple questions.
 
 ## How to run a simulation
-You should start the UI by entering http://<host of the 'simmanager' node>. You should get something similar to the 
+You should start the UI by entering `http://<host of the simmanager node>:9090`. You should get something similar to the 
 following screen (some slight changes may have occurred since the release of the document).
 
 ## The steps
 
 ### Import you CA first
 Using the dialog, please use your `cakey.pem` and `cacert.pem` files and import the CA. Let's give the CA the name of 
-`sim1`. 
+`tip1`. 
 
 ### Create the simulation
 A simulation must have a name, like '`sim`. No spaces are allowed. Enter the name of the CA you created in the previous step.
@@ -281,6 +287,98 @@ This will tell all the `simnode` nodes to start their set of APs. And this is wh
 the simulation nodes will start chatting with your TIP controller. You should start to see devices and access points 
 appear when you select the `network` menu choice. Be mindful that the TIP controller may take several seconds or maybe minutes 
 to display all the data the load simulator produces. 
+
+## Running Docker
+Running is the sinmplest and fastest way to run this application. We tried to make this a simple as possible. You should be familiar enough with Docker first.
+No need to be an expert. You will need to tailor one script and you should be off to the races. Any cons in running Docker? Of course. You will be losing the 
+interactive CLI provided by the Erlang emulator. You may also lose some flexibility. These are small prices to pay for the ease of use. 
+
+### Getting Docker
+You should first install Docker for you platform. This document will no go into details on how to install Docker. Simply follow the instructions for your platform. 
+
+### The main script
+The script you will need to tailor is called `docker_run_net.sh`. Here is the content of this script so we can go over what you need to modify:
+
+```
+#!/bin/sh
+
+NET_NAME=owls_net
+DOCKER_NAME=stephb9959/tip-owls-1
+TIP_CONTROLLER_NAME=debfarm1-node-a.arilia.com
+TIP_CONTROLLER_IP=10.3.11.1
+
+# clean networks and create the testing network
+docker network prune --force
+docker network create \
+  --driver=bridge \
+  --subnet=172.21.0.0/16 \
+  --ip-range=172.21.10.0/24 \
+  --gateway=172.21.0.1 \
+  $NET_NAME
+
+#stop previously running images
+docker container stop manager node1
+docker container rm manager node1 --force
+
+#create directories for logs
+rm -rf docker_logs_manager
+rm -rf docker_logs_node1
+
+mkdir docker_logs_manager
+mkdir docker_logs_node1
+
+HOSTNAMES="--add-host mgr.owls.net:172.21.10.2 --add-host node1.owls.net:172.21.10.3 --add-host $TIP_CONTROLLER_NAME:$TIP_CONTROLLER_IP"
+
+docker run  -d -p 9091:9090 --init \
+            --network=owls_net \
+            --volume="$PWD/ssl:/etc/ssl/certs" \
+            --volume="$PWD/docker_logs_manager:/app_data/logs" \
+            -e ERL_NODE_NAME="mgr@mgr.owls.net" -e ERL_OPTIONS="-noshell -noinput" -e ERL_NODE_TYPE="manager" \
+            --ip="172.21.10.2" $HOSTNAMES \
+            --name="manager" $DOCKER_NAME
+
+docker run  -d --init \
+            --network=owls_net \
+            --volume="$PWD/ssl:/etc/ssl/certs" \
+            --volume="$PWD/docker_logs_node1:/app_data/logs" \
+            -e ERL_NODE_NAME="node1@mgr.owls.net" -e ERL_OPTIONS="-noshell -noinput" -e ERL_NODE_TYPE="node" \
+            --ip="172.21.10.3" $HOSTNAMES \
+            --name="node1" $DOCKER_NAME
+```
+
+#### NET_NAME
+The is the name of the network created to contain all the nodes participating in the simulation. You may change this to anything you like. 
+
+#### DOCKER_NAME
+This is the name of the docker image on dockerhub. You should not change this image unless you are an expert or have beene asked by one of us to do it.
+
+#### TIP_CONTROLLER_NAME
+The tip FQDN. The FQDN is only used in the creation of the simulation. This name should resolve on your network. The docker image does not have or need to resolve this.
+
+#### TIP_CONTROLLER_IP
+The IPv4 of the TIP Controller. This is the IP the simulation nodes will try to reach.
+
+### What this script does...
+This script first removes all unneeded networks. It then creates the docker network that this simulation will be using. After this, the manager and node1 container will be stopped if they are running (from a aprevious run for example or an older version). The old containers are then removed. The log directory for each node is then created. `HOSTNAME` simply declares the hosts in the simulation. After which, the manager node and the simulation node are created. 
+
+### Is it running?
+If everything is running, you should see something like this with you enter the `docker ps` command.
+
+```
+stephb@debfarm1-node-c:~$ docker ps
+CONTAINER ID   IMAGE                   COMMAND                  CREATED         STATUS         PORTS                              NAMES
+d5654262b17a   stephb9959/tip-owls-1   "/bin/sh -c /owls/do…"   6 seconds ago   Up 5 seconds   4369/tcp, 9090/tcp                 node1
+a00f770c4fc4   stephb9959/tip-owls-1   "/bin/sh -c /owls/do…"   8 seconds ago   Up 5 seconds   4369/tcp, 0.0.0.0:9091->9090/tcp   manager
+stephb@debfarm1-node-c:~$
+```
+### Accessing the UI
+To access the UI, simply go to http://hostname-where-docker-is-running:9091. In our case, `http://debfarm1-node-c.arilia.com:9091` and follow the instructions. 
+
+### Accessing the API with Docker
+The API is available at the same address as the UI and the same port.
+
+### Important note on running Docker
+The system needs to downlaod and parse the OUI DB stored ate Linux.net. This usually takes about 1 minute. So please wait 1 minutes after starting the simulation for this to happen. Once this has happened, you can run your simulation. We are working on a small improvement that will render this unneccessary. 
 
 ## API
 This project uses OpenAPI specification 3.0.03, and you can use Swagger (https://editor.swagger.io/) in order to 

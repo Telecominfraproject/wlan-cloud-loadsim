@@ -3,7 +3,8 @@
 USERNAME=arilia
 HUBNAME=tip-tip-wlan-cloud-loadsim.jfrog.io
 IMAGE_NAME=tip-owls-1
-DOCKER_NAME=$HUBNAME/$USERNAME/$IMAGE_NAME
+# DOCKER_NAME=$HUBNAME/$IMAGE_NAME
+DOCKER_NAME=stephb9959/tip-owls-1
 
 NET_NAME=owls_net
 TIP_CONTROLLER_NAME=debfarm1-node-a.arilia.com

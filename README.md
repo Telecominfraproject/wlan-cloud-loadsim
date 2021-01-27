@@ -359,7 +359,7 @@ The tip FQDN. The FQDN is only used in the creation of the simulation. This name
 The IPv4 of the TIP Controller. This is the IP the simulation nodes will try to reach.
 
 ### What this script does...
-This script first removes all unneeded networks. It then creates the docker network that this simulation will be using. After this, the manager and node1 container will be stopped if they are running (from a aprevious run for example or an older version). The old containers are then removed. The log directory for each node is then created. `HOSTNAME` simply declares the hosts in the simulation. After which, the manager node and the simulation node are created. 
+This script first removes all unneeded networks. It then creates the docker network that this simulation will be using. After this, the manager and node1 container will be stopped if they are running (from a aprevious run for example or an older version). The old containers are then removed. The log directory for each node is then created. `HOSTNAME` simply declares the hosts in the simulation. After which, the manager node and the simulation node are created. The script wil launch 2 containers: manager and node1. 
 
 ### Is it running?
 If everything is running, you should see something like this with you enter the `docker ps` command.
@@ -371,6 +371,7 @@ d5654262b17a   stephb9959/tip-owls-1   "/bin/sh -c /owls/do…"   6 seconds ago 
 a00f770c4fc4   stephb9959/tip-owls-1   "/bin/sh -c /owls/do…"   8 seconds ago   Up 5 seconds   4369/tcp, 0.0.0.0:9091->9090/tcp   manager
 stephb@debfarm1-node-c:~$
 ```
+
 ### Accessing the UI
 To access the UI, simply go to http://hostname-where-docker-is-running:9091. In our case, `http://debfarm1-node-c.arilia.com:9091` and follow the instructions. 
 

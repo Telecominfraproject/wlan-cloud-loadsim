@@ -1,13 +1,13 @@
 #!/bin/sh
 
-USERNAME=arilia
 HUBNAME=tip-tip-wlan-cloud-loadsim.jfrog.io
 IMAGE_NAME=tip-owls-1
-# DOCKER_NAME=$HUBNAME/$IMAGE_NAME
-DOCKER_NAME=stephb9959/tip-owls-1
+DOCKER_NAME=$HUBNAME/$IMAGE_NAME
 
 NET_NAME=owls_net
+# You must set this to the resolvable name of your TIP controller
 TIP_CONTROLLER_NAME=debfarm1-node-a.arilia.com
+# You must set this to the IP address of your TIP controller
 TIP_CONTROLLER_IP=10.3.11.1
 
 # clean networks and create the testing network

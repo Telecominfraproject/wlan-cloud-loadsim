@@ -120,7 +120,7 @@ get_access_token(Req) ->
 	Result.
 
 add_CORS(Req)->
-	cowboy_req:set_resp_header(<<"access-control-allow-origin">>, <<"*">>, Req).
+	cowboy_req:set_resp_header(<<"Access-Control-Allow-Origin">>, <<"*">>, Req).
 
 generate_error(Error,Reason) when is_list(Reason)->
 	generate_error(Error,list_to_binary(Reason));

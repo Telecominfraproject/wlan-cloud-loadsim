@@ -150,7 +150,7 @@ resource_exists(Req, #request_state{ method = ?HTTP_GET, resource = <<"simulatio
 		{error,_Reason} ->  {false,Req,State}
 	end;
 resource_exists(Req, #request_state{ method = ?HTTP_GET, resource = <<"simulations">>, subres = <<"devices">>}=State) ->
-	case inventory:get_record( #client_info{ name = State#request_state.id}) of
+	case inventory:get_record( #client_info{ name = State#request_state.subid}) of
 		{ok,Record}    -> 	{true, Req, State#request_state{ looked_up = Record }};
 		{error,_Reason} ->  {false,Req,State}
 	end;
@@ -234,6 +234,7 @@ do( ?HTTP_GET ,Req,#request_state{ resource = <<"simulations">>, subres = <<"dev
 			simulation => State#request_state.id,
 			serial => State#request_state.subid,
 			ca => ClientInfo#client_info.ca,
+			hardware_id => ClientInfo#client_info.id,
 			bands => ClientInfo#client_info.bands,
 			wan_mac => ClientInfo#client_info.wan_mac0,
 			lan_mac => ClientInfo#client_info.lan_mac0,

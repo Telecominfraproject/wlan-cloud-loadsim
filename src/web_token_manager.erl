@@ -212,10 +212,12 @@ code_change(_OldVsn, State = #web_token_manager_state{}, _Extra) ->
 init(Req, _State) ->
 	Method = cowboy_req:method(Req),
 	Token = cowboy_req:binding(token, Req, <<>>),
-	{ cowboy_rest,restutils:add_CORS(Req),#request_state{
-		method = Method,
-		token = Token,
-		time_in = os:system_time() }}.
+	{ cowboy_rest,
+	  restutils:add_CORS(Req),
+	  #request_state{
+			method = Method,
+			token = Token,
+			time_in = os:system_time() }}.
 
 allowed_methods(Req, State) ->
 	{[?HTTP_OPTIONS,?HTTP_POST,?HTTP_DELETE], Req, State}.
@@ -250,12 +252,11 @@ delete_resource(Req,State)->
 	{true,Req,State}.
 
 options(Req0, State) ->
-	Req1 = cowboy_req:set_resp_header(<<"Access-Control-Allow-Methods">>, <<"GET, DELETE, OPTIONS">>, Req0),
-	Req2 = cowboy_req:set_resp_header(<<"Access-Control-Allow-Origin">>, <<"*">>, Req1),
-	Req3 = cowboy_req:set_resp_header(<<"Pragma">>, <<"no-cache">>, Req2),
-	Req4 = cowboy_req:set_resp_header(<<"Access-Control-Allow-Credentials">>, <<"true">>, Req3),
-	Req5 = cowboy_req:set_resp_header(<<"Access-Control-Allow-Headers">>, <<"*">>, Req4),
-	{ok, Req5, State}.
+	Req1 = cowboy_req:set_resp_header(<<"Access-Control-Allow-Methods">>, <<"GET, DELETE, OPTIONS, POST">>, Req0),
+	Req2 = cowboy_req:set_resp_header(<<"Pragma">>, <<"no-cache">>, Req1),
+	Req3 = cowboy_req:set_resp_header(<<"Access-Control-Allow-Credentials">>, <<"true">>, Req2),
+	Req4 = cowboy_req:set_resp_header(<<"Access-Control-Allow-Headers">>, <<"*">>, Req3),
+	{ok,Req4,State}.
 
 json_to_db(Req, State) ->
 	do( State#request_state.method , Req , State ).

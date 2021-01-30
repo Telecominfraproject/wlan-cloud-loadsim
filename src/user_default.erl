@@ -210,8 +210,8 @@ list_cas()->
 show_client(_SimName,Client)->
 	inventory:get_record(#client_info{name = utils:safe_binary(Client)}).
 
-list_clients(CAName)->
-	{ok,Clients} = inventory:list_sim_clients(CAName),
+list_clients(SimName)->
+	{ok,Clients} = inventory:list_sim_clients(SimName),
 	{ok,[binary_to_list(X) || X <- Clients] }.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

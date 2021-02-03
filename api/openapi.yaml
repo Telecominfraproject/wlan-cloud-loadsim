@@ -822,6 +822,8 @@ components:
       properties:
         simulation:
           type: string
+        hardware_id:
+          type: string
         serial:
           type: string
         ca:

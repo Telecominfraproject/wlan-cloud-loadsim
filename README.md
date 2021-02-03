@@ -302,9 +302,14 @@ The script you will need to tailor is called `docker_run_net.sh`. Here is the co
 ```
 #!/bin/sh
 
+HUBNAME=tip-tip-wlan-cloud-loadsim.jfrog.io
+IMAGE_NAME=tip-owls-1
+DOCKER_NAME=$HUBNAME/$IMAGE_NAME
+
 NET_NAME=owls_net
-DOCKER_NAME=stephb9959/tip-owls-1
+# You must set this to the resolvable name of your TIP controller
 TIP_CONTROLLER_NAME=debfarm1-node-a.arilia.com
+# You must set this to the IP address of your TIP controller
 TIP_CONTROLLER_IP=10.3.11.1
 
 # clean networks and create the testing network
@@ -333,7 +338,7 @@ docker run  -d -p 9091:9090 --init \
             --network=owls_net \
             --volume="$PWD/ssl:/etc/ssl/certs" \
             --volume="$PWD/docker_logs_manager:/app_data/logs" \
-            -e ERL_NODE_NAME="mgr@mgr.owls.net" -e ERL_OPTIONS="-noshell -noinput" -e ERL_NODE_TYPE="manager" \
+            -e ERL_NODE_NAME="mgr@mgr.owls.net" -e ERL_OPTIONS="-noshell -noinput" -e ERL_NODE_TYPE="manager" -e TIP_AUTH="2" \
             --ip="172.21.10.2" $HOSTNAMES \
             --name="manager" $DOCKER_NAME
 
@@ -341,7 +346,7 @@ docker run  -d --init \
             --network=owls_net \
             --volume="$PWD/ssl:/etc/ssl/certs" \
             --volume="$PWD/docker_logs_node1:/app_data/logs" \
-            -e ERL_NODE_NAME="node1@mgr.owls.net" -e ERL_OPTIONS="-noshell -noinput" -e ERL_NODE_TYPE="node" \
+            -e ERL_NODE_NAME="node1@mgr.owls.net" -e ERL_OPTIONS="-noshell -noinput" -e ERL_NODE_TYPE="node" -e TIP_AUTH="2" \
             --ip="172.21.10.3" $HOSTNAMES \
             --name="node1" $DOCKER_NAME
 ```
@@ -357,6 +362,9 @@ The tip FQDN. The FQDN is only used in the creation of the simulation. This name
 
 #### TIP_CONTROLLER_IP
 The IPv4 of the TIP Controller. This is the IP the simulation nodes will try to reach.
+
+#### TIP_AUTH
+The first version of this software was built for a pre-release of the TIP controller which used an older form of authentication. You should set this to "1" if you use the old software, or "2" if you use the latest version.
 
 ### What this script does...
 This script first removes all unneeded networks. It then creates the docker network that this simulation will be using. After this, the manager and node1 container will be stopped if they are running (from a aprevious run for example or an older version). The old containers are then removed. The log directory for each node is then created. `HOSTNAME` simply declares the hosts in the simulation. After which, the manager node and the simulation node are created. The script wil launch 2 containers: manager and node1. 

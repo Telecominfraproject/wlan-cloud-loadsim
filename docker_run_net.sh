@@ -36,7 +36,7 @@ docker run  -d -p 9091:9090 --init \
             --network=owls_net \
             --volume="$PWD/ssl:/etc/ssl/certs" \
             --volume="$PWD/docker_logs_manager:/app_data/logs" \
-            -e ERL_NODE_NAME="mgr@mgr.owls.net" -e ERL_OPTIONS="-noshell -noinput" -e ERL_NODE_TYPE="manager" \
+            -e ERL_NODE_NAME="mgr@mgr.owls.net" -e ERL_OPTIONS="-noshell -noinput" -e ERL_NODE_TYPE="manager" -e TIP_AUTH="2" \
             --ip="172.21.10.2" $HOSTNAMES \
             --name="manager" $DOCKER_NAME
 
@@ -44,7 +44,7 @@ docker run  -d --init \
             --network=owls_net \
             --volume="$PWD/ssl:/etc/ssl/certs" \
             --volume="$PWD/docker_logs_node1:/app_data/logs" \
-            -e ERL_NODE_NAME="node1@mgr.owls.net" -e ERL_OPTIONS="-noshell -noinput" -e ERL_NODE_TYPE="node" \
+            -e ERL_NODE_NAME="node1@mgr.owls.net" -e ERL_OPTIONS="-noshell -noinput" -e ERL_NODE_TYPE="node" -e TIP_AUTH="2" \
             --ip="172.21.10.3" $HOSTNAMES \
             --name="node1" $DOCKER_NAME
 

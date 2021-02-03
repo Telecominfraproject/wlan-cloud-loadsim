@@ -15,21 +15,39 @@
 -export([login/1,tip_locations/0,clients/0,equipments/0,client_ids/0,client_ids_for_equipment/1,equipment_ids/0,
 	client_macs_for_equipment/1]).
 
+loginEndpoint() ->
+	case init:get_argument(tipauth) of
+		{ok,[["1"]]} ->
+			"/management/v1/oauth2/token";
+		{ok,[["2"]]} ->
+			" /management/cmap/oauth2/token";
+		_ ->
+			"/management/v1/oauth2/token"
+	end.
+
+loginUserAndPassword() ->
+	case init:get_argument(tipauth) of
+		{ok,[["1"]]} ->
+			<<"{ \"userId\": \"support@example.com\", \"password\": \"support\" }">>;
+		{ok,[["2"]]} ->
+			<<"{ \"userId\": \"support@example.com\", \"password\": \"Support!\" }">>;
+		_ ->
+			<<"{ \"userId\": \"support@example.com\", \"password\": \"support\" }">>
+	end.
+
 login(SimName)->
 	_=inets:start(),
 	try
 		{ok,Sim} = simengine:get(SimName),
-		% io:format("Trying to log into: ~p...~n",[Sim#simulation.opensync_server_name]),
 		ServerName = binary_to_list(Sim#simulation.opensync_server_name),
 		LoginURIBase = "https://" ++ ServerName ++ ":" ++ integer_to_list(9051),
-		LoginURI =  LoginURIBase ++ "/management/v1/oauth2/token",
-		LoginPassword = <<"{ \"userId\": \"support@example.com\", \"password\": \"support\" }">>,
+		LoginURI =  LoginURIBase ++ loginEndpoint(),
+		LoginPassword = loginUserAndPassword(),
 		{ ok, { {_,200,_},_Headers,Body}} = httpc:request(post, {LoginURI, [],["application/json"],LoginPassword}, [], []),
 		Map = jiffy:decode(Body,[return_maps]),
-		%% io:format("R=~p  ~p~n",[ResultCode,Map]),
 		persistent_term:put(tip_access_token,binary_to_list(maps:get(<<"access_token">>,Map))),
 		persistent_term:put(tip_uri_base,LoginURIBase),
-		%% io:format("TIP Logged in.~n"),
+		?L_I("TIP Logged in.~n"),
 		ok
 	catch
 		_:_ ->

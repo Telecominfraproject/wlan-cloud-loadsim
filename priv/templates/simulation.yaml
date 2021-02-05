@@ -1,0 +1,13 @@
+simulation:
+  name: sim1
+  ca:
+    name: tip1
+#   (this file should be in the $PWD/ssl dir)
+    cert: tipcert.pem
+#   (this file should be in the $PWD/ssl dir)
+    key: tipkey.pem
+    password: mypassword
+# should be the same name as TIP_CONTROLLER_NAME
+  server: opensync-controler.tip.build
+  port: 6643
+  devices: 10

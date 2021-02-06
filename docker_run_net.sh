@@ -53,7 +53,7 @@ docker run  -d -p 9091:9090 --init \
             --volume="$PWD/ssl:/etc/ssl/certs" \
             --volume="$PWD/docker_logs_manager:/app_data/logs" \
             --volume="$PWD/scripts:/scripts" \
-            -e ERL_NODE_NAME="mgr@mgr.owls.net" -e ERL_OPTIONS="-noshell -noinput" -e ERL_NODE_TYPE="manager" -e TIP_AUTH="2" -e SIM_SCRIPT="sim1.yaml" \
+            -e ERL_NODE_NAME="mgr@mgr.owls.net" -e ERL_OPTIONS="-noshell -noinput" -e ERL_NODE_TYPE="manager" -e TIP_AUTH="2" \
             --ip="172.21.10.2" $HOSTNAMES \
             --name="manager" $DOCKER_NAME
 

@@ -46,6 +46,11 @@ HOSTNAMES="--add-host mgr.owls.net:172.21.10.2 --add-host node1.owls.net:172.21.
 #   port: 6643
 #   devices: 10
 #
+# To run a script, please replace the host line with this in your manager section
+#
+# -e ERL_NODE_NAME="mgr@mgr.owls.net" -e ERL_OPTIONS="-noshell -noinput" -e ERL_NODE_TYPE="manager" -e TIP_AUTH="2" -e SIM_SCRIPT="sim1.yaml" \
+
+
 
 #start manager node
 docker run  -d -p 9091:9090 --init \

@@ -418,16 +418,18 @@ simulation:
   name: sim1
   ca:
     name: tip1
-#   (this file should be in the $PWD/ssl dir for docker. In docker, this name should be /etc/ssl/<mame>.)
     cert: /etc/ssl/tip-cacert.pem
-#   (this file should be in the $PWD/ssl dir for docker. In docker, this name should be /etc/ssl/<mame>.)
     key: /etc/ssl/tip-cakey.pem
     password: mypassword
-# should be the same name as TIP_CONTROLLER_NAME
   server: debfarm1-node-a.arilia.com
   port: 6643
   devices: 10
 ```
+The files in `cert` and `key` are from the perspective of the running container. Since the certificate information must be placed in
+the `$PWD/ssl` directory and this is mapped to `/etc/ssl` in the container, this must appear in the `sim1.yaml` file. 
+
+The scripts should also be put in `$PWD/scripts`, which is mapped to `/scripts` in the container. So the filename you must on on the `docker run` 
+line must be something like `/scripts/simulation.yaml`.
 
 Your docker_run_net.sh file should have the following in your manager node section:
 ```
@@ -436,7 +438,7 @@ docker run  -d -p 9091:9090 --init \
             --volume="$PWD/ssl:/etc/ssl/certs" \
             --volume="$PWD/docker_logs_manager:/app_data/logs" \
             --volume="$PWD/scripts:/scripts" \
-            -e ERL_NODE_NAME="mgr@mgr.owls.net" -e ERL_OPTIONS="-noshell -noinput" -e ERL_NODE_TYPE="manager" -e TIP_AUTH="2" -e SIM_SCRIPT="sim1.yaml" \
+            -e ERL_NODE_NAME="mgr@mgr.owls.net" -e ERL_OPTIONS="-noshell -noinput" -e ERL_NODE_TYPE="manager" -e TIP_AUTH="2" -e SIM_SCRIPT="/scripts/sim1.yaml" \
             --ip="172.21.10.2" $HOSTNAMES \
             --name="manager" $DOCKER_NAME
 ```

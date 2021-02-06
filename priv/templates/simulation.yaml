@@ -2,9 +2,9 @@ simulation:
   name: sim1
   ca:
     name: tip1
-#   (this file should be in the $PWD/ssl dir)
+#   (this file should be in the $PWD/ssl dir for docker. In docker, this name should be /etc/ssl/<mame>.)
     cert: tipcert.pem
-#   (this file should be in the $PWD/ssl dir)
+#   (this file should be in the $PWD/ssl dir for docker. In docker, this name should be /etc/ssl/<mame>.)
     key: tipkey.pem
     password: mypassword
 # should be the same name as TIP_CONTROLLER_NAME

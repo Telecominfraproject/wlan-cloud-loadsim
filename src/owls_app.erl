@@ -23,6 +23,12 @@ stop(_State) ->
 
 start() ->
 	ok = app_settings(),
+	case init:get_argument(sim) of
+		{ok,[[Script]]} ->
+			timer:apply_after(30*1000,user_default,run_script,[Script]);
+		_ ->
+			ok
+	end,
 	application:ensure_all_started(owls).
 
 load_cli()->

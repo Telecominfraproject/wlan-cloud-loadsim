@@ -6,7 +6,12 @@ case $ERL_NODE_TYPE in
   manager)
     cp priv/templates/simmanager.args.template.docker config/vm.args
     cp priv/templates/simmanager.config.template.docker config/sys.config
-    erl -config config/sys.config -args_file config/vm.args -name $ERL_NODE_NAME $ERL_OPTIONS -pa deps/*/ebin -pa ebin -tipauth $TIP_AUTH
+    if [ -z "$SIM_SCRIPT" ]
+    then
+      erl -config config/sys.config -args_file config/vm.args -name $ERL_NODE_NAME $ERL_OPTIONS -pa deps/*/ebin -pa ebin -tipauth $TIP_AUTH
+    else
+      erl -config config/sys.config -args_file config/vm.args -name $ERL_NODE_NAME $ERL_OPTIONS -pa deps/*/ebin -pa ebin -tipauth $TIP_AUTH -sim $SIM_SCRIPT
+    fi
     ;;
   node)
     cp priv/templates/simnode.args.template.docker config/vm.args

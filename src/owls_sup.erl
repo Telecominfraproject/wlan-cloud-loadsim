@@ -23,6 +23,7 @@ init([]) ->
 	Processes = case utils:app_env(role,undefined) of
 		manager ->
 			?L_I("Simulation Manager starting."),
+			should_i_run_a_script(),
 			node_finder:creation_info() ++
 			manager:creation_info() ++
 			manager_rest_api:creation_info() ++
@@ -51,3 +52,11 @@ init([]) ->
 			lager:error("No role has been defined in configuration (must be manager or node)")
 	end,
 	{ok, {{one_for_one, 1, 5}, Processes}}.
+
+should_i_run_a_script() ->
+	case init:get_argument(sim) of
+		{ok,[[Script]]} ->
+			timer:apply_after(30*1000,user_default,run_script,[Script]);
+		_ ->
+			ok
+	end.

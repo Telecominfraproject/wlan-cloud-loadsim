@@ -33,22 +33,22 @@ mkdir docker_logs_node1
 HOSTNAMES="--add-host mgr.owls.net:172.21.10.2 --add-host node1.owls.net:172.21.10.3 --add-host $TIP_CONTROLLER_NAME:$TIP_CONTROLLER_IP"
 
 #
-# A simulation file is used to describe how a simulation should run. Here is the content...
+# A simulation file called sim1.yaml is used to describe how a simulation should run. Here is the content...
 #
 # simulation:
 #   name: sim1
 #   ca:
 #     name: tip1
-#     cert: tipcert.pem   (this file should be in the $PWD/ssl dir)
-#     key: tipkey.pem     (this file should be in the $PWD/ssl dir)
+#     cert: /etc/ssl/tipcert.pem   (this file should be in the $PWD/ssl dir)
+#     key: /etc/ssl/tipkey.pem     (this file should be in the $PWD/ssl dir)
 #     password: mypassword
 #   server: (should be the same name as TIP_CONTROLLER_NAME
 #   port: 6643
 #   devices: 10
 #
-# To run a script, please replace the host line with this in your manager section
+# To run a script, please replace the host line with this one in your manager section
 #
-# -e ERL_NODE_NAME="mgr@mgr.owls.net" -e ERL_OPTIONS="-noshell -noinput" -e ERL_NODE_TYPE="manager" -e TIP_AUTH="2" -e SIM_SCRIPT="sim1.yaml" \
+# -e ERL_NODE_NAME="mgr@mgr.owls.net" -e ERL_OPTIONS="-noshell -noinput" -e ERL_NODE_TYPE="manager" -e TIP_AUTH="2" -e SIM_SCRIPT="/scripts/sim1.yaml" \
 
 
 

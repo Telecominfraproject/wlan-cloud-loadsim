@@ -47,6 +47,7 @@ HOSTNAMES="--add-host mgr.owls.net:172.21.10.2 --add-host node1.owls.net:172.21.
 #   devices: 10
 #
 
+#start manager node
 docker run  -d -p 9091:9090 --init \
             --network=owls_net \
             --volume="$PWD/ssl:/etc/ssl/certs" \
@@ -56,6 +57,7 @@ docker run  -d -p 9091:9090 --init \
             --ip="172.21.10.2" $HOSTNAMES \
             --name="manager" $DOCKER_NAME
 
+#start simulation node
 docker run  -d --init \
             --network=owls_net \
             --volume="$PWD/ssl:/etc/ssl/certs" \
@@ -63,5 +65,4 @@ docker run  -d --init \
             -e ERL_NODE_NAME="node1@mgr.owls.net" -e ERL_OPTIONS="-noshell -noinput" -e ERL_NODE_TYPE="node" -e TIP_AUTH="2" \
             --ip="172.21.10.3" $HOSTNAMES \
             --name="node1" $DOCKER_NAME
-
 

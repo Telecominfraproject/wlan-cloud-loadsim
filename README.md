@@ -334,10 +334,26 @@ mkdir docker_logs_node1
 
 HOSTNAMES="--add-host mgr.owls.net:172.21.10.2 --add-host node1.owls.net:172.21.10.3 --add-host $TIP_CONTROLLER_NAME:$TIP_CONTROLLER_IP"
 
+#
+# A simulation file is used to describe how a simulation should run. Here is the content...
+#
+# simulation:
+#   name: sim1
+#   ca:
+#     name: tip1
+#     cert: tipcert.pem   (this file should be in the $PWD/ssl dir)
+#     key: tipkey.pem     (this file should be in the $PWD/ssl dir)
+#     password: mypassword
+#   server: (should be the same name as TIP_CONTROLLER_NAME
+#   port: 6643
+#   devices: 10
+#
+
 docker run  -d -p 9091:9090 --init \
             --network=owls_net \
             --volume="$PWD/ssl:/etc/ssl/certs" \
             --volume="$PWD/docker_logs_manager:/app_data/logs" \
+            --volume="$PWD/scripts:/scripts" \
             -e ERL_NODE_NAME="mgr@mgr.owls.net" -e ERL_OPTIONS="-noshell -noinput" -e ERL_NODE_TYPE="manager" -e TIP_AUTH="2" \
             --ip="172.21.10.2" $HOSTNAMES \
             --name="manager" $DOCKER_NAME
@@ -349,6 +365,7 @@ docker run  -d --init \
             -e ERL_NODE_NAME="node1@mgr.owls.net" -e ERL_OPTIONS="-noshell -noinput" -e ERL_NODE_TYPE="node" -e TIP_AUTH="2" \
             --ip="172.21.10.3" $HOSTNAMES \
             --name="node1" $DOCKER_NAME
+
 ```
 
 #### NET_NAME
@@ -366,10 +383,14 @@ The IPv4 of the TIP Controller. This is the IP the simulation nodes will try to 
 #### TIP_AUTH
 The first version of this software was built for a pre-release of the TIP controller which used an older form of authentication. You should set this to "1" if you use the old software, or "2" if you use the latest version.
 
+#### SIM_SCRIPT
+If you want to run an automated script, you should use this option and put the file name where this script is. On docker, your should put this 
+file in your $PWD/script directory, in your `simulation.yaml` file, the name then becomes `/scripts/<name>`.
+
 ### What this script does...
 This script first removes all unneeded networks. It then creates the docker network that this simulation will be using. After this, the manager and node1 container will be stopped if they are running (from a aprevious run for example or an older version). The old containers are then removed. The log directory for each node is then created. `HOSTNAME` simply declares the hosts in the simulation. After which, the manager node and the simulation node are created. The script wil launch 2 containers: manager and node1. 
 
-### Is it running?
+### Is Docker running?
 If everything is running, you should see something like this with you enter the `docker ps` command.
 
 ```
@@ -388,6 +409,37 @@ The API is available at the same address as the UI and the same port.
 
 ### Important note on running Docker
 The system needs to downlaod and parse the OUI DB stored ate Linux.net. This usually takes about 1 minute. So please wait 1 minutes after starting the simulation for this to happen. Once this has happened, you can run your simulation. We are working on a small improvement that will render this unneccessary. 
+
+### Running an automated script from Docker
+You can specify an automated script to run from docker by using the `-e SIM_SCRIPT="scriptname.yaml"` in your docker_run_net.sh file for your manager node. The `scriptname.yaml` file should contains the following:
+
+```
+simulation:
+  name: sim1
+  ca:
+    name: tip1
+#   (this file should be in the $PWD/ssl dir for docker. In docker, this name should be /etc/ssl/<mame>.)
+    cert: /etc/ssl/tip-cacert.pem
+#   (this file should be in the $PWD/ssl dir for docker. In docker, this name should be /etc/ssl/<mame>.)
+    key: /etc/ssl/tip-cakey.pem
+    password: mypassword
+# should be the same name as TIP_CONTROLLER_NAME
+  server: debfarm1-node-a.arilia.com
+  port: 6643
+  devices: 10
+```
+
+Your docker_run_net.sh file should have the following in your manager node section:
+```
+docker run  -d -p 9091:9090 --init \
+            --network=owls_net \
+            --volume="$PWD/ssl:/etc/ssl/certs" \
+            --volume="$PWD/docker_logs_manager:/app_data/logs" \
+            --volume="$PWD/scripts:/scripts" \
+            -e ERL_NODE_NAME="mgr@mgr.owls.net" -e ERL_OPTIONS="-noshell -noinput" -e ERL_NODE_TYPE="manager" -e TIP_AUTH="2" -e SIM_SCRIPT="sim1.yaml" \
+            --ip="172.21.10.2" $HOSTNAMES \
+            --name="manager" $DOCKER_NAME
+```
 
 ## API
 This project uses OpenAPI specification 3.0.03, and you can use Swagger (https://editor.swagger.io/) in order to 

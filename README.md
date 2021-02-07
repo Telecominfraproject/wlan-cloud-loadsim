@@ -418,15 +418,15 @@ simulation:
   name: sim1
   ca:
     name: tip1
-    cert: /etc/ssl/tip-cacert.pem
-    key: /etc/ssl/tip-cakey.pem
+    cert: /etc/ssl/certs/tip-cacert.pem
+    key: /etc/ssl/certs/tip-cakey.pem
     password: mypassword
   server: debfarm1-node-a.arilia.com
   port: 6643
   devices: 10
 ```
 The files in `cert` and `key` are from the perspective of the running container. Since the certificate information must be placed in
-the `$PWD/ssl` directory and this is mapped to `/etc/ssl` in the container, this must appear in the `sim1.yaml` file. 
+the `$PWD/ssl` directory and this is mapped to `/etc/ssl/certs` in the container, this must appear in the `sim1.yaml` file. 
 
 The scripts should also be put in `$PWD/scripts`, which is mapped to `/scripts` in the container. So the filename you must on on the `docker run` 
 line must be something like `/scripts/simulation.yaml`.

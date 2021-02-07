@@ -12,6 +12,9 @@ RUN make
 RUN mkdir /app_data
 RUN mkdir /app_data/mnesia
 RUN mkdir /app_data/logs
+RUN mkdir /etc/ssl
+RUN mkdir /etc/ssl/certs
+RUN mkdir /scripts
 
 EXPOSE 9090
 EXPOSE 4369

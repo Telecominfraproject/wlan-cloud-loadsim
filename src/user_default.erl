@@ -532,34 +532,49 @@ run(SimName,Delay)->
 	end.
 
 run_script(ScriptName) ->
-	try
-		[ Script ] = yamerl_constr:file(ScriptName),
-		%% verify that we have everything
-		{"simulation", SimInfo} = proplists:lookup("simulation",Script),
-		{"name", SimName} = proplists:lookup("name",SimInfo),
-		{"server", SimServer} = proplists:lookup("server",SimInfo),
-		{"port", SimPort} = proplists:lookup("port", SimInfo),
-		{"devices", NumDevices} = proplists:lookup("devices",SimInfo),
-		{"ca",CAInfo} = proplists:lookup("ca",SimInfo),
-		{"name",CAName} = proplists:lookup("name",CAInfo),
-		{"cert",CACert} = proplists:lookup("cert",CAInfo),
-		{"key",CAKey} = proplists:lookup("key",CAInfo),
-		{"password",CAPassword} = proplists:lookup("password",CAInfo),
-		io:format("SIM: ~p: ~p/~p/~p CA: ~p: ~p/~p/~p",[SimName,SimServer,SimPort,NumDevices,CAName,CACert,CAKey,CAPassword]),
-		inventory:import_raw_ca(CAName,CAPassword,CAKey,CACert),
-		Nodes = wait_for_nodes(),
-		Simulation = #simulation{ name = utils:safe_binary(SimName),
-		                          ca = utils:safe_binary(CAName),
-		                          num_devices = NumDevices,
-		                          opensync_server_port = 6643,
-		                          opensync_server_name = utils:safe_binary(SimServer),
-		                          nodes = Nodes  },
-		_ = simengine:create(Simulation),
-		{ok,ID} = simengine:prepare(SimName,#{},utils:noop_mfa()),
-		wait_job_id(ID),
-		run(SimName,120),
-		?L_IA("Simulation ~p is now running.",[SimName])
-	catch
-		_:_ ->
-			?L_IA("Cannot run script: ~p. Please look at the template simulation.yaml",[ScriptName])
+	case filelib:is_file(ScriptName) of
+		true ->
+			try
+				[ Script ] = yamerl_constr:file(ScriptName),
+				%% verify that we have everything
+				{"simulation", SimInfo} = proplists:lookup("simulation",Script),
+				{"name", SimName} = proplists:lookup("name",SimInfo),
+				{"server", SimServer} = proplists:lookup("server",SimInfo),
+				{"port", SimPort} = proplists:lookup("port", SimInfo),
+				{"devices", NumDevices} = proplists:lookup("devices",SimInfo),
+				{"ca",CAInfo} = proplists:lookup("ca",SimInfo),
+				{"name",CAName} = proplists:lookup("name",CAInfo),
+				{"cert",CACert} = proplists:lookup("cert",CAInfo),
+				{"key",CAKey} = proplists:lookup("key",CAInfo),
+				{"password",CAPassword} = proplists:lookup("password",CAInfo),
+				io:format("SIM: ~p: ~p/~p/~p CA: ~p: ~p/~p/~p",[SimName,SimServer,SimPort,NumDevices,CAName,CACert,CAKey,CAPassword]),
+				case filelib:is_file(CACert) andalso filelib:is_file(CAKey) of
+					true ->
+						try
+							inventory:import_raw_ca(CAName,CAPassword,CAKey,CACert),
+							Nodes = wait_for_nodes(),
+							Simulation = #simulation{ name = utils:safe_binary(SimName),
+							                          ca = utils:safe_binary(CAName),
+							                          num_devices = NumDevices,
+							                          opensync_server_port = 6643,
+							                          opensync_server_name = utils:safe_binary(SimServer),
+							                          nodes = Nodes  },
+							_ = simengine:create(Simulation),
+							{ok,ID} = simengine:prepare(SimName,#{},utils:noop_mfa()),
+							wait_job_id(ID),
+							run(SimName,120),
+							?L_IA("Simulation ~p is now running.",[SimName])
+						catch
+							_:_ ->
+								?L_IA("Simultion ~p cannot be started. Please check your certificate/key/password.",[ScriptName])
+						end;
+					false ->
+						?L_IA("Simulation script: ~p, KeyFile: ~p or Certfile: ~p is not present.",[ScriptName,CAKey,CACert])
+				end
+			catch
+				_:_ ->
+					?L_IA("Cannot run script: ~p. Please look at the template simulation.yaml",[ScriptName])
+			end;
+		false ->
+			?L_IA("Scrip ~p does not exist.",[ScriptName])
 	end.

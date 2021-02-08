@@ -6,14 +6,13 @@ DOCKER_NAME=$HUBNAME/$IMAGE_NAME
 
 NET_NAME=owls_net
 # You must set this to the resolvable name of your TIP controller
-TIP_CONTROLLER_NAME=debfarm1-node-a.arilia.com
-# You must set this to the IP address of your TIP controller
+TIP_CONTROLLER_HOST=debfarm1-node-a.arilia.com
 TIP_CONTROLLER_IP=10.3.11.1
 # This is the name of the host providing API access. In some cases, it may be the same as the TIP controller host name
 TIP_API_HOST=debfarm1-node-a.arilia.com
-TIP_API_HOST_IP=10.3.11.1
+TIP_API_IP=10.3.11.1
 
-SCRIPT_NAME=$PWD/scripts/simulation.yaml
+$SIM_SCRIPT=/scripts/simulation.yaml
 
 # clean networks and create the testing network
 docker network prune --force
@@ -35,7 +34,7 @@ rm -rf docker_logs_node1
 mkdir docker_logs_manager
 mkdir docker_logs_node1
 
-HOSTNAMES="--add-host mgr.owls.net:172.21.10.2 --add-host node1.owls.net:172.21.10.3 --add-host $TIP_CONTROLLER_NAME:$TIP_CONTROLLER_IP --add-host $TIP_API_HOST:$TIP_API_HOST_IP"
+HOSTNAMES="--add-host mgr.owls.net:172.21.10.2 --add-host node1.owls.net:172.21.10.3 --add-host $TIP_CONTROLLER_HOST:$TIP_CONTROLLER_IP --add-host $TIP_API_HOST:$TIP_API_IP"
 
 #
 # A simulation file called sim1.yaml is used to describe how a simulation should run. Here is the content...

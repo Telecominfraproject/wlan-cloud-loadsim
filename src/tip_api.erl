@@ -35,14 +35,12 @@ loginUserAndPassword() ->
 			<<"{ \"userId\": \"support@example.com\", \"password\": \"support\" }">>
 	end.
 
-tip_port() ->
-	case init:get_argument(tipauth) of
-		{ok,[["1"]]} ->
-			30251;
-		{ok,[["2"]]} ->
-			30151;
+get_api_endpoint_name(Sim) ->
+	case init:get_argument(tipapi) of
+		{ok,[[APIEndPoint]]} ->
+			APIEndPoint;
 		_ ->
-			30251
+			binary_to_list(Sim#simulation.opensync_server_name)
 	end.
 
 % Options foe SSL: {cacerts, client_cacerts()}
@@ -52,8 +50,8 @@ login(SimName)->
 	_=inets:start(),
 	try
 		{ok,Sim} = simengine:get(SimName),
-		ServerName = binary_to_list(Sim#simulation.opensync_server_name),
-		LoginURIBase = "https://" ++ ServerName ++ ":" ++ integer_to_list(tip_port()),
+		ServerName = get_api_endpoint_name(Sim),
+		LoginURIBase = "https://" ++ ServerName,
 		LoginURI =  LoginURIBase ++ loginEndpoint(),
 		LoginPassword = loginUserAndPassword(),
 		_ = case httpc:request(post, {LoginURI, [],["application/json"],LoginPassword}, [], []) of

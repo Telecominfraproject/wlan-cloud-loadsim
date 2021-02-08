@@ -58,7 +58,7 @@ login(SimName)->
 		ok
 	catch
 		_:_ ->
-			?L_I("Could not log into TIP.~n"),
+			?L_I("Could not log into TIP."),
 			error
 	end.
 

@@ -20,7 +20,7 @@ loginEndpoint() ->
 		{ok,[["1"]]} ->
 			"/management/v1/oauth2/token";
 		{ok,[["2"]]} ->
-			" /management/cmap/oauth2/token";
+			"/management/cmap/oauth2/token";
 		_ ->
 			"/management/v1/oauth2/token"
 	end.

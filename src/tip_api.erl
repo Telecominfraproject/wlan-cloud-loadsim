@@ -53,7 +53,7 @@ login(SimName)->
 				persistent_term:put(tip_uri_base,LoginURIBase),
 				ok;
 			Error ->
-				?L_IA("OWLS cannot access the TIP controller. Error=~p",[Error])
+				?L_IA("OWLS cannot access the TIP controller. URI='~p' Error=~p",[LoginURI, Error])
 		end,
 		ok
 	catch

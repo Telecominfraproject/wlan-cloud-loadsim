@@ -332,7 +332,8 @@
             <div class="col" id="cell14">
                 <h3 class="h3" id="cell14-title">Sessions</h3>
                 <text class="bignumber" id="session_count"
-                   v-bind:style="{ color: pick_color(session_pct) }" >{{ session_pct}}%</text>
+                   v-bind:style="{ color: pick_color(session_pct) }" >{{ session_pct }}%</text>
+                <h5>( {{ tip_session_count }} / {{ sim_session_count }} )</h5>
             </div>
 
             <!-- Row 2 -->
@@ -349,6 +350,7 @@
                 <h3 class="h3" id="cell24-title">APs</h3>
                 <p class="bignumber" id="ap_count"
                     v-bind:style="{ color: pick_color(ap_pct)}">{{ ap_pct }}%</p>
+                <h5>( {{ tip_ap_count }} / {{ sim_ap_count }} )</h5>
             </div>
 
             <!-- Row 3 -->
@@ -420,6 +422,10 @@
 
                 ap_pct: 0,
                 session_pct: 0,
+                tip_session_count: 0,
+                sim_session_count: 0,
+                tip_ap_count: 0,
+                sim_ap_count: 0,
 
                 sim_state: {
                     pushed: false,
@@ -1112,6 +1118,10 @@
                     });
                     this.simulation_state_chart = chart;
                 }
+                this.sim_session_count = data.data.max_clients;
+                this.tip_session_count = data.data.tip_clients;
+                this.tip_ap_count = data.data.tip_devices;
+                this.sim_ap_count = data.data.max_devices;
                 this.ap_pct = (100*(data.data.tip_devices/data.data.max_devices)).toFixed(1);
                 this.session_pct = (100*(data.data.tip_clients/data.data.max_clients)).toFixed(1);
                 let theData = [this.ap_pct,this.session_pct];

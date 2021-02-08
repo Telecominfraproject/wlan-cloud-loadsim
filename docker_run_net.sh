@@ -12,7 +12,7 @@ TIP_CONTROLLER_IP=10.3.11.1
 TIP_API_HOST=debfarm1-node-a.arilia.com
 TIP_API_IP=10.3.11.1
 
-$SIM_SCRIPT=/scripts/simulation.yaml
+SIM_SCRIPT=/scripts/simulation.yaml
 
 # clean networks and create the testing network
 docker network prune --force

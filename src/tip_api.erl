@@ -35,6 +35,9 @@ loginUserAndPassword() ->
 			<<"{ \"userId\": \"support@example.com\", \"password\": \"support\" }">>
 	end.
 
+% Options foe SSL: {cacerts, client_cacerts()}
+% {server_name_indication, sni()} ,where sni() is disable.
+
 login(SimName)->
 	_=inets:start(),
 	try
@@ -43,11 +46,15 @@ login(SimName)->
 		LoginURIBase = "https://" ++ ServerName ++ ":" ++ integer_to_list(9051),
 		LoginURI =  LoginURIBase ++ loginEndpoint(),
 		LoginPassword = loginUserAndPassword(),
-		{ ok, { {_,200,_},_Headers,Body}} = httpc:request(post, {LoginURI, [],["application/json"],LoginPassword}, [], []),
-		Map = jiffy:decode(Body,[return_maps]),
-		persistent_term:put(tip_access_token,binary_to_list(maps:get(<<"access_token">>,Map))),
-		persistent_term:put(tip_uri_base,LoginURIBase),
-		?L_I("TIP Logged in.~n"),
+		case httpc:request(post, {LoginURI, [],["application/json"],LoginPassword}, [], []) of
+			{ ok, { {_,200,_},_Headers,Body}} ->
+				Map = jiffy:decode(Body,[return_maps]),
+				persistent_term:put(tip_access_token,binary_to_list(maps:get(<<"access_token">>,Map))),
+				persistent_term:put(tip_uri_base,LoginURIBase),
+				ok;
+			Error ->
+				?L_IA("OWLS cannot access the TIP controller. Error=~p",[Error])
+		end,
 		ok
 	catch
 		_:_ ->

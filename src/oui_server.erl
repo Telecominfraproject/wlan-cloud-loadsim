@@ -335,7 +335,7 @@ refresh(State,_Pid) ->
 					_ = ets:tab2file(?OUI_LOOKUP_TABLE,	State#oui_server_state.oui_tab_filename),
 					_ = ets:tab2file(?MAKER_LOOKUP_TABLE,	State#oui_server_state.maker_tab_filename),
 					{ AllOuis , AllMakers } = set_keys(),
-					file:delete(latest_filename()),
+					_ = file:delete(latest_filename()),
 					gen_server:cast(State#oui_server_state.service_pid,{replace,AllOuis,AllMakers,self()});
 				Error ->
 					?L_IA("Please refresh OUI lists later.",[Error])

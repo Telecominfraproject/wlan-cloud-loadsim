@@ -56,7 +56,7 @@ login(SimName)->
 		LoginURIBase = "https://" ++ ServerName ++ ":" ++ integer_to_list(tip_port()),
 		LoginURI =  LoginURIBase ++ loginEndpoint(),
 		LoginPassword = loginUserAndPassword(),
-		case httpc:request(post, {LoginURI, [],["application/json"],LoginPassword}, [], []) of
+		_ = case httpc:request(post, {LoginURI, [],["application/json"],LoginPassword}, [], []) of
 			{ ok, { {_,200,_},_Headers,Body}} ->
 				Map = jiffy:decode(Body,[return_maps]),
 				persistent_term:put(tip_access_token,binary_to_list(maps:get(<<"access_token">>,Map))),

@@ -23,7 +23,7 @@ init([]) ->
 	Processes = case utils:app_env(role,undefined) of
 		manager ->
 			?L_I("Simulation Manager starting."),
-			should_i_run_a_script(),
+			_ = should_i_run_a_script(),
 			node_finder:creation_info() ++
 			manager:creation_info() ++
 			manager_rest_api:creation_info() ++

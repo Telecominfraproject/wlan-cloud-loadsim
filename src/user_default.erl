@@ -551,7 +551,7 @@ run_script(ScriptName) ->
 				case filelib:is_file(CACert) andalso filelib:is_file(CAKey) of
 					true ->
 						try
-							inventory:import_raw_ca(CAName,CAPassword,CAKey,CACert),
+							_ = inventory:import_raw_ca(CAName,CAPassword,CAKey,CACert),
 							Nodes = wait_for_nodes(),
 							Simulation = #simulation{ name = utils:safe_binary(SimName),
 							                          ca = utils:safe_binary(CAName),

@@ -22,7 +22,8 @@ init([]) ->
 	persistent_term:put(web_socket_pids,sets:new()),
 	Processes = case utils:app_env(role,undefined) of
 		manager ->
-			?L_I("Simulation Manager starting."),
+			Flags = init:get_arguments(),
+			?L_IA("Simulation Manager starting. Args='~p'",[Flags]),
 			_ = should_i_run_a_script(),
 			node_finder:creation_info() ++
 			manager:creation_info() ++
@@ -46,7 +47,7 @@ init([]) ->
 			node_stats:creation_info() ++
 			animals:creation_info() ;
 		pseudo ->
-			?L_I("Pseudo Node starting."),
+			?L_I("Monitor Node starting."),
 			node_stats:creation_info();
 		undefined ->
 			lager:error("No role has been defined in configuration (must be manager or node)")
@@ -56,7 +57,9 @@ init([]) ->
 should_i_run_a_script() ->
 	case init:get_argument(sim) of
 		{ok,[[Script]]} ->
+			?L_IA("OWLS will be running script '~p'.",[Script]),
 			timer:apply_after(30*1000,user_default,run_script,[Script]);
 		_ ->
+			?L_I("OWLS will not be running a script."),
 			ok
 	end.

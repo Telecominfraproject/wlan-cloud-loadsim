@@ -61,7 +61,7 @@ docker run  -d -p 9091:9090 --init \
             --volume="$PWD/ssl:/etc/ssl/certs" \
             --volume="$PWD/docker_logs_manager:/app_data/logs" \
             --volume="$PWD/scripts:/scripts" \
-            -e ERL_NODE_NAME="mgr@mgr.owls.net" -e ERL_OPTIONS="-noshell -noinput -tipauth 2 -tipapi $TIP_API_HOST -sim $SIM_SCRIPT " -e ERL_NODE_TYPE="manager" \
+            -e ERL_NODE_NAME="mgr@mgr.owls.net" -e ERL_OPTIONS="-noshell -noinput -tipauth 1 -tipapi $TIP_API_HOST -sim $SIM_SCRIPT " -e ERL_NODE_TYPE="manager" \
             --ip="172.21.10.2" $HOSTNAMES \
             --name="manager" $DOCKER_NAME
 
@@ -70,7 +70,7 @@ docker run  -d --init \
             --network=owls_net \
             --volume="$PWD/ssl:/etc/ssl/certs" \
             --volume="$PWD/docker_logs_node1:/app_data/logs" \
-            -e ERL_NODE_NAME="node1@mgr.owls.net" -e ERL_OPTIONS="-noshell -noinput -tipauth 2 -tipapi $TIP_API_HOST" -e ERL_NODE_TYPE="node" \
+            -e ERL_NODE_NAME="node1@mgr.owls.net" -e ERL_OPTIONS="-noshell -noinput -tipauth 1 -tipapi $TIP_API_HOST" -e ERL_NODE_TYPE="node" \
             --ip="172.21.10.3" $HOSTNAMES \
             --name="node1" $DOCKER_NAME
 

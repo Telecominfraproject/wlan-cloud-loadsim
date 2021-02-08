@@ -308,9 +308,13 @@ DOCKER_NAME=$HUBNAME/$IMAGE_NAME
 
 NET_NAME=owls_net
 # You must set this to the resolvable name of your TIP controller
-TIP_CONTROLLER_NAME=debfarm1-node-a.arilia.com
-# You must set this to the IP address of your TIP controller
+TIP_CONTROLLER_HOST=debfarm1-node-a.arilia.com
 TIP_CONTROLLER_IP=10.3.11.1
+# This is the name of the host providing API access. In some cases, it may be the same as the TIP controller host name
+TIP_API_HOST=debfarm1-node-a.arilia.com
+TIP_API_IP=10.3.11.1
+
+SIM_SCRIPT=/scripts/simulation.yaml
 
 # clean networks and create the testing network
 docker network prune --force
@@ -332,37 +336,42 @@ rm -rf docker_logs_node1
 mkdir docker_logs_manager
 mkdir docker_logs_node1
 
-HOSTNAMES="--add-host mgr.owls.net:172.21.10.2 --add-host node1.owls.net:172.21.10.3 --add-host $TIP_CONTROLLER_NAME:$TIP_CONTROLLER_IP"
+HOSTNAMES="--add-host mgr.owls.net:172.21.10.2 --add-host node1.owls.net:172.21.10.3 --add-host $TIP_CONTROLLER_HOST:$TIP_CONTROLLER_IP --add-host $TIP_API_HOST:$TIP_API_IP"
 
 #
-# A simulation file is used to describe how a simulation should run. Here is the content...
+# A simulation file called sim1.yaml is used to describe how a simulation should run. Here is the content...
 #
 # simulation:
 #   name: sim1
 #   ca:
 #     name: tip1
-#     cert: tipcert.pem   (this file should be in the $PWD/ssl dir)
-#     key: tipkey.pem     (this file should be in the $PWD/ssl dir)
+#     cert: /etc/ssl/tipcert.pem   (this file should be in the $PWD/ssl dir)
+#     key: /etc/ssl/tipkey.pem     (this file should be in the $PWD/ssl dir)
 #     password: mypassword
 #   server: (should be the same name as TIP_CONTROLLER_NAME
 #   port: 6643
 #   devices: 10
 #
+# To run a script, please replace the host line with this one in your manager section
+#
+# -e ERL_NODE_NAME="mgr@mgr.owls.net" -e ERL_OPTIONS="-noshell -noinput -tipauth 1 -tipapi $TIP_API_HOST -sim $SIM_SCRIPT " -e ERL_NODE_TYPE="manager" \
 
+#start manager node
 docker run  -d -p 9091:9090 --init \
             --network=owls_net \
             --volume="$PWD/ssl:/etc/ssl/certs" \
             --volume="$PWD/docker_logs_manager:/app_data/logs" \
             --volume="$PWD/scripts:/scripts" \
-            -e ERL_NODE_NAME="mgr@mgr.owls.net" -e ERL_OPTIONS="-noshell -noinput" -e ERL_NODE_TYPE="manager" -e TIP_AUTH="2" \
+            -e ERL_NODE_NAME="mgr@mgr.owls.net" -e ERL_OPTIONS="-noshell -noinput -tipauth 1 -tipapi $TIP_API_HOST -sim $SIM_SCRIPT" -e ERL_NODE_TYPE="manager" \
             --ip="172.21.10.2" $HOSTNAMES \
             --name="manager" $DOCKER_NAME
 
+#start simulation node
 docker run  -d --init \
             --network=owls_net \
             --volume="$PWD/ssl:/etc/ssl/certs" \
             --volume="$PWD/docker_logs_node1:/app_data/logs" \
-            -e ERL_NODE_NAME="node1@mgr.owls.net" -e ERL_OPTIONS="-noshell -noinput" -e ERL_NODE_TYPE="node" -e TIP_AUTH="2" \
+            -e ERL_NODE_NAME="node1@mgr.owls.net" -e ERL_OPTIONS="-noshell -noinput -tipauth 1 -tipapi $TIP_API_HOST" -e ERL_NODE_TYPE="node" \
             --ip="172.21.10.3" $HOSTNAMES \
             --name="node1" $DOCKER_NAME
 
@@ -374,18 +383,24 @@ The is the name of the network created to contain all the nodes participating in
 #### DOCKER_NAME
 This is the name of the docker image on dockerhub. You should not change this image unless you are an expert or have beene asked by one of us to do it.
 
-#### TIP_CONTROLLER_NAME
+#### TIP_CONTROLLER_HOST
 The tip FQDN. The FQDN is only used in the creation of the simulation. This name should resolve on your network. The docker image does not have or need to resolve this.
 
 #### TIP_CONTROLLER_IP
 The IPv4 of the TIP Controller. This is the IP the simulation nodes will try to reach.
 
+#### TIP_API_HOST
+The hostname of the TIP API Endpoint. This _could_ be the same as the TIP_CONTROLLER_HOST, depending on the deployment style you are using.
+
+#### TIP_API_IP
+The IPv4 of the TIP API Endpoint.
+
 #### TIP_AUTH
-The first version of this software was built for a pre-release of the TIP controller which used an older form of authentication. You should set this to "1" if you use the old software, or "2" if you use the latest version.
+The first version of this software was built for a pre-release of the TIP controller which used an older form of authentication. You should set this to "1" if you use the community software, or "2" if you use the proprietary version.
 
 #### SIM_SCRIPT
 If you want to run an automated script, you should use this option and put the file name where this script is. On docker, your should put this 
-file in your $PWD/script directory, in your `simulation.yaml` file, the name then becomes `/scripts/<name>`.
+file in your $PWD/script directory, in your `simulation.yaml` file, the name then becomes `/scripts/simulation.yaml`. If you dono want to run a script, you must remove the following from your docker line in the manager section: `-sim $SIM_SCRIPT`.
 
 ### What this script does...
 This script first removes all unneeded networks. It then creates the docker network that this simulation will be using. After this, the manager and node1 container will be stopped if they are running (from a aprevious run for example or an older version). The old containers are then removed. The log directory for each node is then created. `HOSTNAME` simply declares the hosts in the simulation. After which, the manager node and the simulation node are created. The script wil launch 2 containers: manager and node1. 
@@ -433,12 +448,14 @@ line must be something like `/scripts/simulation.yaml`.
 
 Your docker_run_net.sh file should have the following in your manager node section:
 ```
+SIM_SCRIPT=/scripts/simulation.yaml
+
 docker run  -d -p 9091:9090 --init \
             --network=owls_net \
             --volume="$PWD/ssl:/etc/ssl/certs" \
             --volume="$PWD/docker_logs_manager:/app_data/logs" \
             --volume="$PWD/scripts:/scripts" \
-            -e ERL_NODE_NAME="mgr@mgr.owls.net" -e ERL_OPTIONS="-noshell -noinput" -e ERL_NODE_TYPE="manager" -e TIP_AUTH="2" -e SIM_SCRIPT="/scripts/sim1.yaml" \
+            -e ERL_NODE_NAME="mgr@mgr.owls.net" -e ERL_OPTIONS="-noshell -noinput -tipauth 1 -tipapi $TIP_API_HOST -sim $SIM_SCRIPT" -e ERL_NODE_TYPE="manager" \
             --ip="172.21.10.2" $HOSTNAMES \
             --name="manager" $DOCKER_NAME
 ```

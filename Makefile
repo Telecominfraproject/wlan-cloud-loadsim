@@ -1,6 +1,6 @@
 PROJECT = owls
 PROJECT_DESCRIPTION = OpenWiFi Load Simulator (OWLS)
-PROJECT_VERSION = 0.3.0
+PROJECT_VERSION = 0.3.1
 
 DEPS = lager gpb jiffy cowlib ranch gun cowboy rec2json uuid yamerl jsx
 

@@ -683,7 +683,7 @@ create_client(CAInfo,SimName,Attributes)->
 			csr = ClientCertCsrData
 		},
 		% io:format(">>>SERIAL: ~p~n",[Serial]),
-		R = db_add_record(Client),
+		_R = db_add_record(Client),
 		% io:format("RESULT>>>=~p~n",[R]),
 		ok
 	catch
@@ -918,7 +918,7 @@ db_get_record(R) when is_record(R,client_info)->
 	                    end) of
 		{atomic,[Record]} ->
 			{ok,Record};
-		Error ->
+		_Error ->
 			{error,unknown}
 	end.
 

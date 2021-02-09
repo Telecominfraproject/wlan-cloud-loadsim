@@ -54,7 +54,7 @@ do(Request,APS)->
 % log_transact(ID,Params,APS)->
 %	io:format("~p: TRANSACTION(~p): ~p~n",[APS#ap_state.id,ID,Params]).
 
-process_monitor([NameSpace, LocalTableName, TableParameters] = _Params) ->
+process_monitor([_NameSpace, _LocalTableName, TableParameters] = _Params) ->
 	MonRes = maps:fold(fun(K,V,A) ->
 							[{ K, V}|A]
 						end,[],TableParameters),

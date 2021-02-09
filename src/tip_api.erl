@@ -36,11 +36,17 @@ loginUserAndPassword() ->
 	end.
 
 get_api_endpoint_name(Sim) ->
-	case init:get_argument(tipapi) of
+	TmpEndPoint = case init:get_argument(tipapi) of
 		{ok,[[APIEndPoint]]} ->
 			APIEndPoint;
 		_ ->
 			binary_to_list(Sim#simulation.opensync_server_name)
+	end,
+	case init:get_argument(tipport) of
+		{ok,[[APIPort]]} ->
+			TmpEndPoint ++ ":" ++ APIPort;
+		_ ->
+			TmpEndPoint
 	end.
 
 % Options foe SSL: {cacerts, client_cacerts()}

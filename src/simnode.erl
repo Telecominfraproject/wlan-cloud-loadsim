@@ -199,8 +199,7 @@ handle_cast(_Request, State = #simnode_state{}) ->
 	{noreply, NewState :: simnode_state(), timeout() | hibernate} |
 	{stop, Reason :: term(), NewState :: simnode_state()}).
 handle_info({nodedown,Node},State=#simnode_state{})->
-	io:format("Manager ~p is going down.~n",[Node]),
-	_=lager:info("Manager ~p is going down.",[Node]),
+	?L_IA("Manager ~p is going down.",[Node]),
 	{noreply,State};
 handle_info(_Info, State = #simnode_state{}) ->
 	{noreply, State}.

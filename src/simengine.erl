@@ -646,7 +646,7 @@ handle_info({ SimName,Node,MsgType,TimeStamp,JobId}=_Msg, State = #simengine_sta
 		  {noreply,NewState}
 	catch
 		_:_ = Error ->
-			io:format("Failed ~p processing INFO MESSAGE~n",[Error]),
+			?L_IA("Failed ~p processing INFO MESSAGE~n",[Error]),
 			{ noreply, State }
 	end;
 
@@ -669,7 +669,7 @@ handle_info({'DOWN', _Ref, process, Pid, _Why}, State = #simengine_state{}) ->
 	{noreply, State#simengine_state{ sim_states = N1 }};
 
 handle_info(Info, State = #simengine_state{}) ->
-	io:format("SIMENGINE MESSAGE: ~p~n",[Info]),
+	?L_IA("SIMENGINE MESSAGE: ~p",[Info]),
 	{noreply, State}.
 
 %% @private
@@ -757,7 +757,7 @@ stop_assets(SimInfo,Attributes,SimEnginePid,{M,F,A}=_Notification,JobId)->
 		R = rpc:call(Node,simnode,stop,[all,Attributes#{ callback => {SimEnginePid,{SimInfo#simulation.name, Node,stop_done,erlang:timestamp(),JobId}} }]),
 		[R|Acc] end,[],SimInfo#simulation.nodes)),
 	apply(M,F,A),
-	io:format("Stopping assets~n"),
+	?L_IA("~s: Stopped all assets.",[binary_to_list(SimInfo#simulation.name)]),
 	ok.
 
 -spec pause_assets(SimInfo::simulation(), Attributes::#{atom()=>term()}, ManagerPis::pid(),Notification::notification_cb(),JobId::binary())->ok.
@@ -767,6 +767,7 @@ pause_assets(SimInfo,Attributes,SimEnginePid,{M,F,A}=_Notification,JobId)->
 		R = rpc:call(Node,simnode,pause,[all,Attributes#{ callback => {SimEnginePid,{SimInfo#simulation.name, Node,pause_done,erlang:timestamp(),JobId}} }]),
 		[R|Acc] end,[],SimInfo#simulation.nodes)),
 	apply(M,F,A),
+	?L_IA("~s: Paused all assets.",[binary_to_list(SimInfo#simulation.name)]),
 	ok.
 
 -spec cancel_assets(SimInfo::simulation(), Attributes::#{atom()=>term()}, ManagerPis::pid(),Notification::notification_cb(),JobId::binary())->ok.
@@ -776,6 +777,7 @@ cancel_assets(SimInfo,Attributes,SimEnginePid,{M,F,A}=_Notification,JobId)->
 		R = rpc:call(Node,simnode,cancel,[all,Attributes#{ callback => {SimEnginePid,{SimInfo#simulation.name, Node,cancel_done,erlang:timestamp(),JobId}} }]),
 		[R|Acc] end,[],SimInfo#simulation.nodes)),
 	apply(M,F,A),
+	?L_IA("~s: Canceled all assets.",[binary_to_list(SimInfo#simulation.name)]),
 	ok.
 
 -spec restarts_assets(SimInfo::simulation(), Attributes::#{atom()=>term()}, ManagerPis::pid(),Notification::notification_cb(),JobId::binary())->ok.
@@ -785,6 +787,7 @@ restarts_assets(SimInfo,Attributes,SimEnginePid,{M,F,A}=_Notification,JobId)->
 		R = rpc:call(Node,simnode,restart,[all,Attributes#{ callback => {SimEnginePid,{SimInfo#simulation.name, Node,restart_done,erlang:timestamp(),JobId}} }]),
 		[R|Acc] end,[],SimInfo#simulation.nodes)),
 	apply(M,F,A),
+	?L_IA("~s: Restarted all assets.",[binary_to_list(SimInfo#simulation.name)]),
 	ok.
 
 -spec split_build_clients( SimInfo::simulation(), NotificationCB::notification_cb())->ok.

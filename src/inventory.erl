@@ -645,12 +645,14 @@ create_client(CAInfo,SimName,Attributes)->
 		CaBase = binary_to_list(CAInfo#ca_info.dir_name),
 		CreateClientScriptFileName = filename:join([CaBase,"ssl-create-client.sh"]),
 		_Result = os:cmd(CreateClientScriptFileName),
-		%% io:format("RESULT: ~p~n",[Result]),
+		% io:format("RESULT: ~p~n",[Result]),
 
 		_ = file:rename( filename:join([CaBase,"clientcert.csr"]),ClientCertCsr ),
 		_ = file:rename( filename:join([CaBase,"clientcert.pem"]),ClientCertPem ),
 		_ = file:rename( filename:join([CaBase,"clientkey.pem"]),ClientKeyPem ),
 		_ = file:rename( filename:join([CaBase,"clientkey_dec.pem"]),ClientKeyDec ),
+
+		% io:format("RESULT: 2~n"),
 
 		{ok,ClientCertCsrData} = file:read_file(ClientCertCsr),
 		{ok,ClientKeyDecData} = utils:pem_to_key(ClientKeyDec),
@@ -659,8 +661,8 @@ create_client(CAInfo,SimName,Attributes)->
 
 		WiFiClients = lists:sort(lists:flatten(gen_wlan_clients(Bands))),
 		LanClients = lists:sort(lists:flatten(gen_lan_clients([<<"eth0">>,<<"eth1">>]))),
-		%% io:format(">>>~p~n",[WiFiClients]),
 
+		% io:format("RESULT: 3~n"),
 		[X1a,X1b,$:,X2a,X2b,$:,X3a,X3b,$:,X4a,X4b,$:,X5a,X5b,$:,X6a,_X6b] = string:to_lower(binary_to_list(Mac)),
 		Client = #client_info{
 			name = Serial,
@@ -680,12 +682,13 @@ create_client(CAInfo,SimName,Attributes)->
 			cacert = CAInfo#ca_info.cert,
 			csr = ClientCertCsrData
 		},
-		%% io:format(">>>SERIAL: ~p~n",[Serial]),
-		_R = db_add_record(Client),
-		%% ("RESULT>>>=~p~n",[R]),
+		% io:format(">>>SERIAL: ~p~n",[Serial]),
+		R = db_add_record(Client),
+		% io:format("RESULT>>>=~p~n",[R]),
 		ok
 	catch
 		_:_ ->
+			?L_IA("INVENTORY: Failed to create client: ~p.",[Attributes]),
 			{ error , cannot_create_client }
 	end.
 
@@ -749,7 +752,7 @@ generate_single_client(HardwareId,CAInfo,SimName,Index,Attributes)->
 			{ok,[OUI|_]} = oui_server:lookup_vendor(HardwareInfo#hardware_info.vendor),
 			<<A,B,C,D,E,F>> = OUI,
 			Prefix = [A,B,$:,C,D,$:,E,F,$:],
-			%% io:format("BATCH: ca=~p prefix=~p start=~p howmany=~p attrs=~p notify=~p~n",[CAInfo,Prefix,Start,HowMany,Attributes,Notification]),
+			%% io:format("BATCH: ca=~p prefix=~p attrs=~p~n",[CAInfo,Prefix,Attributes]),
 			[X1,X2,X3,X4,X5] = lists:flatten(string:pad(integer_to_list(Index,16),5,leading,$0)),
 			#{ serial := Serial, name := Name } = Attributes,
 			[A,B,$:,C,D,$:,E,F,$:] = Prefix,
@@ -916,7 +919,6 @@ db_get_record(R) when is_record(R,client_info)->
 		{atomic,[Record]} ->
 			{ok,Record};
 		Error ->
-			io:format(">>>ERROR: ~p~n",[Error]),
 			{error,unknown}
 	end.
 

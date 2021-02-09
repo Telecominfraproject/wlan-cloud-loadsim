@@ -324,6 +324,7 @@ process_received_data (Data, APS) ->
 		end
 	catch
 		error:{N,Error} ->
+			io:format("ERROR>>> DATA=~p~n",[Data]),
 			?L_IA("JSON decode error: '~p' after ~p bytes",[Error,N]),
 			APS#ap_state{ trail_data = Data };
 		_:_ ->

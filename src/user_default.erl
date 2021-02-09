@@ -483,7 +483,7 @@ auto(NumberOfDevices)->
 	                          ca = BinCAName,
 	                          num_devices = NumberOfDevices,
 	                          opensync_server_port = 6643,
-	                          opensync_server_name = <<"opensync-controller.wan.local">>,
+	                          opensync_server_name = <<"opensync-controller.wlan.local">>,
 	                          nodes = Nodes  },
 	_ = simengine:create(Simulation),
 	io:format("Creating assets for simulation..."),

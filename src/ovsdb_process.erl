@@ -54,10 +54,12 @@ do(Request,APS)->
 % log_transact(ID,Params,APS)->
 %	io:format("~p: TRANSACTION(~p): ~p~n",[APS#ap_state.id,ID,Params]).
 
-process_monitor([_NameSpace, _LocalTableName, TableParameters] = _Params) ->
-	maps:fold(fun(K,V,A) ->
+process_monitor([NameSpace, LocalTableName, TableParameters] = _Params) ->
+	MonRes = maps:fold(fun(K,V,A) ->
 							[{ K, V}|A]
-						end,[],TableParameters).
+						end,[],TableParameters),
+	% io:format("MONITOR: ~p, ~p, ~p =~p~n",[NameSpace, LocalTableName, TableParameters,MonRes]),
+	MonRes.
 
 -spec report_monitored_table(TableName::binary(),APS::ap_state()) -> { Response::#{}, NewState::ap_state()}.
 %% {"id":"162","result":{"Wifi_Inet_State":{"8394af1b-d230-4c60-a801-a14e74711fd2":{"new":{"dhcpd":["map",[]],"if_name":"wwan","upnp_mode":["set",[]],"softwds_mac_addr":["set",[]],"if_type":"eth","enabled":false,"softwds_wrap":false,"vlan_id":["set",[]],"netmask":["set",[]],"NAT":false,"gre_remote_inet_addr":["set",[]],"if_uuid":"","inet_addr":["set",[]],"_version":["uuid","80447384-eefe-4b35-9a4b-7daf3dd789ff"],"hwaddr":"","network":false,"mtu":["set",[]],"parent_ifname":["set",[]],"dns":["map",[]],"broadcast":["set",[]],"gre_ifname":["set",[]],"dhcpc":["map",[]],"ip_assign_scheme":"dhcp","gateway":["set",[]],"inet_config":["uuid","cccc75a7-e427-4e2c-9268-de3e384c3d19"],"gre_local_inet_addr":["set",[]]}},"89a02462-02b6-4f20-840b-ca8f4713916c":{"new":{"dhcpd":["map",[]],"if_name":"wan","upnp_mode":["set",[]],"softwds_mac_addr":["set",[]],"if_type":"bridge","enabled":true,"softwds_wrap":false,"vlan_id":["set",[]],"netmask":"255.255.255.0","NAT":true,"gre_remote_inet_addr":["set",[]],"if_uuid":"","inet_addr":"10.20.0.113","_version":["uuid","7dabbe2f-560d-4307-985a-c6de9e3cbd1b"],"hwaddr":"58:ef:68:62:e7:f1","network":true,"mtu":1500,"parent_ifname":["set",[]],"dns":["map",[["primary","10.20.0.1"]]],"broadcast":["set",[]],"gre_ifname":["set",[]],"dhcpc":["map",[]],"ip_assign_scheme":"dhcp","gateway":"10.20.0.1","inet_config":["uuid","01524ea7-3d40-42bd-8875-aa8f36eece37"],"gre_local_inet_addr":["set",[]]}},"87eb6ee0-0f16-41d8-abc9-d2dedf804454":{"new":{"dhcpd":["map",[["lease_time","12h"],["start","100"],["stop","150"]]],"if_name":"lan","upnp_mode":["set",[]],"softwds_mac_addr":["set",[]],"if_type":"bridge","enabled":true,"softwds_wrap":false,"vlan_id":["set",[]],"netmask":"255.255.255.0","NAT":false,"gre_remote_inet_addr":["set",[]],"if_uuid":"","inet_addr":"192.168.1.1","_version":["uuid","f45ab5d5-aa80-4771-86e4-3648641b5b26"],"hwaddr":"58:ef:68:62:e7:f0","network":true,"mtu":1500,"parent_ifname":["set",[]],"dns":["map",[]],"broadcast":["set",[]],"gre_ifname":["set",[]],"dhcpc":["map",[]],"ip_assign_scheme":"static","gateway":["set",[]],"inet_config":["uuid","df8af6c1-0a3c-4064-825d-0d28d300092d"],"gre_local_inet_addr":["set",[]]}},"b605a1a6-b9bf-469b-a39b-851739b306af":{"new":{"dhcpd":["map",[]],"if_name":"wan6","upnp_mode":["set",[]],"softwds_mac_addr":["set",[]],"if_type":"eth","enabled":false,"softwds_wrap":false,"vlan_id":["set",[]],"netmask":["set",[]],"NAT":false,"gre_remote_inet_addr":["set",[]],"if_uuid":"","inet_addr":["set",[]],"_version":["uuid","8ff7bdc8-5824-4572-9857-0716da75d2e6"],"hwaddr":"","network":false,"mtu":["set",[]],"parent_ifname":["set",[]],"dns":["map",[]],"broadcast":["set",[]],"gre_ifname":["set",[]],"dhcpc":["map",[]],"ip_assign_scheme":["set",[]],"gateway":["set",[]],"inet_config":["uuid","3c501c0b-bc2b-41f6-8d15-753775fc20a8"],"gre_local_inet_addr":["set",[]]}}}},"error":null}
@@ -66,11 +68,15 @@ report_monitored_table(<<"DHCP_leased_IP">>,APS) ->
 report_monitored_table(<<"Wifi_Associated_Clients">>,APS) ->
 	{#{},APS};
 report_monitored_table(TableName,APS) ->
-	TableData = maps:get(TableName,APS#ap_state.tables),
-	Res = maps:fold(  fun(K,V,A) ->
-											maps:put(K,#{ <<"new">> => maps:remove(<<"_uuid">>,V) },A)
-										end,#{}, TableData),
-	{#{ TableName => Res },APS}.
+	case maps:get(TableName,APS#ap_state.tables,undefined) of
+		undefined ->
+			{#{},APS};
+		TableData ->
+			Res = maps:fold(  fun(K,V,A) ->
+													maps:put(K,#{ <<"new">> => maps:remove(<<"_uuid">>,V) },A)
+												end,#{}, TableData),
+			{#{ TableName => Res },APS}
+	end.
 
 
 

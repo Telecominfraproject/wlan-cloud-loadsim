@@ -722,6 +722,7 @@ push_assets(SimInfo,_Attributes,SimEnginePid,{M,F,A}=_Notification,JobId)->
 	Splits = utils:split_into( SimInfo#simulation.nodes, Clients),
 	?L_IA("~s: Nodes: ~p.",[binary_to_list(SimInfo#simulation.name),SimInfo#simulation.nodes]),
 	?L_IA("~s: Splits: ~p.",[binary_to_list(SimInfo#simulation.name),Splits]),
+	?L_IA("~s: Clients: ~p.",[binary_to_list(SimInfo#simulation.name),Clients]),
 	_ = lists:reverse(lists:foldl(fun({N,C},Acc) ->
 													Config = #{ sim_name => SimInfo#simulation.name,
 													            sim_ca => SimInfo#simulation.ca,

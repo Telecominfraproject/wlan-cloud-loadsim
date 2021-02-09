@@ -223,10 +223,12 @@ handle_cast (_,State) ->
 
 -spec handle_call (Request :: term(), From :: {pid(),Tag::term()}, State :: #state{}) -> {reply, Reply :: term(), NewState :: #state{}} | {stop, Reason :: term(), Reply :: term(), NewState :: #state{}}.
 handle_call ({set_config, Cfg},_From,#state{ state = init }=State) ->
+	?RL_I("Pushed received..."),
 	spawn_link(?MODULE,create_aps,[Cfg,self()]),
 	{reply, ok, State#state{ config = Cfg }};
 
 handle_call ({api_cmd_start,Which,Options},_From, State) ->
+	?RL_I("Start received..."),
 	case State#state.state of
 		configured ->
 			spawn_link(?MODULE,start_aps,[Which,Options,State#state.clients_pid]),
@@ -246,6 +248,7 @@ handle_call ({api_cmd_start,Which,Options},_From, State) ->
 	end;
 
 handle_call ({api_cmd_stop, Which, Options},_,State) ->
+	?RL_I("Stop received..."),
 	case State#state.state of
 		configured ->
 			spawn_link(?MODULE,stop_aps,[Which,Options,State#state.clients_pid]),

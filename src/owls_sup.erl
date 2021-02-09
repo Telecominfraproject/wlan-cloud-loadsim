@@ -58,7 +58,7 @@ should_i_run_a_script() ->
 	case init:get_argument(sim) of
 		{ok,[[Script]]} ->
 			?L_IA("OWLS will be running script '~p'.",[Script]),
-			timer:apply_after(30*1000,user_default,run_script,[Script]);
+			timer:apply_after(45*1000,user_default,run_script,[Script]);
 		_ ->
 			?L_I("OWLS will not be running a script."),
 			ok

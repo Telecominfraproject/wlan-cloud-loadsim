@@ -721,14 +721,13 @@ push_assets(SimInfo,_Attributes,SimEnginePid,{M,F,A}=_Notification,JobId)->
 	{ok,Clients} = inventory:list_sim_clients(SimInfo#simulation.name),
 	Splits = utils:split_into( SimInfo#simulation.nodes, Clients),
 	_ = lists:reverse(lists:foldl(fun({N,C},Acc) ->
-													%% io:format(">>>pushing 2~n"),
 													Config = #{ sim_name => SimInfo#simulation.name,
 													            sim_ca => SimInfo#simulation.ca,
 													            clients => C,
 																			ovsdb_server_name => SimInfo#simulation.opensync_server_name,
 																			ovsdb_server_port => SimInfo#simulation.opensync_server_port,
 																			callback => { SimEnginePid, {SimInfo#simulation.name, N,push_done,erlang:timestamp(),JobId} }},
-													io:format("SIMENGINE: Pushing ~p entries to ~p.~n",[length(C),N]),
+													?L_IA("SIMENGINE: Pushing ~p entries to ~p.",[length(C),N]),
 													R = rpc:call(N,simnode,set_configuration,[Config]),
 													[R|Acc]
 												end,[],Splits)),

@@ -711,17 +711,15 @@ prepare_assets(SimInfo,_Attributes,SimEnginePid,{M,F,A}=_Notification,JobId)->
 	set_assets_created(SimInfo,true),
 	SimEnginePid ! {SimInfo#simulation.name,node(),prepare_done,StartedAt,JobId},
 	erlang:apply(M,F,A),
+	?L_IA("~s: Prepared all assets.",[binary_to_list(SimInfo#simulation.name)]),
 	ok.
 
 -spec push_assets(SimInfo::simulation(), Attributes::#{atom()=>term()}, ManagerPis::pid(),Notification::notification_cb(),JobId::binary())->ok.
 push_assets(SimInfo,_Attributes,SimEnginePid,{M,F,A}=_Notification,JobId)->
-	?L_IA("~s: Preparing all assets.",[binary_to_list(SimInfo#simulation.name)]),
-	%% io:format(">>>pushing 1~n"),
+	?L_IA("~s: Pushing all assets.",[binary_to_list(SimInfo#simulation.name)]),
 	timer:sleep(2000),    %% wait 2 seconds... this will allow calling process some time to complete
 	{ok,Clients} = inventory:list_sim_clients(SimInfo#simulation.name),
 	Splits = utils:split_into( SimInfo#simulation.nodes, Clients),
-	%% io:format("CLIENTS: ~p~n",[Clients]),
-	%% io:format("SPLITS: ~p~n",[Splits]),
 	_ = lists:reverse(lists:foldl(fun({N,C},Acc) ->
 													%% io:format(">>>pushing 2~n"),
 													Config = #{ sim_name => SimInfo#simulation.name,
@@ -730,13 +728,12 @@ push_assets(SimInfo,_Attributes,SimEnginePid,{M,F,A}=_Notification,JobId)->
 																			ovsdb_server_name => SimInfo#simulation.opensync_server_name,
 																			ovsdb_server_port => SimInfo#simulation.opensync_server_port,
 																			callback => { SimEnginePid, {SimInfo#simulation.name, N,push_done,erlang:timestamp(),JobId} }},
-													%% io:format("SIMENGINE: Pushing ~p entries to ~p.~n",[length(C),N]),
+													io:format("SIMENGINE: Pushing ~p entries to ~p.~n",[length(C),N]),
 													R = rpc:call(N,simnode,set_configuration,[Config]),
 													[R|Acc]
 												end,[],Splits)),
-	%% io:format(">>>pushing 3~n"),
 	erlang:apply(M,F,A),
-	%% io:format(">>>pushing 4~n"),
+	?L_IA("~s: Pushed all assets.",[binary_to_list(SimInfo#simulation.name)]),
 	ok.
 
 -spec start_assets(SimInfo::simulation(), Attributes::#{atom()=>term()}, ManagerPis::pid(),Notification::notification_cb(),JobId::binary())->ok.
@@ -747,6 +744,7 @@ start_assets(SimInfo,Attributes,SimEnginePid,{M,F,A}=_Notification,JobId)->
 		R = rpc:call(Node,simnode,start,[all,Attributes#{ callback => {SimEnginePid,{SimInfo#simulation.name, Node,start_done,erlang:timestamp(),JobId}} }]),
 		[R|Acc] end,[],SimInfo#simulation.nodes)),
 	apply(M,F,A),
+	?L_IA("~s: Started all assets.",[binary_to_list(SimInfo#simulation.name)]),
 	ok.
 
 -spec stop_assets(SimInfo::simulation(), Attributes::#{atom()=>term()}, ManagerPis::pid(),Notification::notification_cb(),JobId::binary())->ok.

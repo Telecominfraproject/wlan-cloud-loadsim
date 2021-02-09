@@ -720,6 +720,8 @@ push_assets(SimInfo,_Attributes,SimEnginePid,{M,F,A}=_Notification,JobId)->
 	timer:sleep(2000),    %% wait 2 seconds... this will allow calling process some time to complete
 	{ok,Clients} = inventory:list_sim_clients(SimInfo#simulation.name),
 	Splits = utils:split_into( SimInfo#simulation.nodes, Clients),
+	?L_IA("~s: Nodes: ~p.",[binary_to_list(SimInfo#simulation.name),SimInfo#simulation.nodes]),
+	?L_IA("~s: Splits: ~p.",[binary_to_list(SimInfo#simulation.name),Splits]),
 	_ = lists:reverse(lists:foldl(fun({N,C},Acc) ->
 													Config = #{ sim_name => SimInfo#simulation.name,
 													            sim_ca => SimInfo#simulation.ca,

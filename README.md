@@ -174,6 +174,9 @@ create keys and certificates that are compatible with your installation of the T
 the CA key and the certificate. Make sure you have the password you used during that configuration. Usually, that password 
 has been set to 'mypassword'. You will need this information to import your CA in the UI.
 
+## About Certificates
+It's important to understand how certificates are used for this simulation. During a simulation, each device will have its own certificate. However, this certificate must be signed by the same certficate that signed the certificates on your TIP controller. By this time, you have figured how to install your own TIP controller. When you did that, you will run something that creates certificates, probably in a directory called `wlan-pki-cert-scripts`. If you do that, go into your `generated` folder and get the files called `cakey.pem` and `cacert.pem`. These are the files you will use to import as your CA or if you use a simulation, you will copy these files into your `ssl` directory for your simulation folder.
+
 ## Planning the simulation
 In order to create a successful simulation, a bit of planning is necessary. Here is what you will need:
 - 1 `simmanager` node

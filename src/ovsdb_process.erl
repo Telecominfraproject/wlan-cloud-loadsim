@@ -41,9 +41,9 @@ do(#{ <<"method">> := <<"monitor">>, <<"id">> := ID, <<"params">> := Params } = 
 			Response = #{ <<"id">> => ID, <<"result">> => #{}, <<"error">> => null },
 			{ reply , jsx:encode(Response), NewState }
 	end;
-do(#{ <<"method">> := <<"transact">> , <<"id">> := ID, <<"params">> := Params } = _Request, APS ) ->
+do(#{ <<"method">> := <<"transact">> , <<"id">> := ID, <<"params">> := [<<"Open_vSwitch">> | Operations] } = _Request, APS ) ->
 	% log_transact(ID,Params,APS),
-	transact(ID,Params,APS);
+	transact(ID,Operations,APS,[]);
 do(#{ <<"id">> := ID, <<"result">> := _Result, <<"error">> := _Error } = _Request, APS )->
 	?L_IA("~p: OVSDB-REQUEST:Received answer (ignoring): ~p.~n,",[APS#ap_state.id,ID]),
 	{noreply,APS};
@@ -80,9 +80,12 @@ report_monitored_table(TableName,APS) ->
 
 
 
--spec transact( Id::integer(), Params::[], APS::ap_state() ) -> { reply, binary(),NewState::ap_state() } |
+-spec transact( Id::integer(), Params::[], APS::ap_state(), Response::list() ) -> { reply, binary(),NewState::ap_state() } |
 																																{ noreply , NewState::ap_state() }.
-transact( Id, [<<"Open_vSwitch">>, #{ <<"columns">> := Columns, <<"op">> := <<"select">>, <<"table">> := Table , <<"where">> := Where }] = _Params ,APS )->
+transact( Id, [] ,APS, ResponseAcc )->
+	Response = #{ <<"id">> => Id, <<"error">> => null, <<"result">> => lists:reverse(ResponseAcc)},
+	{ reply, jsx:encode(Response),APS};
+transact( Id, [#{ <<"columns">> := Columns, <<"op">> := <<"select">>, <<"table">> := Table , <<"where">> := Where } | MoreOperations ] = _Params ,APS, ResponseAcc )->
 	case lists:member(Table,APS#ap_state.known_table_names) of
 		false ->
 			return_error(Id,<<"Invalid table name.">>,APS);
@@ -96,10 +99,10 @@ transact( Id, [<<"Open_vSwitch">>, #{ <<"columns">> := Columns, <<"op">> := <<"s
 															Acc
 													end
 												end,[],TableData),
-			Response = #{ <<"id">> => Id, <<"error">> => null, <<"result">> => [#{ <<"rows">> => Rows }] },
-			{reply, jsx:encode(Response),APS}
+			Response = #{ <<"rows">> => Rows },
+			transact(Id, MoreOperations, APS, [Response|ResponseAcc])
 	end;
-transact( Id, [<<"Open_vSwitch">>, #{ <<"op">> := <<"select">>, <<"table">> := Table , <<"where">> := Where }] = _Params ,APS )->
+transact( Id, [#{ <<"op">> := <<"select">>, <<"table">> := Table , <<"where">> := Where } | MoreOperations ] = _Params ,APS, ResponseAcc )->
 	case lists:member(Table,APS#ap_state.known_table_names) of
 		false ->
 			return_error(Id,<<"Invalid table name.">>,APS);
@@ -113,10 +116,10 @@ transact( Id, [<<"Open_vSwitch">>, #{ <<"op">> := <<"select">>, <<"table">> := T
 															Acc
 													end
 			                  end,[],TableData),
-			Response = #{ <<"id">> => Id, <<"error">> => null, <<"result">> => [#{ <<"rows">> => Rows }] },
-			{reply, jsx:encode(Response),APS}
+			Response = #{ <<"rows">> => Rows },
+			transact(Id, MoreOperations, APS, [Response|ResponseAcc])
 	end;
-transact( Id, [<<"Open_vSwitch">>, #{ <<"row">> := Row, <<"op">> := <<"update">>, <<"table">> := Table , <<"where">> := Where }] = _Params ,APS )->
+transact( Id, [#{ <<"row">> := Row, <<"op">> := <<"update">>, <<"table">> := Table , <<"where">> := Where } | MoreOperations ] = _Params ,APS, ResponseAcc )->
 	case lists:member(Table,APS#ap_state.known_table_names) of
 		false ->
 			return_error(Id,<<"Invalid table name.">>,APS);
@@ -133,11 +136,11 @@ transact( Id, [<<"Open_vSwitch">>, #{ <<"row">> := Row, <<"op">> := <<"update">>
 													end
 			                  end,{#{},0},TableData),
 			%% io:format("~n~n>>>> NEW TABLE: ~n~p~n~n",[NewTable]),
-			Response = #{ <<"id">> => Id, <<"error">> => null, <<"result">> => [#{ <<"count">> => Count }] },
+			Response = #{ <<"count">> => Count },
 			check_for_special_values(Table,Row),
-			{reply, jsx:encode(Response),APS#ap_state{ tables = maps:put(Table,NewTable,APS#ap_state.tables), check_monitor_tick = 0 }}
+			transact(Id, MoreOperations, APS#ap_state{ tables = maps:put(Table,NewTable,APS#ap_state.tables), check_monitor_tick = 0 }, [Response|ResponseAcc])
 	end;
-transact( Id, [<<"Open_vSwitch">>, #{ <<"op">> := <<"delete">>, <<"table">> := Table , <<"where">> := Where }] = _Params ,APS )->
+transact( Id, [#{ <<"op">> := <<"delete">>, <<"table">> := Table , <<"where">> := Where }| MoreOperations ] = _Params ,APS, ResponseAcc )->
 	case lists:member(Table,APS#ap_state.known_table_names) of
 		false ->
 			return_error(Id,<<"Invalid table name.">>,APS);
@@ -152,10 +155,10 @@ transact( Id, [<<"Open_vSwitch">>, #{ <<"op">> := <<"delete">>, <<"table">> := T
 																					end
 			                                 end,{#{},0},TableData),
 			%% io:format("~n~n>>>> NEW TABLE: ~n~p~n~n",[NewTable]),
-			Response = #{ <<"id">> => Id, <<"error">> => null, <<"result">> => [#{ <<"count">> => Count }] },
-			{reply, jsx:encode(Response),APS#ap_state{ tables = maps:put(Table,NewTable,APS#ap_state.tables), check_monitor_tick = 0 }}
+			Response = #{ <<"count">> => Count },
+			transact(Id, MoreOperations,APS#ap_state{ tables = maps:put(Table,NewTable,APS#ap_state.tables), check_monitor_tick = 0 },[Response|ResponseAcc])
 	end;
-transact( Id, [<<"Open_vSwitch">>, #{ <<"row">> := Row, <<"op">> := <<"insert">>, <<"table">> := Table }] = _Params ,APS )->
+transact( Id, [#{ <<"row">> := Row, <<"op">> := <<"insert">>, <<"table">> := Table } | MoreOperations ] = _Params ,APS, ResponseAcc )->
 	case lists:member(Table,APS#ap_state.known_table_names) of
 		false ->
 			return_error(Id,<<"Invalid table name.">>,APS);
@@ -164,10 +167,10 @@ transact( Id, [<<"Open_vSwitch">>, #{ <<"row">> := Row, <<"op">> := <<"insert">>
 			NewRow = maps:put(<<"_version">>,utils:create_version(),Row),
 			UUID = utils:uuid_b(),
 			NewTable = maps:put(UUID,NewRow,TableData),
-			Response = #{ <<"id">> => Id, <<"error">> => null, <<"result">> => [#{ <<"uuid">> => [ <<"uuid">>,UUID ]}] },
-			{ reply, jsx:encode(Response), APS#ap_state{ tables = maps:put(Table,NewTable,APS#ap_state.tables), check_monitor_tick = 0 }}
+			Response = #{ <<"uuid">> => [ <<"uuid">>,UUID ]},
+			transact(Id, MoreOperations,APS#ap_state{ tables = maps:put(Table,NewTable,APS#ap_state.tables), check_monitor_tick = 0 },[Response|ResponseAcc])
 	end;
-transact( Id, [<<"Open_vSwitch">>, #{ <<"mutations">> := Mutations, <<"op">> := <<"mutate">>, <<"table">> := Table , <<"where">> := Where }] = _Params ,APS )->
+transact( Id, [#{ <<"mutations">> := Mutations, <<"op">> := <<"mutate">>, <<"table">> := Table , <<"where">> := Where } | MoreOperations ] = _Params ,APS, ResponseAcc )->
 	case lists:member(Table,APS#ap_state.known_table_names) of
 		false ->
 			return_error(Id,<<"Invalid table name.">>,APS);
@@ -182,30 +185,28 @@ transact( Id, [<<"Open_vSwitch">>, #{ <<"mutations">> := Mutations, <<"op">> := 
 															end
 														end,{#{},0},TableData),
 			% io:format("~p: Mutated object: ~p~n",[APS#ap_state.id,NewTable]),
-			Response = #{ <<"id">> => Id, <<"error">> => null, <<"result">> => [#{ <<"count">> => Count }] },
-			{ reply, jsx:encode(Response), APS#ap_state{ tables = maps:put(Table,NewTable,APS#ap_state.tables)}}
+			Response = #{ <<"count">> => Count },
+			transact(Id, MoreOperations, APS#ap_state{ tables = maps:put(Table,NewTable,APS#ap_state.tables)}, [Response|ResponseAcc])
 	end;
-transact( Id, [<<"Open_vSwitch">>, #{ <<"row">> := _Row, <<"op">> := <<"wait">>, <<"table">> := _Table , <<"where">> := _Where }] = _Params ,APS )->
-	return_error(Id,<<"wait not supported">>,APS);
-transact( Id, [<<"Open_vSwitch">>, #{ <<"row">> := _Row, <<"op">> := <<"commit">>, <<"table">> := _Table , <<"where">> := _Where }] = _Params ,APS )->
-	return_error(Id,<<"commit not supported">>,APS);
-transact( Id, [<<"Open_vSwitch">>, #{ <<"row">> := _Row, <<"op">> := <<"abort">>, <<"table">> := _Table , <<"where">> := _Where }] = _Params ,APS )->
-	return_error(Id,<<"abort not supported">>,APS);
-transact( Id, [<<"Open_vSwitch">>, #{ <<"row">> := _Row, <<"op">> := <<"assert">>, <<"table">> := _Table , <<"where">> := _Where }] = _Params ,APS )->
-	return_error(Id,<<"assert not supported">>,APS);
-transact( Id, [<<"Open_vSwitch">>, #{ <<"row">> := _Row, <<"op">> := <<"comment">>, <<"table">> := _Table , <<"where">> := _Where }] = _Params ,APS )->
-	return_error(Id,<<"comment not supported">>,APS);
-transact( Id,[<<"Open_vSwitch">>],APS) ->
-	Response = #{ <<"id">> => Id, <<"result">> => [], <<"error">> => null},
-	{reply, jsx:encode(Response) , APS};
-transact(Id,[ <<"Open_vSwitch">> | Operations ],APS)->
-	{ Res , NewState } = bulk_ops(Operations,{[],0},APS),
-	Response = #{ <<"id">> => Id, <<"error">> => null, <<"result">> => Res },
-	{ reply, jsx:encode(Response), NewState};
-transact(Id,Params,APS)->
-	?L_IA("~n~n>>> BAD TRANSACT: ~p~n~n",[Params]),
-	return_error(Id,<<"Invalid Database, must be Open_vSwitch.">>,APS).
-
+transact( Id, [#{ <<"row">> := _Row, <<"op">> := <<"wait">>, <<"table">> := _Table , <<"where">> := _Where } | MoreOperations ] = _Params ,APS, ResponseAcc )->
+	Response = #{ <<"error">> =><<"wait not supported">> },
+	transact(Id,MoreOperations,APS,[Response|ResponseAcc]);
+transact( Id, [#{ <<"row">> := _Row, <<"op">> := <<"commit">>, <<"table">> := _Table , <<"where">> := _Where } | MoreOperations ] = _Params ,APS, ResponseAcc )->
+	Response = #{ <<"error">> =><<"commit not supported">> },
+	transact(Id,MoreOperations,APS,[Response|ResponseAcc]);
+transact( Id, [#{ <<"row">> := _Row, <<"op">> := <<"abort">>, <<"table">> := _Table , <<"where">> := _Where } | MoreOperations ] = _Params ,APS, ResponseAcc )->
+	Response = #{ <<"error">> =><<"abort not supported">> },
+	transact(Id,MoreOperations,APS,[Response|ResponseAcc]);
+transact( Id, [#{ <<"row">> := _Row, <<"op">> := <<"assert">>, <<"table">> := _Table , <<"where">> := _Where } | MoreOperations ] = _Params ,APS, ResponseAcc )->
+	Response = #{ <<"error">> =><<"assert not supported">> },
+	transact(Id,MoreOperations,APS,[Response|ResponseAcc]);
+transact( Id, [#{ <<"row">> := _Row, <<"op">> := <<"comment">>, <<"table">> := _Table , <<"where">> := _Where } | MoreOperations ] = _Params ,APS, ResponseAcc )->
+	Response = #{ <<"error">> =><<"comment not supported">> },
+	transact(Id,MoreOperations,APS,[Response|ResponseAcc]);
+transact( Id, [#{ <<"row">> := _Row, <<"op">> := Operation, <<"table">> := _Table , <<"where">> := _Where } | MoreOperations ] = _Params ,APS, ResponseAcc )->
+	P = binary:list_to_bin(<<"Unsupported operation:">>, Operation),
+	Response = #{ <<"error">> => P },
+	transact(Id,MoreOperations,APS,[Response|ResponseAcc]).
 
 bulk_ops([],{UUIDList,Count},APS)->
 	case length(UUIDList) of

@@ -9,6 +9,12 @@
 -module(ovsdb_process).
 -author("stephb").
 
+
+%% [rows=[Row [columns={freq_band=2.4G}], Row [columns={freq_band=5GU}], Row [columns={freq_band=5GL}]]]
+
+%% [rows=[Row [columns={freq_band=2.4G}]], [Row [columns={freq_band=5GU}]], Row [columns={freq_band=5GL}]]]
+
+
 -compile({parse_transform, lager_transform}).
 
 -include("../include/ovsdb_definitions.hrl").
@@ -41,8 +47,8 @@ do(#{ <<"method">> := <<"monitor">>, <<"id">> := ID, <<"params">> := Params } = 
 			Response = #{ <<"id">> => ID, <<"result">> => #{}, <<"error">> => null },
 			{ reply , jsx:encode(Response), NewState }
 	end;
-do(#{ <<"method">> := <<"transact">> , <<"id">> := ID, <<"params">> := [<<"Open_vSwitch">> | Operations] } = _Request, APS ) ->
-	% log_transact(ID,Params,APS),
+do(#{ <<"method">> := <<"transact">> , <<"id">> := ID, <<"params">> := [<<"Open_vSwitch">> | Operations] } = Request, APS ) ->
+	?L_IA("~p: Transact request: ~p",[APS#ap_state.id,Request]),
 	transact(ID,Operations,APS,[]);
 do(#{ <<"id">> := ID, <<"result">> := _Result, <<"error">> := _Error } = _Request, APS )->
 	?L_IA("~p: OVSDB-REQUEST:Received answer (ignoring): ~p.~n,",[APS#ap_state.id,ID]),
@@ -80,11 +86,14 @@ report_monitored_table(TableName,APS) ->
 
 
 
--spec transact( Id::integer(), Params::[], APS::ap_state(), Response::list() ) -> { reply, binary(),NewState::ap_state() } |
-																																{ noreply , NewState::ap_state() }.
+-spec transact( Id::integer(), Params::[], APS::ap_state(), Response::list() ) ->
+								{ reply, binary(),NewState::ap_state() } |
+								{ noreply , NewState::ap_state() }.
 transact( Id, [] ,APS, ResponseAcc )->
 	Response = #{ <<"id">> => Id, <<"error">> => null, <<"result">> => lists:reverse(ResponseAcc)},
-	{ reply, jsx:encode(Response),APS};
+	ResponseJson = jsx:encode(Response),
+	?L_IA("~p: JSON Response: ~p.",[APS#ap_state.id,ResponseJson]),
+	{ reply, ResponseJson,APS};
 transact( Id, [#{ <<"columns">> := Columns, <<"op">> := <<"select">>, <<"table">> := Table , <<"where">> := Where } | MoreOperations ] = _Params ,APS, ResponseAcc )->
 	case lists:member(Table,APS#ap_state.known_table_names) of
 		false ->

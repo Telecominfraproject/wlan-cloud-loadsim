@@ -28,7 +28,7 @@
 																												{ noreply, NewState::ap_state()}.
 do(#{ <<"method">> := <<"echo">>, <<"id">> := ID, <<"params">> := Params } = _Request, APS ) ->
 	Response = #{ <<"id">> => ID, <<"result">> => Params, <<"error">> => null},
-	{reply, jsx:encode(Response) , APS#ap_state{ echo = APS#ap_state.echo+1 }};
+	{reply, jiffy:encode(Response) , APS#ap_state{ echo = APS#ap_state.echo+1 }};
 do(#{ <<"method">> := <<"get_schema">>, <<"id">> := ID, <<"params">> := _Params } = _Request, APS ) ->
 	Response = binary:list_to_bin([<<"{ \"id\":\"">>,ID,<<"\", \"error\": null, \"result\": ">>,read_schema(APS),<<" }">>]),
 	{reply, Response, APS};
@@ -42,10 +42,10 @@ do(#{ <<"method">> := <<"monitor">>, <<"id">> := ID, <<"params">> := Params } = 
 		#{ <<"select">> := #{ <<"initial">> := true }} ->
 			{ ResponseDetails, NewState2 } = report_monitored_table(TableName,NewState),
 			Response = #{ <<"id">> => ID, <<"result">> => ResponseDetails, <<"error">> => null },
-			{ reply , jsx:encode(Response), NewState2 };
+			{ reply , jiffy:encode(Response), NewState2 };
 		_ ->
 			Response = #{ <<"id">> => ID, <<"result">> => #{}, <<"error">> => null },
-			{ reply , jsx:encode(Response), NewState }
+			{ reply , jiffy:encode(Response), NewState }
 	end;
 do(#{ <<"method">> := <<"transact">> , <<"id">> := ID, <<"params">> := [<<"Open_vSwitch">> | Operations] } = Request, APS ) ->
 	?L_IA("~p: Transact request: ~p",[APS#ap_state.id,Request]),
@@ -91,7 +91,7 @@ report_monitored_table(TableName,APS) ->
 								{ noreply , NewState::ap_state() }.
 transact( Id, [] ,APS, ResponseAcc )->
 	Response = #{ <<"id">> => Id, <<"error">> => null, <<"result">> => lists:reverse(ResponseAcc)},
-	ResponseJson = jsx:encode(Response),
+	ResponseJson = jiffy:encode(Response),
 	?L_IA("~p: JSON Response: ~p.",[APS#ap_state.id,ResponseJson]),
 	{ reply, ResponseJson,APS};
 transact( Id, [#{ <<"columns">> := Columns, <<"op">> := <<"select">>, <<"table">> := Table , <<"where">> := Where } | MoreOperations ] = _Params ,APS, ResponseAcc )->
@@ -389,7 +389,7 @@ prepare_monitor_report(TableName,APS)->
 	Response = #{ <<"id">> => null,
 	              <<"method">> => <<"update">>,
 	              <<"params">> => [ binary:list_to_bin([TableName,<<"_Open_AP_">>,APS#ap_state.id]), ResponseDetails]},
-	{jsx:encode(Response), APS1}.
+	{jiffy:encode(Response), APS1}.
 
 -spec read_schema(APS::ap_state()) -> binary().
 read_schema (APS) ->

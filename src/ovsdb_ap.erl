@@ -32,7 +32,7 @@ start(CAName, ID, Options, ManagerPID ) ->
 	%% io:format("OVSDB_AP: ID=~p~n",[ID]),
 	{ ok, ClientInfo } = inventory:get_record(#client_info{name = ID}),
 	{ok,[HardwareInfo]} = hardware:get_by_id(ClientInfo#client_info.id),
-	{ok, ReportTimer } = timer:send_interval(15000,send_report),
+	{ok, ReportTimer } = timer:send_interval(20000,send_report),
 	Redirector = maps:get(redirector,Options,<<"">>),
 	CurrentState = #ap_state{
 		id = ID,
@@ -175,19 +175,19 @@ message_loop(APS) ->
 							?L_IA("~p: Resetting Wifi_Associated_Clients table.~n",[APS#ap_state.id]),
 							NewState = send_associated_clients_table(false,APS),
 							message_loop(NewState#ap_state{ check_monitor_tick = NewState#ap_state.check_monitor_tick+1 });
-						3 ->
+						4 ->
 							?L_IA("~p: Sending Wifi_Associated_Clients table.~n",[APS#ap_state.id]),
 							NewState = send_associated_clients_table(true,APS),
 							message_loop(NewState#ap_state{ check_monitor_tick = NewState#ap_state.check_monitor_tick+1 });
-						4 ->
+						6 ->
 							?L_IA("~p: Resetting DHCP_Leased_IP table.~n",[APS#ap_state.id]),
 							NewState = send_dhcp_lease_table(false,APS),
 							message_loop(NewState#ap_state{ check_monitor_tick = NewState#ap_state.check_monitor_tick+1 });
-						5 ->
+						8 ->
 							?L_IA("~p: Sending DHCP_Leased_IP table.~n",[APS#ap_state.id]),
 							NewState = send_dhcp_lease_table(true,APS),
 							message_loop(NewState#ap_state{ check_monitor_tick = NewState#ap_state.check_monitor_tick+1 });
-						X when (X>500) ->
+						X when ( X > 500 ) ->
 							message_loop(APS#ap_state{ check_monitor_tick = 1 });
 						_ ->
 							message_loop(APS#ap_state{ check_monitor_tick = APS#ap_state.check_monitor_tick+1 })
@@ -289,8 +289,8 @@ stop_timer(T)    -> _=timer:cancel(T).
 
 -spec start_timers(APS::ap_state()) -> NewAPS::ap_state().
 start_timers(APS)->
-	{ok, MqttUpdateTimer}       = timer:send_interval(20000,check_mqtt_updates),
-	{ok, CheckPublishMonitor }  = timer:send_interval(10000,check_publish_monitor),
+	{ok, MqttUpdateTimer}       = timer:send_interval(30000,check_mqtt_updates),
+	{ok, CheckPublishMonitor }  = timer:send_interval(20000,check_publish_monitor),
 	APS#ap_state{ mqtt_update_timer = MqttUpdateTimer, publish_timer = CheckPublishMonitor}.
 
 -spec stop_timers(APS::ap_state()) -> NewAPS::ap_state().

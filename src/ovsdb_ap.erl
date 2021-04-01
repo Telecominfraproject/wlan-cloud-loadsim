@@ -305,8 +305,8 @@ stop_timers(APS)->
 process_received_data (<<>>, APS) ->
 	APS;
 process_received_data (Data, APS) ->
+	FullData = << (APS#ap_state.trail_data)/binary, Data/binary>>,
 	try
-		FullData = << (APS#ap_state.trail_data)/binary, Data/binary>>,
 		{JSONToProcess,TrailingData} = case jiffy:decode(FullData,[return_maps,copy_strings,return_trailer]) of
 											{has_trailer,Map,Tail} ->
 												{Map,iolist_to_binary(Tail)};
@@ -324,11 +324,11 @@ process_received_data (Data, APS) ->
 		end
 	catch
 		error:{N,Error} ->
-			?L_IA("1 ERROR>>> DATA=~p~n",[Data]),
+			?L_IA("1 ERROR>>> DATA=~p~n",[FullData]),
 			?L_IA("1 ERROR>>> JSON decode error: '~p' after ~p bytes~n",[Error,N]),
 			APS#ap_state{ trail_data = Data };
 		X:Y ->
-			?L_IA("2 ERROR>>> DATA=~p~n",[Data]),
+			?L_IA("2 ERROR>>> DATA=~p~n",[FullData]),
 			?L_IA("2 ERROR>>> JSON decode error: X=~p Y=~p",[X,Y]),
 			APS#ap_state{ trail_data = <<>>}
 	end.

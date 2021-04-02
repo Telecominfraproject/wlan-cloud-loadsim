@@ -94,8 +94,8 @@ transact( Id, [] ,APS, ResponseAcc )->
 	ResponseJson = iolist_to_binary(jiffy:encode(Response)),
 	?L_IA("~p: JSON Response: ~p.",[APS#ap_state.id,ResponseJson]),
 	{ reply, ResponseJson,APS};
-transact( Id, [#{<<"op">> := <<"select">>, <<"table">> := Table , <<"where">> := Where } | MoreOperations ] = Params ,APS, ResponseAcc )->
-	Columns = maps:get(<<"columns">>,Params,[]),
+transact( Id, [#{<<"op">> := <<"select">>, <<"table">> := Table , <<"where">> := Where } = OperationParams | MoreOperations ] ,APS, ResponseAcc )->
+	Columns = maps:get(<<"columns">>,OperationParams,[]),
 	case lists:member(Table,APS#ap_state.known_table_names) of
 		false ->
 			return_error(Id,<<"Invalid table name.">>,APS);
@@ -106,7 +106,7 @@ transact( Id, [#{<<"op">> := <<"select">>, <<"table">> := Table , <<"where">> :=
 														true ->
 															case Columns of
 																[] -> [ V | Acc ];
-																_ ->  [ columns(Columns,V,#{},K) | Acc ]
+																_  -> [ columns(Columns,V,#{},K) | Acc ]
 															end;
 														false ->
 															Acc

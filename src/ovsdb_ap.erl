@@ -311,7 +311,7 @@ process_received_data (Data, APS) ->
 											{has_trailer,Map,Tail} ->
 												{Map,iolist_to_binary(Tail)};
 											Map ->
-												{Map,<<"">>}
+												{Map,<<>>}
 										end,
 		case ovsdb_process:do(JSONToProcess,APS) of
 			{reply,ResponseData,NewState} ->

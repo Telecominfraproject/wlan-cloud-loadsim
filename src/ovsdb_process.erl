@@ -91,10 +91,11 @@ report_monitored_table(TableName,APS) ->
 								{ noreply , NewState::ap_state() }.
 transact( Id, [] ,APS, ResponseAcc )->
 	Response = #{ <<"id">> => Id, <<"error">> => null, <<"result">> => lists:reverse(ResponseAcc)},
-	ResponseJson = jiffy:encode(Response),
+	ResponseJson = iolist_to_binary(jiffy:encode(Response)),
 	?L_IA("~p: JSON Response: ~p.",[APS#ap_state.id,ResponseJson]),
 	{ reply, ResponseJson,APS};
-transact( Id, [#{ <<"columns">> := Columns, <<"op">> := <<"select">>, <<"table">> := Table , <<"where">> := Where } | MoreOperations ] = _Params ,APS, ResponseAcc )->
+transact( Id, [#{<<"op">> := <<"select">>, <<"table">> := Table , <<"where">> := Where } | MoreOperations ] = Params ,APS, ResponseAcc )->
+	Columns = maps:get(<<"columns">>,Params,[]),
 	case lists:member(Table,APS#ap_state.known_table_names) of
 		false ->
 			return_error(Id,<<"Invalid table name.">>,APS);
@@ -103,28 +104,14 @@ transact( Id, [#{ <<"columns">> := Columns, <<"op">> := <<"select">>, <<"table">
 			Rows = maps:fold( fun(K,V,Acc) ->
 													case where(Where,V,K) of
 														true ->
-															[ columns(Columns,V,#{},K) | Acc ];
+															case Columns of
+																[] -> [ V | Acc ];
+																_ ->  [ columns(Columns,V,#{},K) | Acc ]
+															end;
 														false ->
 															Acc
 													end
 												end,[],TableData),
-			Response = #{ <<"rows">> => Rows },
-			transact(Id, MoreOperations, APS, [Response|ResponseAcc])
-	end;
-transact( Id, [#{ <<"op">> := <<"select">>, <<"table">> := Table , <<"where">> := Where } | MoreOperations ] = _Params ,APS, ResponseAcc )->
-	case lists:member(Table,APS#ap_state.known_table_names) of
-		false ->
-			return_error(Id,<<"Invalid table name.">>,APS);
-		true ->
-			TableData = maps:get(Table,APS#ap_state.tables),
-			Rows = maps:fold( fun(K,V,Acc) ->
-													case where(Where,V,K) of
-														true ->
-															[ V | Acc ];
-														false ->
-															Acc
-													end
-			                  end,[],TableData),
 			Response = #{ <<"rows">> => Rows },
 			transact(Id, MoreOperations, APS, [Response|ResponseAcc])
 	end;

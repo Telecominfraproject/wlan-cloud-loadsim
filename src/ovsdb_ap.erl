@@ -305,7 +305,9 @@ stop_timers(APS)->
 process_received_data (<<>>, APS) ->
 	APS;
 process_received_data (Data, APS) ->
-	FullData = << (APS#ap_state.trail_data)/binary, Data/binary>>,
+	FullData0 = << (APS#ap_state.trail_data)/binary, Data/binary>>,
+	% substitude the mistake from NE
+	FullData = binary:replace(FullData0,<<"[null]]">>,<<"[]]">>,[global]),
 	?L_IA("~p: Raw request data: ~p",[APS#ap_state.id,FullData]),
 	try
 		{JSONToProcess,TrailingData} = case jiffy:decode(FullData,[return_maps,copy_strings,return_trailer]) of

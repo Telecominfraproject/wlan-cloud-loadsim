@@ -47,8 +47,8 @@ do(#{ <<"method">> := <<"monitor">>, <<"id">> := ID, <<"params">> := Params } = 
 			Response = #{ <<"id">> => ID, <<"result">> => #{}, <<"error">> => null },
 			{ reply , jiffy:encode(Response), NewState }
 	end;
-do(#{ <<"method">> := <<"transact">> , <<"id">> := ID, <<"params">> := [<<"Open_vSwitch">> | Operations] } = Request, APS ) ->
-	?L_IA("~p: Transact request: ~p",[APS#ap_state.id,Request]),
+do(#{ <<"method">> := <<"transact">> , <<"id">> := ID, <<"params">> := [<<"Open_vSwitch">> | Operations] } = _Request, APS ) ->
+	%% ?L_IA("~p: Transact request: ~p",[APS#ap_state.id,Request]),
 	transact(ID,Operations,APS,[]);
 do(#{ <<"id">> := ID, <<"result">> := _Result, <<"error">> := _Error } = _Request, APS )->
 	?L_IA("~p: OVSDB-REQUEST:Received answer (ignoring): ~p.~n,",[APS#ap_state.id,ID]),
@@ -92,7 +92,7 @@ report_monitored_table(TableName,APS) ->
 transact( Id, [] ,APS, ResponseAcc )->
 	Response = #{ <<"id">> => Id, <<"error">> => null, <<"result">> => lists:reverse(ResponseAcc)},
 	ResponseJson = iolist_to_binary(jiffy:encode(Response)),
-	?L_IA("~p: JSON Response: ~p.",[APS#ap_state.id,ResponseJson]),
+	%% ?L_IA("~p: JSON Response: ~p.",[APS#ap_state.id,ResponseJson]),
 	{ reply, ResponseJson,APS};
 transact( Id, [#{<<"op">> := <<"select">>, <<"table">> := Table , <<"where">> := Where } = OperationParams | MoreOperations ] ,APS, ResponseAcc )->
 	Columns = maps:get(<<"columns">>,OperationParams,[]),
@@ -204,46 +204,6 @@ transact( Id, [#{ <<"row">> := _Row, <<"op">> := Operation, <<"table">> := _Tabl
 	Response = #{ <<"error">> => P },
 	transact(Id,MoreOperations,APS,[Response|ResponseAcc]).
 
-bulk_ops([],{UUIDList,Count},APS)->
-	case length(UUIDList) of
-		0 ->
-			{ #{ <<"count">> => Count }, APS };
-		_ ->
-			{ [#{ <<"uuid">> => [ <<"uuid">>,UUID ]} || UUID <- UUIDList ], APS}
-	end;
-bulk_ops([CurrentOperation|T],{CurrentUUIDList,CurrentCount},APS)->
-	TableName = maps:get(<<"table">>,CurrentOperation,undefined),
-	Op = maps:get(<<"op">>,CurrentOperation,undefined),
-	TableData = maps:get(TableName,APS#ap_state.tables),
-	{ NewTable, {_NewUUIDList,_NewCount}=NewRes } =
-		case Op of
-			<<"insert">> ->
-				UU = utils:uuid_b(),
-				Row = maps:get(<<"row">>,CurrentOperation,undefined),
-				NewRow = maps:put(<<"_version">>,utils:create_version(),Row),
-				NewRow2 = maps:put(<<"_uuid">>,[<<"uuid">>,UU],NewRow),
-				NT = maps:put(UU,NewRow2,TableData),
-				{ NT, {[UU|CurrentUUIDList],CurrentCount} };
-			 <<"delete">> ->
-				 case maps:get(<<"where">>,CurrentOperation,undefined) of
-					 undefined ->
-						 ok;
-					 Where ->
-						 {NewTableData,AddedCount} = maps:fold( fun(K,V,{A,C}) ->
-							  case where(Where,V,K) of
-									true ->
-										{A,C+1};
-									false ->
-										{maps:put(K,V,A),C}
-							  end
-							 end, {#{},0}, TableData),
-						 { NewTableData, {CurrentUUIDList,CurrentCount+AddedCount}}
-				 end
-		end,
-	bulk_ops(T,NewRes,APS#ap_state{ tables = maps:put(TableName,NewTable,APS#ap_state.tables), check_monitor_tick = 0} ).
-
-
-%% "where":[["if_type","==","bridge"],["if_name","==","lan"]]
 where([],_V,_UUID)->
 	true;
 where([[Field,Operation,Value]|T],V,UUID)->

@@ -28,7 +28,7 @@
 configure (APS0) ->
 	Tables = [<<"AWLAN_Node">>,<<"Wifi_Inet_Config">>,<<"Wifi_Inet_State">>,<<"Wifi_Associated_Clients">>,<<"DHCP_leased_IP">>,<<"Wifi_VIF_Config">>,
 	          <<"Wifi_VIF_State">>,<<"Wifi_Radio_Config">>,<<"Wifi_Radio_State">>,<<"Wifi_Stats_Config">>,<<"Wifi_RRM_Config">>,<<"Hotspot20_Config">>,
-						<<"Hotspot20_OSU_Providers">>,<<"Hotspot20_Icon_Config">>,<<"Command_State">>],
+						<<"Hotspot20_OSU_Providers">>,<<"Hotspot20_Icon_Config">>,<<"Node_Config">>,<<"Command_State">>],
 	NewState = lists:foldl(fun(Table,APNow) ->
 								create_table(Table,APNow)
 							end,APS0,Tables),
@@ -451,6 +451,10 @@ create_table(<<"Hotspot20_OSU_Providers">> = TableName,APS)->
 	APS#ap_state{tables = maps:put(TableName,#{},APS#ap_state.tables)};
 
 create_table(<<"Hotspot20_Icon_Config">> = TableName,APS)->
+	% Table = #{ utils:uuid_b() => #{ <<"_version">> => utils:create_version()} },
+	APS#ap_state{tables = maps:put(TableName,#{},APS#ap_state.tables)};
+
+create_table(<<"Node_Config">> = TableName,APS)->
 	% Table = #{ utils:uuid_b() => #{ <<"_version">> => utils:create_version()} },
 	APS#ap_state{tables = maps:put(TableName,#{},APS#ap_state.tables)};
 

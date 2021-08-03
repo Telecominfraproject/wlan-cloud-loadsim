@@ -74,6 +74,10 @@
 	'**key_id**' = <<>> :: binary() | ets_dont_care()
 }).
 
+-record ('Node_Config', {
+	'**key_id**' = <<>> :: binary() | ets_dont_care()
+}).
+
 -record ('Wifi_RRM_Config', {
 	'**key_id**' = <<>> :: binary() | ets_dont_care(),
 	'_version' = [<<"uuid">>,<<"9bbd18e7-ed7e-4ff3-b89d-a54c12b27ed7">>] :: term(),

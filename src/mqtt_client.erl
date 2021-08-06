@@ -30,7 +30,7 @@
                       details :: client_info(),
                       current_state = not_connected :: atom(),
                       keep_alive_ref = undefined :: undefined | timer:tref(),
-											send_running_stats_timer = undefined :: unefined | timer:tref(),
+											send_running_stats_timer = undefined :: undefined | timer:tref(),
                       errors=0::integer(),
 											t1 = 0 :: integer(),
 											connect_time = 0 :: integer(),
@@ -216,7 +216,7 @@ process( M, CS ) when is_record(M,mqtt_connack_variable_header_v4) ->
 	case M#mqtt_connack_variable_header_v4.connect_reason_code of
 		0 ->
 			{ok,TRef} = timer:apply_interval(60*1000,?MODULE,send_ping,[self()]),
-			{ok,TReportTimer} = timer:send_interval(30*1000,self(),send_report),
+			{ok,TReportTimer} = timer:send_interval(60*1000,self(),send_report),
 			ConnectTime = os:system_time() - CS#client_state.t1,
 			CS#client_state.manager_pid ! { stats, connect_time , ConnectTime },
 			{none,CS#client_state{ start_time = os:system_time(),
